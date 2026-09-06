@@ -32,3 +32,4 @@ dependencyResolutionManagement {
 include(":androidApp")
 include(":shared")
 include(":shared:core-model")
+include(":shared:renderer-api")
