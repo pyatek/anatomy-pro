@@ -17,5 +17,10 @@ kotlin {
         compileSdk = libs.findVersion("android-compileSdk").get().requiredVersion.toInt()
         minSdk = libs.findVersion("android-minSdk").get().requiredVersion.toInt()
         compilerOptions { jvmTarget = JvmTarget.JVM_11 }
+
+        // Without this the android target has no test compilation, so commonTest runs on
+        // iOS only and the JVM path ships untested. Spec §15 wants every module verified
+        // on the host, with no device and no GPU.
+        withHostTest { }
     }
 }
