@@ -62,6 +62,9 @@ The reviewer tool is the one most easily forgotten and is on the critical path. 
 
 ### 3.1 Module layout
 
+This is the target layout, not current state. Only a subset exists today — see
+§20 for which modules are real and why the rest are deferred.
+
 ```
 anatomy-pro/
 ├── androidApp/                  # Android entry point
@@ -464,3 +467,85 @@ scheduling decisions more than anything technical in this document.
 
 - `docs/model-sourcing-spec.md` — requirements, candidate sources, licensing analysis, and acceptance checklist for the 3D atlas.
 - `docs/design-prompt-prototype-screens.md` — brief for generating the prototype screens.
+
+---
+
+## 20. Addendum — 2026-09-06: repository consolidation and the Phase 0 module slice
+
+This section records what §3.1 looks like on disk, and why the gap is deliberate. It
+supersedes nothing; §3.1 remains the target.
+
+### 20.1 One repository
+
+Design documents and application code began in two unrelated repositories. They are
+consolidated into a single repository rooted at the Gradle build, with `docs/` merged in
+using `--allow-unrelated-histories` so the original commits survive rather than being
+copied.
+
+The reason is coupling: §4's `AnatomyRenderer` interface is simultaneously a design
+decision and a Kotlin file. When it changes, both must change, and a reviewer needs to
+see that as one commit. Two repositories make that impossible to enforce and easy to
+forget.
+
+`backend/`, `pipeline/`, and `reviewer/` join the same root when their phases begin.
+They are separate build systems, not separate repositories.
+
+### 20.2 Modules that exist now
+
+Phase 0 (§16) is a go/no-go gate whose deliverable is an answer, not a product: one
+region loading, picking, and highlighting on a real iPhone. Four modules serve that
+question. The other seven in §3.1 are boundaries for features that do not yet exist,
+and drawing them now would fix those boundaries before any screen has taught us where
+they belong.
+
+| Module | Contents | Phase |
+|---|---|---|
+| `shared/core-model` | Identity types only: `StructureId`, `SystemId`, `RegionId`, `PackId`, `Laterality`, `MeshRef`, `VerificationState` | now |
+| `shared/renderer-api` | §4 interface, `RendererEvent`, `FakeAnatomyRenderer` | now |
+| `shared/renderer-filament` | `expect`/`actual` factory; both actuals stubbed | now |
+| `shared/core-designsystem` | Theme, tokens, highlight styles | now |
+| `shared` | Umbrella; assembles `Shared.framework` for iOS | now |
+| `ios-renderer/` | Directory and README; Xcode target created in Phase 0 | now |
+| `core-data` | SQLDelight, Ktor client, the full §5 `Structure` record | Phase 1 |
+| `feature-atlas`, `feature-search` | | Phase 1 |
+| `feature-quiz` | | Phase 2 |
+| `feature-daily`, `feature-leaderboard`, `feature-profile` | | Phase 3 |
+
+Note that `core-model` ships identity types only. The full §5 `Structure` record —
+names, definitions, verification maps — arrives with `core-data`, because it is
+meaningless without persistence to hold it.
+
+Dependency direction is enforced by the graph, not by convention:
+
+```
+core-model  ←  renderer-api  ←  renderer-filament
+                    ↑
+            core-designsystem  ←  shared (umbrella)  ←  androidApp, iosApp
+```
+
+Nothing depends on `renderer-filament` except the umbrella and the platform entry
+points. This is what makes the §14 three.js fallback a link-time decision.
+
+### 20.3 Two consequences worth stating
+
+**`FakeAnatomyRenderer` lives in `commonMain`, not `commonTest`.** Kotlin Multiplatform
+has no working equivalent of Java test fixtures, so a fake confined to a test source set
+cannot be consumed by another module's tests. Since §15 makes every screen test depend
+on that fake, confining it would defeat the testing strategy. It ships in the release
+binary; it is small, and the alternative is worse.
+
+**Both `renderer-filament` actuals are stubs that throw.** Implementing them *is* Phase
+0. The module exists now so the socket, the dependency direction, and the fallback seam
+are settled before the risky work starts — not to suggest the renderer is underway.
+
+### 20.4 Build configuration
+
+Shared Android and Kotlin Multiplatform configuration lives in a `build-logic/` included
+build as precompiled script plugins, rather than being repeated per module.
+
+At four modules this is close to break-even. It is chosen for the twelve-module end
+state in §3.1: retrofitting convention plugins later means editing every module written
+in the interim. The known cost is that precompiled script plugins cannot resolve the
+`libs` version catalog directly and must reach it through `VersionCatalogsExtension`.
+`buildSrc` was rejected because any edit to it invalidates the configuration cache,
+which this build has enabled.
