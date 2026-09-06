@@ -1,48 +1,46 @@
 package com.ptk.anatomypro
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import org.jetbrains.compose.resources.painterResource
+import androidx.compose.ui.unit.dp
+import com.ptk.anatomypro.core.designsystem.AnatomyTheme
+import com.ptk.anatomypro.renderer.filament.createAnatomyRenderer
 
-import anatomypro.shared.generated.resources.Res
-import anatomypro.shared.generated.resources.compose_multiplatform
-
+/**
+ * Phase 0 harness. Throwaway.
+ *
+ * Its only job is to prove the module graph links and runs on both platforms. It is
+ * replaced by feature-atlas in Phase 1 (spec §16).
+ */
 @Composable
-@Preview
 fun App() {
-    MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
-            }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-                }
+    AnatomyTheme {
+        val rendererStatus = remember {
+            runCatching { createAnatomyRenderer() }
+                .fold(
+                    onSuccess = { "Renderer ready: ${it::class.simpleName}" },
+                    onFailure = { "Renderer not implemented yet — this is Phase 0's job" },
+                )
+        }
+
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Anatomy Pro", style = MaterialTheme.typography.headlineMedium)
+                Text(getPlatform().name, style = MaterialTheme.typography.bodyMedium)
+                Text(rendererStatus, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

@@ -15,6 +15,8 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            export(project(":shared:core-model"))
+            export(project(":shared:renderer-api"))
         }
     }
     
@@ -45,6 +47,10 @@ kotlin {
             implementation(libs.compose.uiTooling)
         }
         commonMain.dependencies {
+            api(project(":shared:core-model"))
+            api(project(":shared:renderer-api"))
+            implementation(project(":shared:core-designsystem"))
+            implementation(project(":shared:renderer-filament"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

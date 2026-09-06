@@ -516,6 +516,9 @@ they belong.
 | `feature-quiz` | | Phase 2 |
 | `feature-daily`, `feature-leaderboard`, `feature-profile` | | Phase 3 |
 
+Delivered 2026-09-06. Phase 0 begins from here: the next change to this repository should
+be a real `AnatomyRenderer` implementation, not another module.
+
 Note that `core-model` ships identity types only. The full §5 `Structure` record —
 names, definitions, verification maps — arrives with `core-data`, because it is
 meaningless without persistence to hold it.
@@ -542,6 +545,17 @@ binary; it is small, and the alternative is worse.
 **Both `renderer-filament` actuals are stubs that throw.** Implementing them *is* Phase
 0. The module exists now so the socket, the dependency direction, and the fallback seam
 are settled before the risky work starts — not to suggest the renderer is underway.
+
+**Value classes do not survive the Objective-C boundary.** `StructureId`, `PackId`, and
+their siblings are `@JvmInline value class`, and Kotlin/Native erases them in the generated
+framework header: Swift receives `id` — that is, `Any` — with no type information at all,
+where `MeshRef` shows `initWithPackId:(id)packId`. Verified against the generated
+`Shared.h`, not assumed.
+
+The practical rule: any Kotlin API that Swift calls must take and return `String` for
+identifiers, never the value classes, and convert on the Kotlin side. The `FilamentBridge`
+in §4.1 already obeys this by passing node names rather than `StructureId`s — a decision
+taken for shim narrowness that turns out to be load-bearing for a second reason.
 
 ### 20.4 Build configuration
 
