@@ -467,6 +467,11 @@ scheduling decisions more than anything technical in this document.
 
 - `docs/model-sourcing-spec.md` — requirements, candidate sources, licensing analysis, and acceptance checklist for the 3D atlas.
 - `docs/design-prompt-prototype-screens.md` — brief for generating the prototype screens.
+- **Prototype screens** — 21 screens across five flows, plus a 135% large-type stress test, with a
+  design-rationale screen carrying the colour system, type scale, and spacing set:
+  <https://claude.ai/code/artifact/5e297318-f3c4-446d-8287-1b6aa185e304>. The token values there are
+  authoritative for `core-designsystem`; §12's accessibility rules are realised as measured contrast
+  ratios on that screen.
 
 ---
 

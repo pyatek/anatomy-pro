@@ -8,6 +8,8 @@
 
 **Tech Stack:** Kotlin 2.4.10, AGP 9.0.1, Gradle 9.1, Compose Multiplatform 1.11.1, kotlinx-coroutines 1.10.2, SQLDelight and Ktor deliberately absent until Phase 1.
 
+**Design:** <https://claude.ai/code/artifact/5e297318-f3c4-446d-8287-1b6aa185e304> — 21 prototype screens plus a design-rationale screen. Its colour, type, and spacing values are authoritative for `core-designsystem`; do not invent tokens.
+
 **Spec:** `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md` — §3.1 (target layout), §4 (renderer boundary), §5 (data model), §12 (accessibility), §15 (testing), §16 (phasing), and §20 (this slice's scope and rationale).
 
 ## Global Constraints
@@ -19,7 +21,11 @@ Every task's requirements implicitly include this section.
 - **iOS targets:** `iosArm64` and `iosSimulatorArm64` only. No `iosX64` — the project targets Apple Silicon simulators.
 - **Package root:** `com.ptk.anatomypro`. Each module uses a sub-package matching its name (`core.model`, `renderer.api`, `renderer.filament`, `core.designsystem`), and its Android `namespace` matches that package exactly.
 - **Dependency direction (spec §3.1):** nothing may depend on `renderer-filament` except the `shared` umbrella and the platform entry points. Feature modules — none exist yet — may never depend on each other.
-- **Highlighting uses outline and luminance, never hue alone** (spec §12). This is enforced by a test in Task 5, not by convention.
+- **Highlighting uses outline and luminance, never hue alone** (spec §12). This is enforced by a test in Task 5, not by convention. The design goes further: correct and incorrect states differ in hue, luminance, **outline style** (solid vs dashed), *and* glyph (✓ vs ✕), so a colour-blind learner can separate them at a glance.
+- **Every text colour clears 4.5:1 on the surface it actually sits on** — the design deliberately avoids leaning on the WCAG large-text exemption, since its 9–10 px mono labels would not qualify. Task 5 asserts this.
+- **Type families have fixed jobs:** Source Serif 4 for anatomical terminology in any language, Montserrat for UI text, IBM Plex Mono for counts, timers, sizes, and small uppercase labels. Fonts are **not** bundled in this slice — Phase 0 needs no typography — so Task 5 defines the scale and leaves families to Phase 1 with `feature-atlas`.
+- **Spacing is a 4 pt base** with the used set 4 · 8 · 10 · 14 · 20 · 26. Touch targets: 44 pt minimum, 52 pt for primary buttons and two-line rows, 64 pt for quiz options.
+- **Structure names never truncate.** Terms wrap; nothing that names a structure gets an ellipsis.
 - **`@JvmInline value class` in `commonMain` requires an explicit `import kotlin.jvm.JvmInline`.** Verified during planning; without it Kotlin/Native fails with `Unresolved reference 'JvmInline'`.
 - **Never run `./gradlew updateDaemonJvm`.** It regenerates `gradle/gradle-daemon-jvm.properties`, which makes Android Studio sync fail instantly and silently on macOS 26. See the initial commit message for the full diagnosis.
 - **Commits carry no `Co-Authored-By` or `Claude-Session` trailers.** Subject and body only.
@@ -428,7 +434,7 @@ Spec §4 calls this the most important architectural line in the system. The int
 
 **Interfaces:**
 - Consumes: `StructureId`, `SystemId`, `PackId` from Task 2.
-- Produces: `AnatomyRenderer` (the spec §4 interface); `RendererEvent` sealed hierarchy; `MeshSource(uri: String)`; `HighlightStyle(outlineArgb: Int, outlineWidthDp: Float, fillLuminanceShift: Float)`; `CameraPose(targetX, targetY, targetZ, distance, azimuthDeg, elevationDeg: Float)`; `FakeAnatomyRenderer` with `emitted: List<RendererEvent>`, `isolated: StructureId?`, `highlighted: Set<StructureId>`, and the test hook `emitPick(structure: StructureId?)`.
+- Produces: `AnatomyRenderer` (the spec §4 interface); `RendererEvent` sealed hierarchy; `MeshSource(uri: String)`; `OutlineStyle` enum with `SOLID`, `DASHED`; `HighlightStyle(outlineArgb: Int, outlineWidthDp: Float, outlineStyle: OutlineStyle, fillArgb: Int, fillLuminanceShift: Float)`; `CameraPose(targetX, targetY, targetZ, distance, azimuthDeg, elevationDeg: Float)`; `FakeAnatomyRenderer` with `emitted: List<RendererEvent>`, `isolated: StructureId?`, `highlighted: Set<StructureId>`, and the test hook `emitPick(structure: StructureId?)`.
 
 Note: `FakeAnatomyRenderer` lives in `commonMain`, **not** `commonTest`. Kotlin Multiplatform has no working equivalent of Java test fixtures, so a fake confined to a test source set cannot be consumed by other modules' tests — which is exactly what spec §15 requires of it. See spec §20.3.
 
@@ -515,7 +521,13 @@ class FakeAnatomyRendererTest {
     fun holds_isolation_and_highlight_state_so_a_lost_surface_can_be_replayed() = runTest {
         val renderer = FakeAnatomyRenderer()
 
-        val style = HighlightStyle(outlineArgb = 0xFF1E88E5.toInt(), outlineWidthDp = 2f, fillLuminanceShift = 0.25f)
+        val style = HighlightStyle(
+            outlineArgb = 0xFFFFD3CB.toInt(),
+            outlineWidthDp = 2f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = 0xFFF07C69.toInt(),
+            fillLuminanceShift = 0.25f,
+        )
 
         renderer.isolate(scapula, ghostNeighbours = true)
         renderer.highlight(setOf(scapula), style)
@@ -556,16 +568,23 @@ value class MeshSource(val uri: String) {
     init { require(uri.isNotBlank()) { "MeshSource uri must not be blank" } }
 }
 
+/** Whether an outline is drawn solid or dashed. A non-colour channel for state. */
+enum class OutlineStyle { SOLID, DASHED }
+
 /**
  * How a highlighted structure is drawn.
  *
- * Carries both an outline and a luminance shift because spec §12 forbids conveying
- * highlight state through hue alone — that is unreadable to colour-blind users. Concrete
- * token values live in core-designsystem; this module owns only the shape.
+ * Carries four channels — outline colour, outline width, outline style, and a luminance
+ * shift — precisely so that no state is ever distinguished by hue alone (spec §12). The
+ * design relies on this: a correct answer is a solid outline and a wrong one is dashed, and
+ * that difference survives any form of colour blindness. Concrete token values live in
+ * core-designsystem; this module owns only the shape.
  */
 data class HighlightStyle(
     val outlineArgb: Int,
     val outlineWidthDp: Float,
+    val outlineStyle: OutlineStyle,
+    val fillArgb: Int,
     val fillLuminanceShift: Float,
 ) {
     init {
@@ -957,11 +976,14 @@ Spec §12 treats accessibility as a requirement, not polish. The rule that highl
 - Create: `shared/core-designsystem/src/commonMain/kotlin/com/ptk/anatomypro/core/designsystem/HighlightTokens.kt`
 - Create: `shared/core-designsystem/src/commonMain/kotlin/com/ptk/anatomypro/core/designsystem/Theme.kt`
 - Test: `shared/core-designsystem/src/commonTest/kotlin/com/ptk/anatomypro/core/designsystem/HighlightTokensTest.kt`
+- Test: `shared/core-designsystem/src/commonTest/kotlin/com/ptk/anatomypro/core/designsystem/ColorContrastTest.kt`
 - Modify: `settings.gradle.kts`
 
 **Interfaces:**
 - Consumes: `HighlightStyle` from Task 3; the `anatomypro.kmp.compose` plugin from Task 1.
-- Produces: `AnatomyTheme(darkTheme: Boolean, content: @Composable () -> Unit)`; `HighlightTokens.Selected`, `HighlightTokens.QuizTarget`, `HighlightTokens.Disputed` as `HighlightStyle` values; `relativeLuminance(argb: Int): Float`.
+- Produces: `AnatomyTheme(darkTheme: Boolean = true, content: @Composable () -> Unit)`; `HighlightTokens.Selected`, `HighlightTokens.Correct`, `HighlightTokens.Incorrect` as `HighlightStyle` values; `relativeLuminance(argb: Int): Float` and `contrastRatio(a: Int, b: Int): Float`; the palette values named below.
+
+The palette is transcribed from the design's rationale screen. Do not substitute or "improve" these values.
 
 - [ ] **Step 1: Register the module**
 
@@ -996,9 +1018,9 @@ In `settings.gradle.kts`, add:
 include(":shared:core-designsystem")
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Write the failing tests**
 
-`HighlightTokensTest.kt`. This is the accessibility rule as an executable assertion:
+Two files. `HighlightTokensTest.kt` turns the accessibility rule into an executable assertion:
 
 ```kotlin
 package com.ptk.anatomypro.core.designsystem
@@ -1012,8 +1034,8 @@ class HighlightTokensTest {
 
     private val tokens = listOf(
         "Selected" to HighlightTokens.Selected,
-        "QuizTarget" to HighlightTokens.QuizTarget,
-        "Disputed" to HighlightTokens.Disputed,
+        "Correct" to HighlightTokens.Correct,
+        "Incorrect" to HighlightTokens.Incorrect,
     )
 
     @Test
@@ -1035,8 +1057,9 @@ class HighlightTokensTest {
                 val luminanceDelta = abs(relativeLuminance(a.outlineArgb) - relativeLuminance(b.outlineArgb))
                 val shiftDelta = abs(a.fillLuminanceShift - b.fillLuminanceShift)
                 val widthDelta = abs(a.outlineWidthDp - b.outlineWidthDp)
+                val styleDiffers = a.outlineStyle != b.outlineStyle
                 assertTrue(
-                    luminanceDelta >= 0.10f || shiftDelta >= 0.15f || widthDelta >= 1f,
+                    styleDiffers || luminanceDelta >= 0.10f || shiftDelta >= 0.15f || widthDelta >= 1f,
                     "$nameA and $nameB differ only in hue and would be identical to a " +
                         "colour-blind user; spec §12",
                 )
@@ -1052,19 +1075,54 @@ class HighlightTokensTest {
 }
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+`ColorContrastTest.kt` pins the design's central typographic claim — that no text colour leans on the large-text exemption. Note it asserts the **4.5:1 bar**, not the exact ratios printed on the rationale screen: those decimals are approximations, and several do not reproduce under a straight WCAG computation, though every one of them clears the bar comfortably.
+
+```kotlin
+package com.ptk.anatomypro.core.designsystem
+
+import kotlin.test.Test
+import kotlin.test.assertTrue
+
+class ColorContrastTest {
+
+    private fun assertReadable(name: String, foreground: Int, background: Int) {
+        val ratio = contrastRatio(foreground, background)
+        assertTrue(ratio >= 4.5f, "$name has contrast ${ratio}:1, below the 4.5:1 minimum")
+    }
+
+    @Test
+    fun dark_palette_text_clears_the_minimum_on_the_surface_it_sits_on() {
+        assertReadable("TextPrimary on Ground", TextPrimary.toArgbInt(), Ground.toArgbInt())
+        assertReadable("TextSecondary on Ground", TextSecondary.toArgbInt(), Ground.toArgbInt())
+        assertReadable("TextTertiary on Ground", TextTertiary.toArgbInt(), Ground.toArgbInt())
+        assertReadable("TextTertiary on Surface", TextTertiary.toArgbInt(), Surface.toArgbInt())
+        assertReadable("CanvasAnnotation on Ground", CanvasAnnotation.toArgbInt(), Ground.toArgbInt())
+    }
+
+    @Test
+    fun light_palette_text_clears_the_minimum_on_the_surface_it_sits_on() {
+        assertReadable("LightTextPrimary on LightGround", LightTextPrimary.toArgbInt(), LightGround.toArgbInt())
+        assertReadable("LightTextTertiary on LightGround", LightTextTertiary.toArgbInt(), LightGround.toArgbInt())
+        assertReadable("AccentOnLight on its surface", AccentOnLight.toArgbInt(), AccentOnLightSurface.toArgbInt())
+    }
+}
+```
+
+- [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `./gradlew :shared:core-designsystem:allTests`
-Expected: FAIL — unresolved references `HighlightTokens` and `relativeLuminance`.
+Expected: FAIL — unresolved references `HighlightTokens`, `relativeLuminance`, `contrastRatio`, and the palette values.
 
-- [ ] **Step 4: Write the luminance helper and palette**
+- [ ] **Step 4: Write the luminance helpers and the palette**
 
-`Color.kt`:
+`Color.kt`. Every value below is transcribed from the design's rationale screen:
 
 ```kotlin
 package com.ptk.anatomypro.core.designsystem
 
 import androidx.compose.ui.graphics.Color
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 
 /**
@@ -1080,11 +1138,50 @@ fun relativeLuminance(argb: Int): Float {
     return 0.2126f * channel(16) + 0.7152f * channel(8) + 0.0722f * channel(0)
 }
 
-internal val AnatomyBlue = Color(0xFF1E88E5)
-internal val AnatomyAmber = Color(0xFFFFB300)
-internal val AnatomyCrimson = Color(0xFFC62828)
-internal val AnatomyBone = Color(0xFFF3EFE7)
-internal val AnatomyCharcoal = Color(0xFF1C1B1F)
+/** WCAG contrast ratio between two ARGB colours: 1f (identical) to 21f (black on white). */
+fun contrastRatio(a: Int, b: Int): Float {
+    val la = relativeLuminance(a)
+    val lb = relativeLuminance(b)
+    return (max(la, lb) + 0.05f) / (min(la, lb) + 0.05f)
+}
+
+// ── Dark palette: the atlas and quiz screens ──
+// A deep, slightly cool neutral so the model sits on something with depth, not a void.
+val Ground = Color(0xFF0D1012)
+val Surface = Color(0xFF15191C)
+val Hairline = Color(0xFF262C31)
+val TextPrimary = Color(0xFFE9ECEE)
+val TextSecondary = Color(0xFF9AA3AA)
+val TextTertiary = Color(0xFF8A9299)
+val CanvasAnnotation = Color(0xFF828B92)
+
+/** The single accent. Carries selection and primary action — nothing else. */
+val Accent = Color(0xFFE8604F)
+val HighlightFill = Color(0xFFF07C69)
+val HighlightOutline = Color(0xFFFFD3CB)
+
+/** Correct and incorrect are separate hues *and* separate shapes; see [HighlightTokens]. */
+val CorrectGreen = Color(0xFF57B37C)
+val IncorrectAmber = Color(0xFFD89B3C)
+
+// ── Light palette: the two reading-heavy screens ──
+val LightGround = Color(0xFFF3F4F5)
+val LightTextPrimary = Color(0xFF14181B)
+val LightTextTertiary = Color(0xFF5D666D)
+val AccentOnLight = Color(0xFFB23A2E)
+val AccentOnLightSurface = Color(0xFFFFF3F1)
+
+/**
+ * Converts to the plain ARGB int the renderer boundary uses, keeping renderer-api free of
+ * Compose types so a non-Compose renderer can still consume these tokens.
+ */
+internal fun Color.toArgbInt(): Int {
+    fun component(value: Float): Int = (value * 255f + 0.5f).toInt() and 0xFF
+    return (component(alpha) shl 24) or
+        (component(red) shl 16) or
+        (component(green) shl 8) or
+        component(blue)
+}
 ```
 
 - [ ] **Step 5: Write the highlight tokens**
@@ -1095,54 +1192,53 @@ internal val AnatomyCharcoal = Color(0xFF1C1B1F)
 package com.ptk.anatomypro.core.designsystem
 
 import com.ptk.anatomypro.renderer.api.HighlightStyle
+import com.ptk.anatomypro.renderer.api.OutlineStyle
 
 /**
  * The concrete highlight values the renderer draws.
  *
- * Each token pairs an outline with a luminance shift. Spec §12 forbids conveying state by
- * hue alone, and `HighlightTokensTest` enforces that mechanically — if you add a token,
- * give it a luminance shift or the build fails.
+ * Colours and outline styles come from the design; the luminance shifts are chosen here,
+ * since the design states the rule rather than a number. Spec §12 forbids conveying state by
+ * hue alone, and `HighlightTokensTest` enforces that mechanically — add a token without a
+ * luminance shift, or one indistinguishable from an existing token to a colour-blind user,
+ * and the build fails.
  */
 object HighlightTokens {
 
     /** The structure the user tapped. */
     val Selected = HighlightStyle(
-        outlineArgb = AnatomyBlue.toArgbInt(),
+        outlineArgb = HighlightOutline.toArgbInt(),
         outlineWidthDp = 2f,
+        outlineStyle = OutlineStyle.SOLID,
+        fillArgb = HighlightFill.toArgbInt(),
         fillLuminanceShift = 0.25f,
     )
 
-    /** The structure a quiz is asking about. Brighter and thicker than [Selected]. */
-    val QuizTarget = HighlightStyle(
-        outlineArgb = AnatomyAmber.toArgbInt(),
-        outlineWidthDp = 3.5f,
-        fillLuminanceShift = 0.45f,
+    /** A correct answer. Always paired with a ✓ glyph and a solid outline. */
+    val Correct = HighlightStyle(
+        outlineArgb = CorrectGreen.toArgbInt(),
+        outlineWidthDp = 3f,
+        outlineStyle = OutlineStyle.SOLID,
+        fillArgb = CorrectGreen.toArgbInt(),
+        fillLuminanceShift = 0.35f,
     )
 
-    /** A structure whose naming is disputed. Darkened rather than brightened. */
-    val Disputed = HighlightStyle(
-        outlineArgb = AnatomyCrimson.toArgbInt(),
-        outlineWidthDp = 2f,
-        fillLuminanceShift = -0.30f,
+    /** The learner's wrong answer. Always paired with a ✕ glyph and a dashed outline. */
+    val Incorrect = HighlightStyle(
+        outlineArgb = IncorrectAmber.toArgbInt(),
+        outlineWidthDp = 3f,
+        outlineStyle = OutlineStyle.DASHED,
+        fillArgb = IncorrectAmber.toArgbInt(),
+        fillLuminanceShift = -0.20f,
     )
 }
 ```
 
-Add this helper to `Color.kt` so tokens can convert Compose colours to the plain `Int` the renderer boundary uses (the boundary stays free of Compose types on purpose):
-
-```kotlin
-internal fun Color.toArgbInt(): Int {
-    fun component(value: Float): Int = (value * 255f + 0.5f).toInt() and 0xFF
-    return (component(alpha) shl 24) or
-        (component(red) shl 16) or
-        (component(green) shl 8) or
-        component(blue)
-}
-```
+Amber rather than a second red is deliberate: on the incorrect-answer screen two structures must be told apart at a glance, so they differ in hue, luminance, outline style, **and** glyph.
 
 - [ ] **Step 6: Write the theme**
 
-`Theme.kt`:
+`Theme.kt`. Dark is the default: the atlas and quiz — the screens the app is actually for — are dark, and only the two reading-heavy screens are light.
 
 ```kotlin
 package com.ptk.anatomypro.core.designsystem
@@ -1152,22 +1248,31 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val LightColors = lightColorScheme(
-    primary = AnatomyBlue,
-    secondary = AnatomyAmber,
-    error = AnatomyCrimson,
-    background = AnatomyBone,
+private val DarkColors = darkColorScheme(
+    primary = Accent,
+    onPrimary = Ground,
+    background = Ground,
+    onBackground = TextPrimary,
+    surface = Surface,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outline = Hairline,
+    error = IncorrectAmber,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = AnatomyBlue,
-    secondary = AnatomyAmber,
-    error = AnatomyCrimson,
-    background = AnatomyCharcoal,
+private val LightColors = lightColorScheme(
+    primary = AccentOnLight,
+    onPrimary = AccentOnLightSurface,
+    background = LightGround,
+    onBackground = LightTextPrimary,
+    surface = LightGround,
+    onSurface = LightTextPrimary,
+    onSurfaceVariant = LightTextTertiary,
+    error = AccentOnLight,
 )
 
 @Composable
-fun AnatomyTheme(darkTheme: Boolean = false, content: @Composable () -> Unit) {
+fun AnatomyTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = if (darkTheme) DarkColors else LightColors, content = content)
 }
 ```
@@ -1175,7 +1280,7 @@ fun AnatomyTheme(darkTheme: Boolean = false, content: @Composable () -> Unit) {
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `./gradlew :shared:core-designsystem:allTests`
-Expected: PASS, 3 tests.
+Expected: PASS, 5 tests.
 
 - [ ] **Step 8: Commit**
 
@@ -1183,13 +1288,15 @@ Expected: PASS, 3 tests.
 git add shared/core-designsystem settings.gradle.kts
 git commit -m "feat(core-designsystem): add theme and accessible highlight tokens
 
-Spec section 12 forbids conveying highlight state through hue alone.
-HighlightTokensTest enforces that mechanically rather than by review:
-a token added without a luminance shift, or indistinguishable from an
-existing token to a colour-blind user, fails the build.
+Palette transcribed from the prototype design's rationale screen, not
+invented. Dark is the theme default because the atlas and quiz are dark;
+only the two reading-heavy screens are light.
 
-Tokens convert to plain ARGB ints at the boundary so renderer-api stays
-free of Compose types and remains usable by a non-Compose renderer."
+Two tests turn design claims into build failures. ColorContrastTest
+asserts every text colour clears 4.5:1 on the surface it sits on, so
+nothing quietly starts leaning on the large-text exemption that the
+9-10px mono labels would not qualify for. HighlightTokensTest rejects any
+token pair separable only by hue."
 ```
 
 ---
@@ -1308,7 +1415,7 @@ fun App() {
 - [ ] **Step 4: Run the whole test suite**
 
 Run: `./gradlew check`
-Expected: PASS. Fifteen test functions across the four modules, each executed once per target (Android host and both iOS targets), so the reported count is higher. No GPU is involved — this is spec §15's core claim, now demonstrable.
+Expected: PASS. Seventeen test functions across the four modules, each executed once per target (Android host and both iOS targets), so the reported count is higher. No GPU is involved — this is spec §15's core claim, now demonstrable.
 
 - [ ] **Step 5: Verify both platforms build**
 
@@ -1343,7 +1450,7 @@ far Phase 0 has got. feature-atlas replaces it in Phase 1."
 
 ## Definition of done
 
-- [ ] `./gradlew check` passes, running all fifteen test functions with no GPU.
+- [ ] `./gradlew check` passes, running all seventeen test functions with no GPU.
 - [ ] `./gradlew :androidApp:assembleDebug` and `./gradlew :shared:linkDebugFrameworkIosSimulatorArm64` both succeed.
 - [ ] Android Studio syncs the project without error.
 - [ ] Every module build file is four lines or fewer of configuration beyond its dependencies.
