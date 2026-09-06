@@ -1,6 +1,8 @@
 rootProject.name = "AnatomyPro"
 
 pluginManagement {
+    includeBuild("build-logic")
+
     repositories {
         google {
             mavenContent {
