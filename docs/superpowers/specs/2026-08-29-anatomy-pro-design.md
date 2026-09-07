@@ -568,3 +568,98 @@ in the interim. The known cost is that precompiled script plugins cannot resolve
 `libs` version catalog directly and must reach it through `VersionCatalogsExtension`.
 `buildSrc` was rejected because any edit to it invalidates the configuration cache,
 which this build has enabled.
+
+## 21. Addendum — 2026-09-06: the iOS Filament host
+
+Phase 0's iOS half. §4.1 and §20 remain the target; this records how the shim was actually
+built, and the four things that were learned the hard way.
+
+### 21.1 The seam runs Kotlin → C, not Swift → Kotlin
+
+§4.1 says Kotlin "talks to a narrow C shim". The code committed in §20 did the opposite:
+`FilamentBridge` was a Kotlin interface that Swift conformed to and injected at startup
+through `FilamentBridgeRegistry`. Both files are deleted.
+
+The C direction wins on one argument, and it is decisive. When Kotlin links the shim
+itself, an `iosSimulatorArm64Test` binary can link it too — so §15's contract tests run
+against the real renderer, headless, from the command line. Under the registry design the
+renderer could not exist until a Swift app had booted, which would have left the contract
+tests permanently confined to the fake and the gate answerable only by looking at a screen.
+
+`ios-renderer/` is a Gradle project holding `CMakeLists.txt`, `include/anatomy_renderer.h`,
+and one Objective-C++ translation unit. It applies no Kotlin plugin and produces no JVM
+artifacts.
+
+### 21.2 No callback crosses the boundary
+
+The shim owns a mutex-guarded event queue; Kotlin drains it with `ar_poll_event`. Nothing
+calls into Kotlin/Native from Filament's backend thread, which removes the fiddliest part
+of the cinterop route rather than solving it.
+
+Frames are pumped by the caller — a coroutine in the app, a loop in the tests — so the
+renderer keeps no thread of its own and stays the passive projection §4 requires.
+
+### 21.3 Four things that were not obvious
+
+**Filament's `beginFrame` refuses frames.** With too many frames in flight it returns
+false, and a tight render loop gets roughly every other frame drawn. A picking readback
+then never completes. `ar_render_frame` returns whether the frame was drawn, and callers
+that need frames to land drain the GPU between them.
+
+**Picking callbacks arrive late.** Filament's default `CallbackHandler` dispatches
+"opportunistically", which in practice meant a picking result sat undelivered until the
+engine was destroyed. The shim supplies a handler that runs the callback inline; this is
+safe only because the queue is mutex-guarded and nothing reaches Kotlin from it.
+
+**Offscreen rendering must disable frame pacing.** `Renderer::setDisplayInfo` with
+`refreshRate = 0`.
+
+**A Gradle `dependsOn` is not an input.** The Kotlin/Native link task took the staged
+libraries as a task dependency only, so a rebuilt `libAnatomyRenderer.a` left the link
+UP-TO-DATE and the previous shim silently linked. Two debugging conclusions were drawn
+against a stale binary before this surfaced. The staged directory is now a declared input.
+
+### 21.4 Consequences for the renderer interface
+
+**`RendererEvent.PackUnloaded` is new.** `unloadPack` previously had no observable effect
+on the interface, so §15's contract test for unload had nothing to assert against.
+
+**`events` must replay.** Documented on `AnatomyRenderer` as part of the contract: a
+subscriber attaching after an action still has to see it, which is the same property §4's
+recovery-by-replay depends on.
+
+**`StructureNode` lives in `core-model`.** It parses §2.2's `<ta_code>__<latin_slug>__<L|R|M>`
+into a `StructureId` and a `Laterality`, so the renderer resolves a picked node without any
+content database — `core-data` is a Phase 1 module and Phase 0 must not need it. A node
+whose name does not parse is never picked as a structure, so a naming mistake in the
+pipeline surfaces as a miss rather than as the wrong answer.
+
+**`AnatomyRendererContract` lives in `commonMain`**, for the reason §20.3 gives for
+`FakeAnatomyRenderer`. It carries no `kotlin.test` dependency, which would otherwise follow
+the module into the release binary; test source sets supply the `@Test` annotations and the
+coroutine builder.
+
+### 21.5 What Phase 0 does not do
+
+Implemented: `loadPack`, `unloadPack`, `highlight`, picking, and `setPickingEnabled` —
+§15's four verbs. The camera frames the whole asset on load.
+
+Throwing, each naming its phase: `setSystemVisibility` (§2.2 does not encode `SystemId`, so
+this genuinely needs `core-data`), `setOpacity` and `isolate` (transparent material
+variants), `focusCamera` and `setCameraPose`.
+
+**Highlighting is colour and luminance only.** `HighlightStyle` carries an outline width
+and a solid/dashed channel precisely so that no state is distinguished by hue alone (§12);
+Phase 0 honours neither, because outline geometry needs a second render pass. Until it
+does, the accessibility guarantee in §12 is not met, and the quiz's correct/wrong
+distinction must not be built on highlight styling alone.
+
+### 21.6 Status
+
+Green: the six contract tests and a Metal smoke test, run against real Filament on the iOS
+simulator via `./gradlew :shared:renderer-filament:iosSimulatorArm64Test`. The device slice
+compiles and links, and `Shared.framework` builds for `iosArm64`.
+
+Not yet done: **§16's exit criterion is unmet.** Nothing has run on a real iPhone, and no
+frame rate or resident memory has been measured against §6.1. The gate is not passed — the
+iOS shim is merely no longer the reason it might fail.
