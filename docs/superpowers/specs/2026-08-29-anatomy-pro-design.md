@@ -663,3 +663,103 @@ compiles and links, and `Shared.framework` builds for `iosArm64`.
 Not yet done: **§16's exit criterion is unmet.** Nothing has run on a real iPhone, and no
 frame rate or resident memory has been measured against §6.1. The gate is not passed — the
 iOS shim is merely no longer the reason it might fail.
+
+## 22. Addendum — 2026-09-07: the content pipeline, and what Z-Anatomy actually is
+
+Phase 0's content half. It also answers most of §6.1 — the part that can be answered
+without a device.
+
+### 22.1 The source does not match what the sourcing spec assumed
+
+`docs/model-sourcing-spec.md` §2.2 specified node names as
+`<ta_code>__<latin_slug>__<L|R|M>` and offered `A02_4_01_001__scapula__L` as the example.
+Measured against the actual atlas, every part of that was wrong:
+
+| §2.2 assumed | Z-Anatomy has |
+|---|---|
+| A TA code on each object | No code at all; `TA2.csv` supplies one, joined on the English name |
+| Hierarchical codes like `A02.4.01.001` | Sequential TA2 ids, and `1113*8` for enumerated structures |
+| Latin names | English names |
+| `__L` / `__R` / `__M` | `.l` / `.r` suffixes, median unsuffixed |
+
+The convention is kept and the pipeline produces it; the source simply has to be
+translated into it rather than read from it.
+
+Three further properties of the source, none of them guessable:
+
+**Roughly 2,000 of 7,300 objects are label geometry.** The add-on declares
+`label_elements = {"-txt", ".t", ".j"}` — text and leader lines. Ingested blindly they
+would become pickable "structures" that are typography.
+
+**There are two overlapping collection hierarchies.** The numbered `1: Skeletal system`
+collections are flat visibility layers; `Bonus collection` holds anatomical containment.
+An object is linked into both at once plus any regional groupings, so pack membership is
+a set of collection names, not a path. The first version of `selection.py` modelled it as
+a path and selected nothing.
+
+**Definitions are text datablocks**, keyed by term, not object custom properties.
+
+### 22.2 Identifiers
+
+`<ta2_id>__<latin_slug>__<L|R|M>[__<discriminator>]`, with `*` folded to `_`.
+
+The join reaches **95.2% of the 5,306 non-label objects** across the whole atlas, and
+100% on both packs built so far. Unmatched objects get `ZAN` in the code position and
+their English slug, so provisional identifiers stay distinguishable by shape and a later
+re-join can upgrade them without guessing which were provisional.
+
+The discriminator exists because a structure may be modelled as several objects while
+glTF node names must stay unique — which is what `MeshRef` being a list per structure
+already meant. It does not enter the `StructureId`.
+
+**`SystemId` is derivable from the source after all.** §20.2 said `setSystemVisibility`
+needed `core-data` because §2.2 did not encode a system; the numbered collections encode
+it directly. That method can be implemented whenever a pack carries its manifest.
+
+### 22.3 The split, and why it is where it is
+
+Everything except `blender_export.py` is pure Python importing no `bpy`, and is tested
+with `pytest` against no Blender at all. `tests/test_structure_id.py` pins the Python
+identifier construction against the same fixtures as `StructureNodeTest` in `core-model`,
+because those two agreeing is what makes a picked node resolve to the right structure.
+
+That discipline caught less than an end-to-end check did. `ta2.code_for` folds `1113*8`
+to `1113_8` and has a unit test proving it; the export path never called it, so 61 of 599
+node names shipped with a `*` in them and failed to parse in the app. The unit test
+passed throughout. What found it was loading a generated pack through the real renderer
+and counting how many node names `StructureNode.parse` accepted.
+
+### 22.4 What the budget looks like
+
+Two packs built from the trunk. `skeletal-trunk` is a plausible shipping pack;
+`trunk-all-systems` is not — it is the worst realistic case for one region, built to load
+the §6.1 budget rather than a comfortable slice of it.
+
+| | skeletal-trunk | trunk-all-systems | §6.1 / §3 limit |
+|---|---|---|---|
+| Structures | 86 | 599 | 300–800 visible |
+| Triangles | 293,645 | 1,292,999 | ≤ 3,000,000 |
+| Draw calls (upper bound) | 86 | 599 | ≤ 800 |
+| Mean triangles per structure | 3,415 | 2,159 | 2,000–5,000 |
+| glTF size | 4.9 MB | 22 MB | — |
+| TA2 join | 100% | 100% | — |
+
+Draw calls are counted as one per node, which is pessimistic: nothing is merged or
+instanced yet. LOD generation and merging non-interactive geometry — both §6.1
+mitigations — are deliberately not done, and `report.json` names them so the numbers are
+read as a baseline rather than a result.
+
+One structure, `Spinal dura`, cannot reach the per-structure target without collapsing
+past the point where the shape survives. It is reported by name rather than silently left
+oversized.
+
+### 22.5 Status
+
+The whole chain is verified end to end: Z-Anatomy → pipeline → glTF → Filament → pick →
+`StructureId`. A 599-structure pack loads on the iOS simulator, all 599 node names parse,
+and a pick at the centre of the viewport resolves to `257-regio-epigastrica-left`.
+
+**§16's exit criterion is still unmet.** Triangle count and draw calls fit with room to
+spare, but those are the two numbers measurable without hardware. Sustained 60 fps and
+resident memory under 400 MB — the two that decide the gate — remain unmeasured on both
+a real iPhone and a mid-range Android device.
