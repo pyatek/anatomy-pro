@@ -30,6 +30,7 @@ dependencyResolutionManagement {
 }
 
 include(":androidApp")
+include(":ios-renderer")
 include(":shared")
 include(":shared:core-model")
 include(":shared:renderer-api")

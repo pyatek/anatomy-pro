@@ -1,0 +1,7 @@
+# The Kotlin/Native view of the C seam in ios-renderer/include/anatomy_renderer.h.
+#
+# Include and library paths are supplied by Gradle rather than written here, because the
+# staging directory differs per slice and absolute paths do not belong in a committed file.
+headers = anatomy_renderer.h
+package = com.ptk.anatomypro.renderer.filament.cinterop
+language = C

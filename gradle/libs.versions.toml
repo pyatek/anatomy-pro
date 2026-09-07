@@ -11,6 +11,10 @@ androidx-lifecycle = "2.11.0-beta01"
 androidx-testExt = "1.3.0"
 composeMultiplatform = "1.11.1"
 coroutines = "1.10.2"
+# Filament ships prebuilt xcframeworks with device and simulator slices, so the iOS
+# host links a pinned binary release rather than building the engine from source.
+filament = "1.76.0"
+filamentIosSha256 = "af981e4e3c4c8ed5f204672bc9f4a956b954b42f03af91e8c8d25097c1c63891"
 junit = "4.13.2"
 kotlin = "2.4.10"
 material3 = "1.11.0-alpha07"
