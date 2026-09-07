@@ -13,6 +13,13 @@ import kotlinx.coroutines.flow.Flow
  * app state, and what makes a three.js implementation a drop-in fallback (spec §4, §14).
  */
 interface AnatomyRenderer {
+    /**
+     * Recent events, replayed to late subscribers.
+     *
+     * Replay is part of the contract rather than a convenience: a screen that subscribes
+     * after a pack has begun loading must still learn that it loaded, and the same
+     * property is what lets app state be rebuilt after a lost surface.
+     */
     val events: Flow<RendererEvent>
 
     suspend fun loadPack(pack: PackId, source: MeshSource)

@@ -44,7 +44,9 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
     }
 
     override suspend fun unloadPack(pack: PackId) {
+        if (pack !in loadedPacks) return
         loadedPacks = loadedPacks - pack
+        _events.emit(RendererEvent.PackUnloaded(pack))
     }
 
     override fun setSystemVisibility(system: SystemId, visible: Boolean) {
@@ -72,8 +74,15 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         pickingEnabled = enabled
     }
 
-    /** Test hook: simulate the user tapping [structure], or empty space when null. */
+    /**
+     * Test hook: simulate the user tapping [structure], or empty space when null.
+     *
+     * Honours [pickingEnabled] so the fake reports picks under exactly the conditions a
+     * real renderer does — otherwise a screen could pass its tests against behaviour the
+     * device would never produce.
+     */
     suspend fun emitPick(structure: StructureId?) {
+        if (!pickingEnabled) return
         _events.emit(RendererEvent.Picked(structure))
     }
 }
