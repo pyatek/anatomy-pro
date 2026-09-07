@@ -17,3 +17,8 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+
+# Pipeline build output; packs are regenerated from source, never committed.
+pipeline/build/
+__pycache__/
+.pytest_cache/
