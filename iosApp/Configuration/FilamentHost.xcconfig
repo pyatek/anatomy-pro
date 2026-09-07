@@ -1,0 +1,17 @@
+// Links the Filament host that `:ios-renderer` stages into build/stage/<slice>.
+//
+// Kept in an xcconfig rather than in project.pbxproj so the link line is reviewable in a
+// diff, and so the two slices differ in one obvious place.
+
+FILAMENT_STAGE_SIMULATOR = $(SRCROOT)/../ios-renderer/build/stage/iosSimulatorArm64
+FILAMENT_STAGE_DEVICE = $(SRCROOT)/../ios-renderer/build/stage/iosArm64
+
+LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*] = $(inherited) $(FILAMENT_STAGE_SIMULATOR)/lib
+LIBRARY_SEARCH_PATHS[sdk=iphoneos*] = $(inherited) $(FILAMENT_STAGE_DEVICE)/lib
+
+// Order matters: the host first, then Filament, then Filament's own dependencies.
+// OpenGLES is required because libbackend.a ships the GLES driver alongside the Metal one.
+FILAMENT_LINK = -lAnatomyRenderer -lgltfio_core -lfilament -lbackend -lfilabridge -lfilaflat -libl -lgeometry -lutils -lsmol-v -labseil -luberarchive -luberzlib -ldracodec -lmeshoptimizer -lstb -lbasis_transcoder -lktxreader -lzstd -lmikktspace -limage -lc++
+FILAMENT_FRAMEWORKS = -framework Metal -framework MetalKit -framework OpenGLES -framework Foundation -framework CoreVideo -framework CoreGraphics -framework QuartzCore -framework IOSurface -framework UIKit
+
+OTHER_LDFLAGS = $(inherited) $(FILAMENT_LINK) $(FILAMENT_FRAMEWORKS)
