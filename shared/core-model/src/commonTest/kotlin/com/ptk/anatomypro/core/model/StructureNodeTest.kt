@@ -40,12 +40,42 @@ class StructureNodeTest {
     }
 
     @Test
+    fun maps_several_nodes_of_one_structure_onto_the_same_id() {
+        // Z-Anatomy models some structures as more than one object, and glTF node names
+        // must be unique. A trailing discriminator keeps the names distinct without
+        // splitting the structure — MeshRef is a list per structure for exactly this.
+        val first = StructureNode.parse("1837__acetabular_fossa__M__s")
+        val second = StructureNode.parse("1837__acetabular_fossa__M__i")
+
+        assertEquals(StructureId("1837-acetabular-fossa-median"), first?.structure)
+        assertEquals(first?.structure, second?.structure)
+        assertEquals("s", first?.discriminator)
+        assertEquals("i", second?.discriminator)
+    }
+
+    @Test
+    fun a_node_without_a_discriminator_has_none() {
+        assertNull(StructureNode.parse("4205__aorta_abdominalis__M")?.discriminator)
+    }
+
+    @Test
+    fun parses_a_structure_that_terminologia_anatomica_does_not_carry() {
+        // Z-Anatomy marks these with parentheses; the pipeline gives them a ZAN code so
+        // they stay distinguishable from TA2-backed identifiers forever.
+        val node = StructureNode.parse("ZAN__adductor_minimus__L")
+
+        assertEquals(StructureId("zan-adductor-minimus-left"), node?.structure)
+        assertEquals("ZAN", node?.taCode)
+    }
+
+    @Test
     fun rejects_a_name_that_does_not_follow_the_convention() {
         // A malformed export must surface as an unidentifiable node rather than a crash,
         // so a naming mistake in the pipeline shows up as picks that resolve to nothing.
         assertNull(StructureNode.parse("Cube.001"))
         assertNull(StructureNode.parse("A02_4_01_001__scapula"))
         assertNull(StructureNode.parse("A02_4_01_001__scapula__X"))
+        assertNull(StructureNode.parse("A02_4_01_001__scapula__L__"))
         assertNull(StructureNode.parse(""))
     }
 }

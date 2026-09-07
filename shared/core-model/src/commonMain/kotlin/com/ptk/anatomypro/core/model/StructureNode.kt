@@ -1,8 +1,14 @@
 package com.ptk.anatomypro.core.model
 
 /**
- * A mesh node whose name follows the sourcing convention `<ta_code>__<latin_slug>__<L|R|M>`
- * (model sourcing spec §2.2).
+ * A mesh node whose name follows the sourcing convention, optionally with a trailing
+ * discriminator: `<ta_code>__<latin_slug>__<L|R|M>[__<discriminator>]` (model sourcing
+ * spec §2.2).
+ *
+ * The discriminator exists because a structure may be modelled as several objects while
+ * glTF node names must stay unique. It does not enter the [StructureId], so those objects
+ * resolve to one structure with several [MeshRef]s — which is what MeshRef being a list
+ * per structure already meant (spec §5, §2.1).
  *
  * The convention is deliberately self-describing: the renderer can turn a picked node into
  * a [StructureId] with no content database behind it, which is what lets Phase 0 prove
@@ -15,14 +21,15 @@ data class StructureNode(
     val laterality: Laterality,
     val taCode: String,
     val latinSlug: String,
+    val discriminator: String? = null,
 ) {
     companion object {
-        private val PATTERN = Regex("^([A-Za-z0-9_]+)__([a-z0-9_]+)__([LRM])$")
+        private val PATTERN = Regex("^([A-Za-z0-9_]+)__([a-z0-9_]+)__([LRM])(?:__([A-Za-z0-9]+))?$")
 
         /** Returns null when [nodeName] does not follow the convention. */
         fun parse(nodeName: String): StructureNode? {
             val match = PATTERN.matchEntire(nodeName) ?: return null
-            val (taCode, latinSlug, side) = match.destructured
+            val (taCode, latinSlug, side, discriminator) = match.destructured
 
             val laterality = when (side) {
                 "L" -> Laterality.LEFT
@@ -40,7 +47,13 @@ data class StructureNode(
                 append(laterality.name.lowercase())
             }
 
-            return StructureNode(StructureId(slug), laterality, taCode, latinSlug)
+            return StructureNode(
+                structure = StructureId(slug),
+                laterality = laterality,
+                taCode = taCode,
+                latinSlug = latinSlug,
+                discriminator = discriminator.ifEmpty { null },
+            )
         }
     }
 }
