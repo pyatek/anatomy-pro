@@ -43,11 +43,13 @@ import platform.UIKit.UIView
 actual fun AnatomyCanvas(
     modifier: Modifier,
     onPicked: (StructureId?) -> Unit,
+    onStats: (CanvasStats) -> Unit,
 ) {
     val scale = UIScreen.mainScreen.scale
     val density = LocalDensity.current.density
     val renderer = remember { FilamentAnatomyRenderer() }
     val currentOnPicked by rememberUpdatedState(onPicked)
+    val currentOnStats by rememberUpdatedState(onStats)
 
     DisposableEffect(renderer) {
         onDispose { renderer.dispose() }
@@ -90,8 +92,25 @@ actual fun AnatomyCanvas(
     // UNVERIFIED ON DEVICE: the Android failure is the evidence for this shape, not a
     // reproduction here. Nothing has run the iOS on-screen path on real hardware.
     DisposableEffect(renderer) {
+        var framesThisSecond = 0
+        var windowStart = 0.0
+
         val driver = FrameDriver { seconds ->
-            renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())
+            if (renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())) framesThisSecond++
+
+            if (windowStart == 0.0) windowStart = seconds
+            val elapsed = seconds - windowStart
+            if (elapsed >= 1.0) {
+                currentOnStats(
+                    CanvasStats(
+                        fps = (framesThisSecond / elapsed).toInt(),
+                        structures = renderer.loadedStructureCount,
+                        pack = "phase0-toy",
+                    )
+                )
+                framesThisSecond = 0
+                windowStart = seconds
+            }
         }
         val link = CADisplayLink.displayLinkWithTarget(driver, NSSelectorFromString("step:"))
         link.addToRunLoop(NSRunLoop.mainRunLoop, NSDefaultRunLoopMode)

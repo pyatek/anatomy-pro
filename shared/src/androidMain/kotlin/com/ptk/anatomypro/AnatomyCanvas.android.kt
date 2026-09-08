@@ -1,5 +1,6 @@
 package com.ptk.anatomypro
 
+import android.content.Context
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -12,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
@@ -20,28 +22,39 @@ import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
 import com.ptk.anatomypro.renderer.filament.Phase0ToyAsset
 import kotlinx.coroutines.flow.filterIsInstance
+import java.io.File
+
+/** Where the harness gets its geometry, and what to call it on screen. */
+private data class HarnessPack(val id: PackId, val source: MeshSource, val label: String)
+
+/** The pipeline's output, staged into the APK by `:androidApp` when it exists. */
+private const val BUNDLED_PACK = "packs/trunk-all-systems.glb"
 
 /**
- * Hosts Filament in a `SurfaceView` and pumps it from a coroutine.
+ * Hosts Filament in a `SurfaceView` and pumps it from Choreographer.
  *
- * The same shape as the iOS actual: the platform owns the surface, the caller owns the
+ * The same shape as the iOS host: the platform owns the surface, the caller owns the
  * frame loop, and the renderer keeps no thread of its own (spec §4, §4.1).
  */
 @Composable
 actual fun AnatomyCanvas(
     modifier: Modifier,
     onPicked: (StructureId?) -> Unit,
+    onStats: (CanvasStats) -> Unit,
 ) {
+    val context = LocalContext.current
     val renderer = remember { FilamentAnatomyRenderer() }
+    val pack = remember(context) { resolvePack(context) }
     val currentOnPicked by rememberUpdatedState(onPicked)
+    val currentOnStats by rememberUpdatedState(onStats)
 
     DisposableEffect(renderer) {
         onDispose { renderer.dispose() }
     }
 
     AndroidView(
-        factory = { context ->
-            SurfaceView(context).apply {
+        factory = { ctx ->
+            SurfaceView(ctx).apply {
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) = Unit
 
@@ -63,18 +76,35 @@ actual fun AnatomyCanvas(
         },
     )
 
-    LaunchedEffect(renderer) {
-        renderer.loadPack(PackId("phase0-toy"), MeshSource("file://${Phase0ToyAsset.path}"))
+    LaunchedEffect(renderer, pack) {
+        renderer.loadPack(pack.id, pack.source)
     }
 
     // Filament paces against the vsync timestamp, so frames have to be driven by
     // Choreographer rather than by a timer. Given any other clock reading it refuses
     // every frame after the first, and the surface stays black.
-    DisposableEffect(renderer) {
+    DisposableEffect(renderer, pack) {
         val choreographer = Choreographer.getInstance()
+        var framesThisSecond = 0
+        var windowStartNanos = 0L
+
         val callback = object : Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
-                renderer.renderFrame(frameTimeNanos)
+                if (renderer.renderFrame(frameTimeNanos)) framesThisSecond++
+
+                if (windowStartNanos == 0L) windowStartNanos = frameTimeNanos
+                val elapsed = frameTimeNanos - windowStartNanos
+                if (elapsed >= NANOS_PER_SECOND) {
+                    currentOnStats(
+                        CanvasStats(
+                            fps = (framesThisSecond * NANOS_PER_SECOND / elapsed).toInt(),
+                            structures = renderer.loadedStructureCount,
+                            pack = pack.label,
+                        )
+                    )
+                    framesThisSecond = 0
+                    windowStartNanos = frameTimeNanos
+                }
                 choreographer.postFrameCallback(this)
             }
         }
@@ -88,3 +118,32 @@ actual fun AnatomyCanvas(
         }
     }
 }
+
+/**
+ * Prefers the pipeline's real pack, falling back to the toy.
+ *
+ * The generated pack is 22 MB and lives under `pipeline/build`, which is not committed —
+ * so a checkout that has never run the pipeline still gets a harness that draws something
+ * rather than an empty screen.
+ */
+private fun resolvePack(context: Context): HarnessPack = runCatching {
+    val target = File(context.cacheDir, "trunk-all-systems.glb")
+    if (!target.isFile || target.length() == 0L) {
+        context.assets.open(BUNDLED_PACK).use { input ->
+            target.outputStream().use(input::copyTo)
+        }
+    }
+    HarnessPack(
+        id = PackId("trunk-all-systems"),
+        source = MeshSource("file://${target.absolutePath}"),
+        label = "trunk-all-systems",
+    )
+}.getOrElse {
+    HarnessPack(
+        id = PackId("phase0-toy"),
+        source = MeshSource("file://${Phase0ToyAsset.path}"),
+        label = "phase0-toy (no pipeline output bundled)",
+    )
+}
+
+private const val NANOS_PER_SECOND = 1_000_000_000L

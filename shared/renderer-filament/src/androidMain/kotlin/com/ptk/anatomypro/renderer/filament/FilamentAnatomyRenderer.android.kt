@@ -92,8 +92,10 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
         view.scene = scene
         view.camera = camera
-        // Picking reads the renderable id buffer, which post-processing would consume.
-        view.isPostProcessingEnabled = false
+        // Post-processing stays on: it carries tone mapping, and without it the linear
+        // HDR values a physically-lit scene produces blow out to white. Picking uses its
+        // own pass and is unaffected — the contract tests cover that.
+        view.isPostProcessingEnabled = true
 
         sunEntity = EntityManager.get().create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
@@ -150,6 +152,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         renderer.endFrame()
         return true
     }
+
+    /** How many distinct structures the loaded pack resolved to. */
+    val loadedStructureCount: Int get() = nodesByStructure.size
 
     /** Test-only: blocks until the GPU has caught up, so picking results are deterministic. */
     fun waitForGpu() = engine.flushAndWait()

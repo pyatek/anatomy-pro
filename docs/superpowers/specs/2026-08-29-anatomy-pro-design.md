@@ -823,8 +823,24 @@ onto the host Metal driver.
 
 **No frame rate or memory number from it means anything for §16.** The gate asks for
 sustained 60 fps and under 400 MB on a mid-range physical device, and an emulator on an M1
-is neither mid-range nor a phone. The renderer is now ready to be measured; it has not
-been measured.
+is neither mid-range nor a phone. The 599-structure trunk pack draws there at around
+55 fps, which says the renderer is ready to be measured — not that it passes.
+
+### 23.5 The harness draws the real pack
+
+`:androidApp` stages the pipeline's `trunk-all-systems` pack into the APK when one has
+been generated. It is bundled rather than pushed over adb so the §6.1 measurement can be
+taken on a phone from a plain install; `pipeline/build` is not committed, so a checkout
+that has never run the pipeline falls back to the toy asset instead of failing.
+
+The harness shows structures loaded and a rolling frame rate, because §16's gate is a
+frame rate against a structure count and a harness that displays neither cannot answer it.
+
+Doing this exposed a mistake carried since the first iOS commit. Both hosts disabled
+post-processing, with a comment claiming picking needed it. Picking does not — it uses its
+own pass, and the contract tests confirm it — but post-processing is what carries tone
+mapping, so a physically-lit scene rendered its linear HDR values straight out and every
+structure came out pure white. It is on now on both platforms.
 
 ### 23.4 Status
 

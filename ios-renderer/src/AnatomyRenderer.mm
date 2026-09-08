@@ -208,8 +208,10 @@ ar_renderer_ref ar_create(void) {
 
     r->view->setScene(r->scene);
     r->view->setCamera(r->camera);
-    // Picking reads the renderable id buffer, which the post-processing pass would consume.
-    r->view->setPostProcessingEnabled(false);
+    // Post-processing stays on: it carries tone mapping, and without it the linear HDR
+    // values a physically-lit scene produces blow out to white. Picking uses its own pass
+    // and is unaffected — the contract tests cover that.
+    r->view->setPostProcessingEnabled(true);
 
     // A single directional light. Phase 0 needs the model lit well enough to see and to
     // pick; image-based lighting belongs with the material work in Phase 1.

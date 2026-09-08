@@ -106,6 +106,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         return rendered
     }
 
+    /** How many distinct structures the loaded pack resolved to. */
+    val loadedStructureCount: Int get() = nodesByStructure.size
+
     /** Test-only: blocks until the GPU has caught up, so picking results are deterministic. */
     fun waitForGpu() {
         ar_wait_for_gpu(handle)

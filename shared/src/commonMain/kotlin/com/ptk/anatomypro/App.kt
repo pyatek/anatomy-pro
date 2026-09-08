@@ -23,31 +23,43 @@ import com.ptk.anatomypro.core.model.StructureId
 /**
  * Phase 0 harness. Throwaway.
  *
- * It exists to answer one question on a real device: does a glTF load, draw, and pick
- * through Filament (spec §16). It is replaced by feature-atlas in Phase 1.
+ * It exists to answer one question on a real device: does a real region load, draw, and
+ * pick through Filament at the §6.1 budget (spec §16). It is replaced by feature-atlas in
+ * Phase 1.
  */
 @Composable
 fun App() {
     AnatomyTheme {
         var picked: StructureId? by remember { mutableStateOf(null) }
+        var stats by remember { mutableStateOf(CanvasStats()) }
 
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Anatomy Pro — Phase 0", style = MaterialTheme.typography.headlineSmall)
-                Text(getPlatform().name, style = MaterialTheme.typography.bodySmall)
+                Text("Anatomy Pro — Phase 0", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "${getPlatform().name} · ${stats.pack}",
+                    style = MaterialTheme.typography.labelSmall,
+                )
 
                 AnatomyCanvas(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     onPicked = { picked = it },
+                    onStats = { stats = it },
                 )
 
                 Text(
-                    text = picked?.value ?: "tap a shape",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "${stats.structures} structures · ${stats.fps} fps",
+                    style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = picked?.value ?: "tap a structure",
+                    style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )

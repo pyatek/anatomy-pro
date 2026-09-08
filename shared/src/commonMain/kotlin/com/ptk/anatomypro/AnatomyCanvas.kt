@@ -5,7 +5,19 @@ import androidx.compose.ui.Modifier
 import com.ptk.anatomypro.core.model.StructureId
 
 /**
- * Draws the Phase 0 toy pack and reports taps.
+ * What the Phase 0 harness needs to show to be worth running.
+ *
+ * §16's gate is a frame rate against a structure count, so the harness has to display
+ * both or looking at it tells you nothing.
+ */
+data class CanvasStats(
+    val fps: Int = 0,
+    val structures: Int = 0,
+    val pack: String = "",
+)
+
+/**
+ * Draws the Phase 0 pack and reports taps.
  *
  * The platform entry point owns the surface (spec §4.1), so this is the one place the
  * shared module has to know which platform it is on. Everything above it deals in
@@ -15,4 +27,5 @@ import com.ptk.anatomypro.core.model.StructureId
 expect fun AnatomyCanvas(
     modifier: Modifier,
     onPicked: (StructureId?) -> Unit,
+    onStats: (CanvasStats) -> Unit,
 )
