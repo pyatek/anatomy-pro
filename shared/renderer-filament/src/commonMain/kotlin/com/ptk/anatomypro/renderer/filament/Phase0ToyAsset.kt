@@ -1,48 +1,29 @@
 package com.ptk.anatomypro.renderer.filament
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.usePinned
-import platform.Foundation.NSData
-import platform.Foundation.NSTemporaryDirectory
-import platform.Foundation.create
-import platform.Foundation.writeToFile
-
 /**
  * A three-node glTF built in code.
  *
- * Throwaway, and in iosMain rather than iosTest because both the contract tests and the
- * Phase 0 on-device harness need something to draw before the Z-Anatomy pipeline exists.
- * It goes when the first real content pack arrives.
+ * Throwaway, and in commonMain rather than a test source set because both platforms'
+ * contract tests and the Phase 0 harness need something to draw before the Z-Anatomy
+ * pipeline output is wired into the app. It goes when the first real content pack ships.
  *
- * Generated rather than committed so the node names and the assertions that depend on them
- * cannot drift apart, and so the repository carries no binary whose provenance has to be
- * taken on trust. The names follow the sourcing convention exactly (model sourcing spec
- * §2.2) — proving the naming pipeline is as much a part of Phase 0 as proving Metal works.
+ * The names follow the sourcing convention exactly (model sourcing spec §2.2) — proving
+ * the naming round-trips is as much a part of Phase 0 as proving the GPU works.
  *
- * Layout, viewed down −Z: three unit cubes in a row, the median one at the origin. The
+ * Layout, viewed down -Z: three unit cubes in a row, the median one at the origin. The
  * centre of a square viewport therefore hits [MEDIAN_NODE], and a corner hits nothing.
  */
-@OptIn(ExperimentalForeignApi::class)
 object Phase0ToyAsset {
 
     const val LEFT_NODE = "A02_4_01_001__scapula__L"
     const val MEDIAN_NODE = "A02_2_00_000__columna_vertebralis__M"
     const val RIGHT_NODE = "A02_4_01_001__scapula__R"
 
+    /** Writes the asset to a temporary file and returns its path, building it once. */
+    val path: String by lazy { writeTemporaryFile("anatomypro-phase0-toy.glb", build()) }
+
     private const val HALF = 0.5f
     private const val SPACING = 1.5f
-
-    /** Writes the asset to a temporary file and returns its path, building it once. */
-    val path: String by lazy {
-        val file = NSTemporaryDirectory() + "anatomypro-phase0-toy.glb"
-        val bytes = build()
-        bytes.usePinned { pinned ->
-            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-                .writeToFile(file, atomically = true)
-        }
-        file
-    }
 
     private fun build(): ByteArray {
         val positions = ArrayList<Float>(24 * 3)
@@ -152,3 +133,6 @@ object Phase0ToyAsset {
         return bytes + ByteArray(4 - remainder) { pad }
     }
 }
+
+/** Somewhere the platform can write a file the renderer will be able to open by path. */
+internal expect fun writeTemporaryFile(name: String, bytes: ByteArray): String

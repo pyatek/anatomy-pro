@@ -26,7 +26,15 @@ private val iosFrameworks = listOf(
 )
 
 kotlin {
-    android { namespace = "com.ptk.anatomypro.renderer.filament" }
+    android {
+        namespace = "com.ptk.anatomypro.renderer.filament"
+        // The renderer contract needs a real GPU, which the JVM host test has no access
+        // to. This is the Android counterpart of giving up the iOS simulator's standalone
+        // spawn: the tests must run on a device or emulator.
+        withDeviceTestBuilder { sourceSetTreeName = "test" }.configure {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
+    }
 
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         val stageLib = rootProject.layout.projectDirectory
@@ -47,7 +55,21 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies { api(project(":shared:renderer-api")) }
+        androidMain.dependencies {
+            // Google's own Filament artifacts, pinned to the same version the iOS host
+            // links. SceneView was rejected because it keeps its own scene graph, and §4
+            // says Kotlin owns all state and the renderer holds no truth of its own.
+            implementation(libs.filament.android)
+            implementation(libs.filament.gltfio)
+            implementation(libs.filament.utils)
+        }
         commonTest.dependencies { implementation(libs.kotlin.test) }
+        getByName("androidDeviceTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.test.runner)
+            implementation(libs.kotlinx.coroutines.core)
+        }
     }
 }
 
