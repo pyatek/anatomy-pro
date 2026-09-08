@@ -886,6 +886,35 @@ addresses draw calls, of which a 599-structure pack issues one per structure wit
 merged or instanced. Optimising before the number says which limit is binding would be
 guesswork.
 
+### 23.8 The visible load is one system per region
+
+Decided 2026-09-08: the app shows one system at a time within a region, not several
+together. That is already the pack boundary §10 defines — "skeletal is free; other systems
+require subscription" — so showing one system means loading one pack, which the renderer
+does today. `setSystemVisibility` is a convenience, not a prerequisite.
+
+It also reframes what has been measured. `trunk-all-systems` at 599 structures is a stress
+case, not the target; the realistic ceiling is the largest single system in a region.
+
+| Pack | Structures | Triangles | Draw calls | glTF |
+|---|---|---|---|---|
+| `visceral-trunk` | 50 | 158,650 | 50 | 3.1 MB |
+| `skeletal-trunk` | 86 | 293,645 | 86 | 4.9 MB |
+| `joints-trunk` | 105 | 168,279 | 105 | 3.6 MB |
+| `muscular-trunk` | **205** | **516,287** | **205** | 7.0 MB |
+| `trunk-all-systems` | 599 | 1,292,999 | 599 | 22.4 MB |
+| §3 limit | 300–800 visible | ≤ 3,000,000 | ≤ 800 | — |
+
+`muscular-trunk` is the worst realistic case: a quarter of the draw-call limit and a sixth
+of the triangle budget. On that evidence §6.1's deferred mitigations — LOD generation and
+merging non-interactive geometry — are not needed for Phase 1 and should stay deferred
+rather than being built speculatively.
+
+One caution about reading emulator numbers: GPU frame time barely moved between 205
+structures (16.0 ms) and 599 (17.9 ms). Cost that does not scale with scene complexity is
+the emulator's translation layer, not the content, which is precisely why the gate names a
+physical device.
+
 ### 23.4 Status
 
 Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do

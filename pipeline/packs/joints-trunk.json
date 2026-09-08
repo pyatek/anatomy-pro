@@ -1,0 +1,6 @@
+{
+  "pack_id": "joints-trunk",
+  "require": ["Trunk", "3: Joints"],
+  "exclude": [],
+  "max_triangles_per_structure": 5000
+}
