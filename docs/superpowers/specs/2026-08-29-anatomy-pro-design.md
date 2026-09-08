@@ -865,6 +865,27 @@ What is junk is the metallic channel: the exporter emits values around 0.5 on a 
 the materials, which is meaningless for tissue and gives the render a plastic sheen. The
 pipeline should normalise materials rather than pass that through.
 
+### 23.7 Measuring the frame rate, rather than the assumption
+
+A first measurement on a Pixel 10 reported 40 fps. Before treating that as a rendering
+cost, note what the code was doing: the Android surface path never called `setDisplayInfo`,
+so Filament paced against its default 60 Hz while a 120 Hz panel's Choreographer delivered
+frames at 120. 120 ÷ 3 = 40, which is a suspicious coincidence.
+
+Both hosts now take the display's real refresh rate, and the harness reports the GPU's own
+frame time beside the frame rate. That distinction is the whole point: a frame rate alone
+cannot separate three quite different situations —
+
+- **paced**: GPU time well under budget, frame rate a clean fraction of the refresh rate;
+- **GPU-bound**: GPU time at or above the frame budget;
+- **CPU-bound**: GPU time under budget, frame rate not a fraction of anything.
+
+Each has a different remedy, and §6.1's deferred mitigations are not interchangeable
+between them. LOD generation addresses triangles; merging non-interactive geometry
+addresses draw calls, of which a 599-structure pack issues one per structure with nothing
+merged or instanced. Optimising before the number says which limit is binding would be
+guesswork.
+
 ### 23.4 Status
 
 Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do

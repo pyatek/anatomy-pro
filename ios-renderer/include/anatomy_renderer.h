@@ -54,8 +54,21 @@ void ar_destroy(ar_renderer_ref renderer);
 
 /* Renders to an offscreen swap chain, so contract tests need no window and no UI. */
 void ar_attach_headless(ar_renderer_ref renderer, uint32_t width, uint32_t height);
-/* Renders to a CAMetalLayer supplied by the host app. */
-void ar_attach_layer(ar_renderer_ref renderer, void* ca_metal_layer, uint32_t width, uint32_t height);
+/*
+ * Renders to a CAMetalLayer supplied by the host app.
+ *
+ * `refresh_hz` must be the display's actual refresh rate. Filament paces against it, so a
+ * 60 Hz assumption on a 120 Hz panel silently caps the frame rate at a fraction of what
+ * the hardware can do — and the resulting number looks like a rendering cost.
+ */
+void ar_attach_layer(ar_renderer_ref renderer, void* ca_metal_layer, uint32_t width, uint32_t height,
+                     float refresh_hz);
+
+/*
+ * The GPU's own time for the most recent completed frame, in nanoseconds, or 0 when not
+ * yet known. This is what distinguishes being GPU-bound from being paced or CPU-bound.
+ */
+int64_t ar_gpu_frame_nanos(ar_renderer_ref renderer);
 
 void ar_load_model(ar_renderer_ref renderer, const char* uri);
 void ar_unload_model(ar_renderer_ref renderer, const char* uri);

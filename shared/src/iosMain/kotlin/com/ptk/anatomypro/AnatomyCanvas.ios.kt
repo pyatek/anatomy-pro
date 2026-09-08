@@ -46,6 +46,7 @@ actual fun AnatomyCanvas(
     onStats: (CanvasStats) -> Unit,
 ) {
     val scale = UIScreen.mainScreen.scale
+    val refreshHz = UIScreen.mainScreen.maximumFramesPerSecond.toFloat()
     val density = LocalDensity.current.density
     val renderer = remember { FilamentAnatomyRenderer() }
     val currentOnPicked by rememberUpdatedState(onPicked)
@@ -75,7 +76,7 @@ actual fun AnatomyCanvas(
                 val widthPx = (size.width * scale).toInt()
                 val heightPx = (size.height * scale).toInt()
                 if (widthPx > 0 && heightPx > 0) {
-                    renderer.attachLayer(metalLayer, widthPx, heightPx)
+                    renderer.attachLayer(metalLayer, widthPx, heightPx, refreshHz)
                 }
             }
         },
@@ -106,6 +107,8 @@ actual fun AnatomyCanvas(
                         fps = (framesThisSecond / elapsed).toInt(),
                         structures = renderer.loadedStructureCount,
                         pack = "phase0-toy",
+                        gpuMillis = renderer.gpuFrameMillis,
+                        refreshHz = refreshHz.toInt(),
                     )
                 )
                 framesThisSecond = 0

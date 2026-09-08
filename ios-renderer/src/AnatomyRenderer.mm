@@ -269,9 +269,10 @@ void ar_attach_headless(ar_renderer_ref r, uint32_t width, uint32_t height) {
     configureSurface(r, r->engine->createSwapChain(width, height), width, height);
 }
 
-void ar_attach_layer(ar_renderer_ref r, void* layer, uint32_t width, uint32_t height) {
+void ar_attach_layer(ar_renderer_ref r, void* layer, uint32_t width, uint32_t height,
+                     float refresh_hz) {
     if (!r || !r->engine) return;
-    r->renderer->setDisplayInfo({.refreshRate = 60.0f});
+    r->renderer->setDisplayInfo({.refreshRate = refresh_hz > 0.0f ? refresh_hz : 60.0f});
     configureSurface(r, r->engine->createSwapChain(layer), width, height);
 }
 
@@ -429,6 +430,15 @@ bool ar_render_frame(ar_renderer_ref r, uint64_t vsync_nanos) {
     r->renderer->render(r->view);
     r->renderer->endFrame();
     return true;
+}
+
+int64_t ar_gpu_frame_nanos(ar_renderer_ref r) {
+    if (!r || !r->renderer) return 0;
+    auto history = r->renderer->getFrameInfoHistory(8);
+    for (auto it = history.rbegin(); it != history.rend(); ++it) {
+        if (it->denoisedGpuFrameDuration > 0) return it->denoisedGpuFrameDuration;
+    }
+    return 0;
 }
 
 void ar_wait_for_gpu(ar_renderer_ref r) {

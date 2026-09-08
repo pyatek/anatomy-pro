@@ -21,6 +21,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_attach_layer
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_create
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_destroy
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_gpu_frame_nanos
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_load_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_count
@@ -86,8 +87,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     }
 
     /** Draws into a `CAMetalLayer` owned by the host app. */
-    fun attachLayer(layer: CAMetalLayer, width: Int, height: Int) {
-        ar_attach_layer(handle, interpretCPointer<CPointed>(layer.objcPtr()), width.toUInt(), height.toUInt())
+    fun attachLayer(layer: CAMetalLayer, width: Int, height: Int, refreshHz: Float) {
+        ar_attach_layer(
+            handle,
+            interpretCPointer<CPointed>(layer.objcPtr()),
+            width.toUInt(),
+            height.toUInt(),
+            refreshHz,
+        )
         drain()
     }
 
@@ -105,6 +112,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         drain()
         return rendered
     }
+
+    /**
+     * The GPU's own time for the most recent frame, in milliseconds, or 0 when unknown.
+     *
+     * A frame rate on its own cannot tell being GPU-bound apart from being paced against
+     * the wrong refresh rate; this can.
+     */
+    val gpuFrameMillis: Float get() = ar_gpu_frame_nanos(handle) / 1_000_000f
 
     /** How many distinct structures the loaded pack resolved to. */
     val loadedStructureCount: Int get() = nodesByStructure.size

@@ -52,8 +52,16 @@ fun App() {
                 )
 
                 Text(
-                    text = "${stats.structures} structures · ${stats.fps} fps",
+                    text = "${stats.structures} structures · ${stats.fps}/${stats.refreshHz} fps",
                     style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // The frame rate alone cannot say whether the GPU is the limit; a frame
+                // rate beside the GPU's own frame time can.
+                Text(
+                    text = "GPU ${(stats.gpuMillis * 10).toInt() / 10f} ms/frame",
+                    style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )

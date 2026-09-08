@@ -14,6 +14,10 @@ data class CanvasStats(
     val fps: Int = 0,
     val structures: Int = 0,
     val pack: String = "",
+    /** The GPU's own time for the last frame. Distinguishes GPU-bound from paced. */
+    val gpuMillis: Float = 0f,
+    /** The display's refresh rate, which is the ceiling the frame rate is measured against. */
+    val refreshHz: Int = 0,
 )
 
 /**

@@ -119,8 +119,17 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         configureSurface(engine.createSwapChain(width, height, 0L), width, height)
     }
 
-    /** Draws into a `Surface` owned by the host — a SurfaceView or a TextureView. */
-    fun attachSurface(surface: Any, width: Int, height: Int) {
+    /**
+     * Draws into a `Surface` owned by the host — a SurfaceView or a TextureView.
+     *
+     * [refreshHz] must be the display's actual refresh rate. Filament paces against it, so
+     * leaving it at the 60 Hz default on a 120 Hz panel silently caps the frame rate at a
+     * fraction of what the hardware can do, and the result looks like a rendering cost.
+     */
+    fun attachSurface(surface: Any, width: Int, height: Int, refreshHz: Float) {
+        renderer.setDisplayInfo(
+            Renderer.DisplayInfo().apply { refreshRate = if (refreshHz > 0f) refreshHz else 60.0f }
+        )
         configureSurface(engine.createSwapChain(surface), width, height)
     }
 
@@ -152,6 +161,24 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         renderer.endFrame()
         return true
     }
+
+    private val frameInfoHistory = Array(8) { Renderer.FrameInfo() }
+
+    /**
+     * The GPU's own time for the most recent frame, in milliseconds, or 0 when unknown.
+     *
+     * A frame rate on its own cannot tell being GPU-bound apart from being paced against
+     * the wrong refresh rate; this can.
+     */
+    val gpuFrameMillis: Float
+        get() {
+            val count = renderer.getFrameInfoHistory(frameInfoHistory)
+            for (index in count - 1 downTo 0) {
+                val nanos = frameInfoHistory[index].denoisedGpuFrameDuration
+                if (nanos > 0) return nanos / 1_000_000f
+            }
+            return 0f
+        }
 
     /** How many distinct structures the loaded pack resolved to. */
     val loadedStructureCount: Int get() = nodesByStructure.size

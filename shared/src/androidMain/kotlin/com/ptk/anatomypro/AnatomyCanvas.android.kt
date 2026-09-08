@@ -46,6 +46,11 @@ actual fun AnatomyCanvas(
     val context = LocalContext.current
     val renderer = remember { FilamentAnatomyRenderer() }
     val pack = remember(context) { resolvePack(context) }
+    // Filament paces against this. Reading it from the display rather than assuming 60
+    // is the difference between measuring the renderer and measuring the assumption.
+    val refreshHz = remember(context) {
+        context.display?.refreshRate?.takeIf { it > 0f } ?: 60f
+    }
     val currentOnPicked by rememberUpdatedState(onPicked)
     val currentOnStats by rememberUpdatedState(onStats)
 
@@ -65,7 +70,7 @@ actual fun AnatomyCanvas(
                         width: Int,
                         height: Int,
                     ) {
-                        renderer.attachSurface(holder.surface, width, height)
+                        renderer.attachSurface(holder.surface, width, height, refreshHz)
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
@@ -101,6 +106,8 @@ actual fun AnatomyCanvas(
                             fps = (framesThisSecond * NANOS_PER_SECOND / elapsed).toInt(),
                             structures = renderer.loadedStructureCount,
                             pack = pack.label,
+                            gpuMillis = renderer.gpuFrameMillis,
+                            refreshHz = refreshHz.toInt(),
                         )
                     )
                     framesThisSecond = 0
