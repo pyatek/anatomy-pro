@@ -842,6 +842,29 @@ own pass, and the contract tests confirm it — but post-processing is what carr
 mapping, so a physically-lit scene rendered its linear HDR values straight out and every
 structure came out pure white. It is on now on both platforms.
 
+### 23.6 Why the all-systems pack looks like a blank torso
+
+Two causes, neither of them a defect.
+
+**You are looking at the outside of a body.** `trunk-all-systems` loads all 599 structures
+at once, so fascia, superficial muscles and the skin-surface region patches enclose
+everything inside them. Every pick lands on a `regio-*` for the same reason. That pack was
+built to load the §6.1 budget, not to look at. Layer peeling and isolation are what make
+it viewable, and `setSystemVisibility`, `isolate` and `setOpacity` are all still Phase 1.
+The same build with `-Panatomypro.pack=skeletal-trunk` draws a recognisable ribcage,
+spine, scapulae and pelvis at 60 fps.
+
+**Nearly every material exports white.** Z-Anatomy colours structures through Blender
+shader node graphs and custom properties (`muscle_color`, `comic_shader`), which have no
+glTF PBR equivalent: 63 of the 73 exported materials come out `baseColorFactor` pure
+white. Model sourcing spec §2.5 anticipated this — "the app shades structures procedurally
+and recolours them for highlighting" — so white input is what was planned for, not a
+regression.
+
+What is junk is the metallic channel: the exporter emits values around 0.5 on a third of
+the materials, which is meaningless for tissue and gives the render a plastic sheen. The
+pipeline should normalise materials rather than pass that through.
+
 ### 23.4 Status
 
 Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do

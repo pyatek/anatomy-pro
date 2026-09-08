@@ -28,7 +28,8 @@ import java.io.File
 private data class HarnessPack(val id: PackId, val source: MeshSource, val label: String)
 
 /** The pipeline's output, staged into the APK by `:androidApp` when it exists. */
-private const val BUNDLED_PACK = "packs/trunk-all-systems.glb"
+private const val BUNDLED_PACK = "packs/phase0-pack.glb"
+private const val BUNDLED_PACK_ID = "packs/phase0-pack.id"
 
 /**
  * Hosts Filament in a `SurfaceView` and pumps it from Choreographer.
@@ -127,16 +128,17 @@ actual fun AnatomyCanvas(
  * rather than an empty screen.
  */
 private fun resolvePack(context: Context): HarnessPack = runCatching {
-    val target = File(context.cacheDir, "trunk-all-systems.glb")
+    val id = context.assets.open(BUNDLED_PACK_ID).use { it.readBytes().decodeToString().trim() }
+    val target = File(context.cacheDir, "$id.glb")
     if (!target.isFile || target.length() == 0L) {
         context.assets.open(BUNDLED_PACK).use { input ->
             target.outputStream().use(input::copyTo)
         }
     }
     HarnessPack(
-        id = PackId("trunk-all-systems"),
+        id = PackId(id),
         source = MeshSource("file://${target.absolutePath}"),
-        label = "trunk-all-systems",
+        label = id,
     )
 }.getOrElse {
     HarnessPack(

@@ -38,20 +38,34 @@ abstract class StagePhase0Pack : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:Input
+    abstract val packId: Property<String>
+
     @TaskAction
     fun stage() {
         val assets = File(outputDirectory.get().asFile, "packs")
         assets.deleteRecursively()
         assets.mkdirs()
         val source = pack.files.firstOrNull { it.isFile } ?: return
-        source.copyTo(File(assets, "trunk-all-systems.glb"), overwrite = true)
-        logger.lifecycle("Bundled Phase 0 pack: ${source.length() / 1024 / 1024} MB")
+        source.copyTo(File(assets, "phase0-pack.glb"), overwrite = true)
+        File(assets, "phase0-pack.id").writeText(packId.get())
+        logger.lifecycle("Bundled Phase 0 pack '${packId.get()}': ${source.length() / 1024 / 1024} MB")
     }
 }
 
+// Which pack the harness draws. `trunk-all-systems` loads every system at once and is the
+// budget stress case; `skeletal-trunk` is the one you can actually see into, because
+// nothing has implemented layer peeling yet (§6.1, Phase 1).
+val phase0PackId = providers.gradleProperty("anatomypro.pack").orElse("trunk-all-systems")
+
 val stagePhase0Pack by tasks.registering(StagePhase0Pack::class) {
     description = "Copies the generated Phase 0 content pack into the app's assets."
-    pack.from(rootProject.layout.projectDirectory.file("pipeline/build/packs/trunk-all-systems/mesh.glb"))
+    packId.set(phase0PackId)
+    pack.from(
+        phase0PackId.map {
+            rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/mesh.glb")
+        }
+    )
 }
 
 androidComponents {
