@@ -33,7 +33,7 @@ class FilamentHostSmokeTest {
 
         try {
             ar_attach_headless(renderer, 256u, 256u)
-            ar_render_frame(renderer)
+            ar_render_frame(renderer, 0uL)
 
             memScoped {
                 val event = alloc<ar_event>()

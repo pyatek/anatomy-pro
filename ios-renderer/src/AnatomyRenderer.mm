@@ -269,6 +269,7 @@ void ar_attach_headless(ar_renderer_ref r, uint32_t width, uint32_t height) {
 
 void ar_attach_layer(ar_renderer_ref r, void* layer, uint32_t width, uint32_t height) {
     if (!r || !r->engine) return;
+    r->renderer->setDisplayInfo({.refreshRate = 60.0f});
     configureSurface(r, r->engine->createSwapChain(layer), width, height);
 }
 
@@ -417,12 +418,12 @@ void ar_pick_at(ar_renderer_ref r, float x, float y) {
     }, &immediateHandler());
 }
 
-bool ar_render_frame(ar_renderer_ref r) {
+bool ar_render_frame(ar_renderer_ref r, uint64_t vsync_nanos) {
     if (!r || !r->engine || !r->swapChain) return false;
     // Filament refuses a frame while too many are already in flight. Reporting that back
     // lets a caller that needs frames to actually land — a contract test waiting on a
     // picking readback — know the difference between a drawn frame and a skipped one.
-    if (!r->renderer->beginFrame(r->swapChain)) return false;
+    if (!r->renderer->beginFrame(r->swapChain, vsync_nanos)) return false;
     r->renderer->render(r->view);
     r->renderer->endFrame();
     return true;

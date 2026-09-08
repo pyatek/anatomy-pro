@@ -94,11 +94,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     /**
      * Renders one frame and publishes whatever the shim queued while doing so.
      *
+     * [frameTimeNanos] must be the display's vsync timestamp when drawing to a layer;
+     * see the note on `ar_render_frame`. Zero is correct for offscreen rendering only.
+     *
      * Returns false when Filament skipped the frame because too many were already in
      * flight, which a caller that needs frames to land can use to pace itself.
      */
-    fun renderFrame(): Boolean {
-        val rendered = ar_render_frame(handle)
+    fun renderFrame(frameTimeNanos: Long = 0L): Boolean {
+        val rendered = ar_render_frame(handle, frameTimeNanos.toULong())
         drain()
         return rendered
     }

@@ -763,3 +763,74 @@ and a pick at the centre of the viewport resolves to `257-regio-epigastrica-left
 spare, but those are the two numbers measurable without hardware. Sustained 60 fps and
 resident memory under 400 MB — the two that decide the gate — remain unmeasured on both
 a real iPhone and a mid-range Android device.
+
+## 23. Addendum — 2026-09-08: the Android renderer
+
+Phase 0's second platform. §4.1 said Android hosts Filament through SceneView; it does not.
+
+### 23.1 Filament directly, not SceneView
+
+SceneView maintains its own scene graph of nodes. §4's most load-bearing line is that
+Kotlin owns all state and the renderer holds no truth the app cannot reconstruct, and a
+second graph to keep in sync is exactly the thing that line exists to prevent. SceneView
+also pins its own Filament build, which cuts against §14's reason for choosing Filament
+over three.js in the first place.
+
+Google's `filament-android`, `gltfio-android` and `filament-utils-android` are used
+directly instead. Both platforms are pinned to **1.75.1** — the newest version published
+to Maven Central, and therefore the ceiling for matching them. Matching matters more than
+being current: §15's contract tests are supposed to prove the same behaviour on both
+platforms, and two engine builds would weaken that in a way no test would catch.
+
+The Android implementation is deliberately a mirror of the iOS one — same gltfio loading,
+same `View.pick`, same node-name index, same highlight-by-material-swap. Making them
+differ only where the language forces them to is the cheapest way to make §15 true rather
+than merely intended.
+
+**The contract now passes on three implementations**: `FakeAnatomyRenderer`, iOS Filament
+on the simulator, and Android Filament on an emulator. That is what §15 was asking for.
+
+### 23.2 Everything iOS learned transferred, except one thing
+
+Because it is the same engine, §21.3's discoveries carried over unchanged: offscreen
+rendering must disable frame pacing, frames refused while others are in flight need the
+GPU drained between them, and picking callbacks want dispatching onto the caller's thread.
+
+One did not, and cost a black screen to find. **Drawing to a real surface, Filament paces
+against the vsync timestamp.** Given `System.nanoTime()` it renders exactly one frame and
+then refuses every subsequent one. Frames must be driven by `Choreographer`, passing the
+timestamp it supplies.
+
+This is a property of the engine, not of Android. The iOS host had the same defect —
+`ar_render_frame` passed no timestamp and the layer path never set `DisplayInfo` — so the
+iOS on-screen path would have failed identically on a real device while passing every
+headless test. Both platforms now take a vsync timestamp, and the iOS host drives frames
+from a `CADisplayLink`.
+
+**That iOS fix is unverified.** The Android failure is the evidence for its shape, not a
+reproduction: nothing has run the iOS on-screen path on hardware. It compiles for both iOS
+targets and the headless tests still pass, which is all that can be claimed.
+
+The general lesson is worth keeping: the headless contract tests pass on a code path that
+is not the one the app uses. They prove the renderer's *behaviour*, not its *hosting*, and
+hosting is where both platforms broke.
+
+### 23.3 What the emulator does not tell us
+
+The Android renderer draws the toy pack, picking resolves to the right `StructureId`, and
+the contract passes — on an emulator, whose backend is OpenGL through a translation layer
+onto the host Metal driver.
+
+**No frame rate or memory number from it means anything for §16.** The gate asks for
+sustained 60 fps and under 400 MB on a mid-range physical device, and an emulator on an M1
+is neither mid-range nor a phone. The renderer is now ready to be measured; it has not
+been measured.
+
+### 23.4 Status
+
+Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do
+applies unchanged to Android, including that highlighting is colour and luminance only and
+therefore does not yet meet §12.
+
+**§16's exit criterion remains unmet, and is now purely a hardware question.** Every piece
+is built and tested; what is missing is a real phone of each kind to run it on.

@@ -72,8 +72,16 @@ void ar_set_picking_enabled(ar_renderer_ref renderer, bool enabled);
 /* Asynchronous: the result arrives as AR_EVENT_PICKED after subsequent frames render. */
 void ar_pick_at(ar_renderer_ref renderer, float x_px, float y_px);
 
-/* Returns false when Filament skipped the frame because too many are in flight. */
-bool ar_render_frame(ar_renderer_ref renderer);
+/*
+ * Renders one frame.
+ *
+ * `vsync_nanos` must be the display's vsync timestamp when drawing to a layer — Filament
+ * paces against it, and given an arbitrary clock reading it renders one frame and then
+ * refuses every subsequent one. Pass 0 for offscreen rendering, where pacing is off.
+ *
+ * Returns false when Filament skipped the frame because too many are in flight.
+ */
+bool ar_render_frame(ar_renderer_ref renderer, uint64_t vsync_nanos);
 /*
  * Blocks until the GPU has caught up.
  *

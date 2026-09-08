@@ -21,9 +21,13 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectZero
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
+import platform.Foundation.NSDefaultRunLoopMode
+import platform.Foundation.NSRunLoop
+import platform.Foundation.NSSelectorFromString
+import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
+import platform.darwin.NSObject
 import platform.UIKit.UIScreen
 import platform.UIKit.UIView
 
@@ -77,15 +81,42 @@ actual fun AnatomyCanvas(
 
     LaunchedEffect(renderer) {
         renderer.loadPack(PackId("phase0-toy"), MeshSource("file://${Phase0ToyAsset.path}"))
-        while (true) {
-            renderer.renderFrame()
-            delay(16)
+    }
+
+    // Filament paces against the vsync timestamp, so frames come from a display link
+    // rather than a timer. This is the counterpart of Choreographer on Android, where a
+    // plain clock reading made Filament render one frame and then refuse every other.
+    //
+    // UNVERIFIED ON DEVICE: the Android failure is the evidence for this shape, not a
+    // reproduction here. Nothing has run the iOS on-screen path on real hardware.
+    DisposableEffect(renderer) {
+        val driver = FrameDriver { seconds ->
+            renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())
         }
+        val link = CADisplayLink.displayLinkWithTarget(driver, NSSelectorFromString("step:"))
+        link.addToRunLoop(NSRunLoop.mainRunLoop, NSDefaultRunLoopMode)
+        onDispose { link.invalidate() }
     }
 
     LaunchedEffect(renderer) {
         renderer.events.filterIsInstance<RendererEvent.Picked>().collect {
             currentOnPicked(it.structure)
         }
+    }
+}
+
+private const val NANOS_PER_SECOND = 1_000_000_000.0
+
+/**
+ * Receives display-link callbacks.
+ *
+ * `CADisplayLink` dispatches through a target and selector, so this has to be a real
+ * Objective-C object rather than a Kotlin lambda.
+ */
+private class FrameDriver(private val onFrame: (Double) -> Unit) : NSObject() {
+
+    @kotlinx.cinterop.ObjCAction
+    fun step(sender: CADisplayLink) {
+        onFrame(sender.timestamp)
     }
 }
