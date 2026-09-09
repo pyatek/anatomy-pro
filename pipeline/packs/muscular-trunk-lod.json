@@ -1,0 +1,9 @@
+{
+  "pack_id": "muscular-trunk-lod",
+  "require": [
+    "Trunk",
+    "4: Muscular system"
+  ],
+  "exclude": [],
+  "max_triangles_per_structure": 1500
+}

@@ -915,6 +915,43 @@ structures (16.0 ms) and 599 (17.9 ms). Cost that does not scale with scene comp
 the emulator's translation layer, not the content, which is precisely why the gate names a
 physical device.
 
+### 23.9 First real-device measurements
+
+Pixel 10, 120 Hz display, debug build. GPU time is Filament's own
+`denoisedGpuFrameDuration`, not a frame rate divided out.
+
+| Scene | Structures | Triangles | fps | GPU ms |
+|---|---|---|---|---|
+| toy cubes | 3 | ~72 | 119/120 | 4.1 |
+| `skeletal-trunk` | 86 | 294k | 85/120 | 11.3 |
+| `muscular-trunk` | 205 | 516k | 70/120 | 14.2 |
+| `trunk-all-systems` | 599 | 1,293k | 44/120 | 26.8 |
+| `muscular-trunk` at half resolution | 205 | 516k | 61/120 | 16.0 |
+
+Three things follow.
+
+**The earlier 40 fps was largely the pacing bug** of §23.7, not a rendering cost.
+
+**Fixed per-frame overhead is about 4.1 ms** — clear, tone mapping, and the rest of
+post-processing on a 1080×2424 surface. Everything above that is content.
+
+**It is not fill-rate bound.** Rendering at a quarter of the pixels did not reduce GPU
+time at all, so `DynamicResolutionOptions` — the cheapest lever available — will not help.
+Cost tracks scene size instead.
+
+What the numbers cannot yet separate is *triangles* from *draw calls*: across these packs
+both scale together. That distinction decides which of §6.1's deferred mitigations is the
+right one — LOD generation addresses triangles, merging non-interactive geometry addresses
+draw calls — so a `muscular-trunk-lod` pack exists with the same 205 structures and 249k
+triangles instead of 516k. Same draw calls, half the geometry. It has not been measured.
+
+**The gate is at risk at the decided visible load.** `muscular-trunk` is §23.8's realistic
+worst case and it costs 14.2 ms on a current flagship — inside the 16.7 ms needed for
+60 fps, but with roughly 15% to spare. §16 asks for sustained 60 fps on a *mid-range*
+device, and a GPU at half this throughput would land near 28 ms, or about 35 fps. On
+present evidence the Android half of the gate passes on a flagship and fails on the device
+class it is actually specified against.
+
 ### 23.4 Status
 
 Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do
