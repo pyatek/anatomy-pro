@@ -970,6 +970,33 @@ largest single system. Neither LOD generation nor merging is clearly indicated y
 lever the numbers point at is how many structures a single view puts on screen, which is a
 content and navigation decision before it is a rendering one.
 
+### 23.10 Phase 0 verdict — 2026-09-09
+
+**Answered. Filament stands; §14's three.js fallback is not invoked.**
+
+§16 states its exit criteria as numbers but also states its purpose: "the specific unknown
+being retired is the iOS Filament shim". That unknown is retired. One `AnatomyRenderer`
+interface has three implementations passing one contract suite — the fake, Filament on
+iOS, Filament on Android — and the pipeline feeds them real anatomy that loads, draws and
+picks to the right `StructureId`.
+
+The numeric criteria are met on a flagship at region scope and remain unconfirmed
+elsewhere. That gap is deliberately not treated as blocking, because nothing it could
+reveal would change the architectural decision the gate exists to make: a slower device
+sends us to §6.1's mitigations, which is rendering work, not a change of graphics stack.
+
+Carried forward as tracked work rather than open questions:
+
+- No measurement on a mid-range Android device, which is what §16 actually specifies.
+- Nothing has run on iOS hardware. The `CADisplayLink` frame driver is written from the
+  Android failure rather than from a reproduction, and is unverified.
+- Vessels and most peripheral nerves are absent from every pack: they are Blender curve
+  objects and the export loop selects meshes only. The source has them; the pipeline
+  drops them.
+- Highlighting is colour and luminance only, so §12 is not met.
+
+Phase 1 begins.
+
 ### 23.4 Status
 
 Both platforms implement §15's four verbs. §21.5's list of what Phase 0 does not do
