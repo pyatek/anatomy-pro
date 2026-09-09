@@ -1140,33 +1140,46 @@ Pixel 10, medians of 20 steady-state samples, decimation target back at 5,000:
 | `muscular-trunk` | 205 | 42 | 516k | 70 | 13.9 ms |
 | `skeletal-body` | 278 | 69 | 523k | 61 | 16.8 ms |
 
-### 25.4 Decimating harder made it twice as slow
+### 25.4 Two wrong conclusions about decimation, and why
 
-The 1,200-triangle target was wrong, and measurably so. Built back to back on the same
-warm device:
+The overview target moved 5,000 → 1,200 → 5,000 → 1,200 across one day. Both reversals
+came from measurements taken while the device was in an uncontrolled thermal state.
 
-| `skeletal-trunk` | Triangles | GPU median | fps |
+The middle result claimed 1,200 triangles rendered in 24.5 ms against 12.9 ms at 5,000 —
+a third of the geometry for twice the frame time, reproduced across three runs. It was
+wrong. Re-measured on a cool device, interleaving the two builds within one session and
+repeating:
+
+| Target | Triangles | Run 1 | Run 2 |
 |---|---|---|---|
-| target 5,000 | 293,645 | 12.9 ms | 82 |
-| target 1,200 | 100,747 | 24.5 ms | 30–40 |
+| 5,000 | 293,645 | 8.3 ms / 114 fps | 8.5 ms / 112 fps |
+| 1,200 | 100,747 | **7.6 ms / 119 fps** | **7.4 ms / 119 fps** |
 
-A third of the geometry, twice the frame time, reproduced across three runs with a minimum
-of 17.1 ms — not drift, and not the device warming up, since the control was measured
-immediately after.
+1,200 is consistently the faster of the two, by about 12%. The target is 1,200.
 
-The likely mechanism is vertex cache locality. Blender's Decimate COLLAPSE rebuilds
-topology with no regard for the order vertices are fetched in, and a GPU's post-transform
-cache then misses on nearly every triangle. At the 5,000 target most structures are under
-the cap and keep the source's ordering — median source density is 3,309 triangles — so the
-comparison is not really 294k against 100k triangles, but *well-ordered* against
-*reordered* geometry.
+**The device swings ~45% with temperature.** The identical 5,000 pack measured 12.3 ms
+during a hot stretch and 8.3 ms cool. That is larger than every effect being measured, so
+any comparison between runs taken at different times is meaningless no matter how many
+samples each contains.
 
-If that reading is right, the remedy is a vertex-cache optimisation pass over decimated
-meshes — `meshoptimizer`, which Filament already links but gltfio does not apply at load,
-or `gltfpack` as a pipeline step. Until that exists, **decimation costs more than it
-saves** and the target stays at 5,000, which for this source is close to no decimation at
-all.
+§23.9 already established that single samples cannot support conclusions and switched to
+medians. That was necessary and insufficient: medians remove sampling noise *within* a run
+and do nothing about drift *between* runs. The method that works is interleaving the
+variants inside one session and repeating the pair — cheap, and it would have prevented
+both reversals.
 
-The wider lesson is the same one §23.9 recorded: a plausible mechanism is not a
-measurement. "Fewer triangles is faster" was assumed rather than tested, and the assumption
-survived being written into a spec section before a device contradicted it.
+### 25.5 The vertex cache pass buys size, not speed
+
+`gltfpack` reorders indices for the GPU's post-transform vertex cache, which Blender's
+exporter does not do. It runs after export with `-kn`, which is not optional: without it
+gltfpack merges meshes and drops node names, and node names are the entire mapping from
+geometry to `StructureId`. The pipeline verifies every name survives and refuses the output
+otherwise.
+
+Measured with the interleaved method, it makes no difference to frame time — 8.6 ms against
+8.8 ms on the skeletal trunk. It is kept anyway because it makes `skeletal-trunk` 30%
+smaller, 4.9 MB to 3.4 MB, which §10 cares about for download size. `--no-optimise` skips
+it.
+
+That also disposes of §25.4's proposed mechanism: vertex cache locality was a plausible
+explanation for a slowdown that was not real.

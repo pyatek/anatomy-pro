@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 
 import bpy  # noqa: F401  (only available inside Blender)
@@ -29,6 +30,11 @@ def parse_args(argv):
     parser.add_argument("--ta2", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--draco", action="store_true")
+    parser.add_argument(
+        "--no-optimise",
+        action="store_true",
+        help="Skip the gltfpack vertex cache pass. For measuring what it is worth.",
+    )
     parser.add_argument(
         "--detail",
         action="store_true",
@@ -188,6 +194,58 @@ def export_detail_meshes(chosen, structure_of_object, out_directory):
     print(f"[pipeline] wrote {len(by_structure)} detail meshes")
 
 
+#: gltfpack reorders indices for the GPU's post-transform vertex cache. Blender's exporter
+#: does not, and the Decimate modifier actively destroys whatever locality the source had
+#: - measured at twice the frame time for a third of the triangles (spec §25.4).
+#:
+#: `-kn` is not optional: without it gltfpack merges meshes and drops node names, and node
+#: names are the entire mapping from geometry to StructureId.
+GLTFPACK = ["npx", "--yes", "gltfpack@0.24.0"]
+
+
+def optimise_vertex_cache(path):
+    """Reorders geometry for the vertex cache, in place.
+
+    Returns the node names before and after so the caller can refuse to ship a mesh whose
+    names gltfpack changed.
+    """
+    before = node_names(path)
+    packed = path + ".packed.glb"
+    result = subprocess.run(
+        GLTFPACK + ["-i", path, "-o", packed, "-kn", "-km", "-ke", "-noq"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not os.path.isfile(packed):
+        raise SystemExit(
+            "gltfpack failed; it is required for the vertex cache pass.\n"
+            + result.stderr.strip()
+        )
+
+    after = node_names(packed)
+    if after != before:
+        os.remove(packed)
+        lost = sorted(before - after)[:5]
+        raise SystemExit(
+            f"gltfpack changed {len(before - after)} node names, e.g. {lost}. "
+            "Node names are the mapping to StructureId and must survive."
+        )
+
+    os.replace(packed, path)
+    return before
+
+
+def node_names(path):
+    """The `name` of every node in a .glb, read from its JSON chunk."""
+    import struct
+
+    with open(path, "rb") as handle:
+        data = handle.read()
+    length = struct.unpack("<I", data[12:16])[0]
+    document = json.loads(data[20 : 20 + length].decode("utf-8"))
+    return {n["name"] for n in document.get("nodes", []) if "name" in n}
+
+
 def main():
     args = parse_args(sys.argv)
 
@@ -283,14 +341,18 @@ def main():
     out = os.path.join(args.out, spec.pack_id)
     os.makedirs(out, exist_ok=True)
 
+    mesh_path = os.path.join(out, "mesh.glb")
     bpy.ops.export_scene.gltf(
-        filepath=os.path.join(out, "mesh.glb"),
+        filepath=mesh_path,
         export_format="GLB",
         use_selection=True,
         export_apply=True,
         export_draco_mesh_compression_enable=bool(args.draco),
         export_yup=True,
     )
+    if not args.no_optimise:
+        names = optimise_vertex_cache(mesh_path)
+        print(f"[pipeline] vertex cache pass kept {len(names)} node names")
 
     # A group's own parent is the nearest matched collection above it, so the taxonomy
     # nests rather than flattening onto whatever matched first.

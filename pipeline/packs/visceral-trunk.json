@@ -5,5 +5,5 @@
     "8: Visceral systems"
   ],
   "exclude": [],
-  "max_triangles_per_structure": 5000
+  "max_triangles_per_structure": 1200
 }

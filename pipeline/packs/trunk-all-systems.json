@@ -4,6 +4,6 @@
     "Trunk"
   ],
   "exclude": [],
-  "max_triangles_per_structure": 5000,
+  "max_triangles_per_structure": 1200,
   "note": "Not a shipping pack. The worst realistic case for one region, used to measure the \u00a76.1 budget under load rather than under a comfortable skeletal-only slice."
 }
