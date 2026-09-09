@@ -46,10 +46,13 @@ abstract class StagePhase0Pack : DefaultTask() {
         val assets = File(outputDirectory.get().asFile, "packs")
         assets.deleteRecursively()
         assets.mkdirs()
-        val source = pack.files.firstOrNull { it.isFile } ?: return
-        source.copyTo(File(assets, "phase0-pack.glb"), overwrite = true)
+        val files = pack.files.filter { it.isFile }.associateBy { it.name }
+        val mesh = files["mesh.glb"] ?: return
+        mesh.copyTo(File(assets, "phase0-pack.glb"), overwrite = true)
         File(assets, "phase0-pack.id").writeText(packId.get())
-        logger.lifecycle("Bundled Phase 0 pack '${packId.get()}': ${source.length() / 1024 / 1024} MB")
+        // The manifest is what populates the atlas; without it the tree has nothing to show.
+        files["manifest.json"]?.copyTo(File(assets, "phase0-pack.json"), overwrite = true)
+        logger.lifecycle("Bundled Phase 0 pack '${packId.get()}': ${mesh.length() / 1024 / 1024} MB")
     }
 }
 
@@ -62,9 +65,8 @@ val stagePhase0Pack by tasks.registering(StagePhase0Pack::class) {
     description = "Copies the generated Phase 0 content pack into the app's assets."
     packId.set(phase0PackId)
     pack.from(
-        phase0PackId.map {
-            rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/mesh.glb")
-        }
+        phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/mesh.glb") },
+        phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/manifest.json") },
     )
 }
 

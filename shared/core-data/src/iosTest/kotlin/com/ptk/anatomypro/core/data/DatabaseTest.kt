@@ -63,16 +63,23 @@ class DatabaseTest {
     }
 
     @Test
-    fun searches_by_prefix_in_a_chosen_locale() = runTest {
+    fun searches_every_language_at_once_and_reports_which_matched() = runTest {
         install()
 
-        assertEquals(
-            listOf("1168-clavicula-left"),
-            dao.search(normalisedQuery = "clavic", locale = "la", limit = 10).map { it.id },
-        )
-        // The English row for the same structure is indexed separately.
-        assertEquals(1, dao.search("clavicle", "en", 10).size)
-        assertEquals(0, dao.search("clavicle", "la", 10).size)
+        // "clavic" is a prefix of both Clavicula and Clavicle, so the same structure is
+        // found twice — once per language — and each hit says which one it was.
+        val hits = dao.searchHits(normalisedQuery = "clavic", limit = 10)
+        assertEquals(setOf("la", "en"), hits.map { it.locale }.toSet())
+        assertEquals(setOf("1168-clavicula-left"), hits.map { it.structureId }.toSet())
+
+        // A term that exists in only one language is found in only that one.
+        assertEquals(listOf("en"), dao.searchHits("pectoral", 10).map { it.locale })
+    }
+
+    @Test
+    fun a_prefix_matching_nothing_finds_nothing() = runTest {
+        install()
+        assertEquals(emptyList(), dao.searchHits("zzz", 10))
     }
 
     @Test

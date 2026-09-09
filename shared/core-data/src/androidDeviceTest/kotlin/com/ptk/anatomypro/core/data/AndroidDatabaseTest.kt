@@ -30,7 +30,7 @@ class AndroidDatabaseTest {
             val clavicle = assertNotNull(dao.structure("1168-clavicula-left"))
             assertEquals("trunk", clavicle.regionId)
             assertEquals("Clavicula", assertNotNull(dao.text(clavicle.id, "la")).name)
-            assertTrue(dao.search("clavic", "la", 10).isNotEmpty())
+            assertTrue(dao.searchHits("clavic", 10).isNotEmpty())
             assertEquals(1, dao.siblings(clavicle.parentId, exclude = clavicle.id, limit = 10).size)
         } finally {
             database.close()

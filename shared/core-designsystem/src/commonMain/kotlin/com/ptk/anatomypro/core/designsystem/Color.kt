@@ -35,6 +35,15 @@ val TextSecondary = Color(0xFF9AA3AA)
 val TextTertiary = Color(0xFF8A9299)
 val CanvasAnnotation = Color(0xFF828B92)
 
+/**
+ * The bottom bar sits between [Ground] and [Surface], on a hairline darker than [Hairline].
+ *
+ * Both are the prototype's values. The bar reads as part of the chrome rather than as a
+ * card floating above the content, which is why it is not simply [Surface].
+ */
+val NavSurface = Color(0xFF101417)
+val NavHairline = Color(0xFF1F252A)
+
 /** The single accent. Carries selection and primary action — nothing else. */
 val Accent = Color(0xFFE8604F)
 val HighlightFill = Color(0xFFF07C69)

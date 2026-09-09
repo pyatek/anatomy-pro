@@ -12,6 +12,9 @@ import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
 import com.ptk.anatomypro.core.data.entity.StructureTextEntity
 import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
 
+/** Projection for [StructureDao.searchHits]. */
+data class SearchHitRow(val structureId: String, val locale: String)
+
 @Dao
 interface StructureDao {
 
@@ -44,6 +47,19 @@ interface StructureDao {
 
     @Query("SELECT * FROM structure WHERE packId = :packId ORDER BY id")
     suspend fun structuresInPack(packId: String): List<StructureEntity>
+
+    /** The top of the taxonomy: structures nothing contains. */
+    @Query("SELECT * FROM structure WHERE parentId IS NULL ORDER BY id")
+    suspend fun roots(): List<StructureEntity>
+
+    /**
+     * Every structure that has at least one child.
+     *
+     * Read once per page of rows rather than counting children per row, which would be a
+     * query per row and is the usual way a tree screen becomes slow.
+     */
+    @Query("SELECT DISTINCT parentId FROM structure WHERE parentId IS NOT NULL")
+    suspend fun parentsWithChildren(): List<String>
 
     /** The taxonomy children of a structure, for atlas navigation and the encyclopedia. */
     @Query("SELECT * FROM structure WHERE parentId = :id ORDER BY id")
@@ -100,17 +116,26 @@ interface StructureDao {
 
     // --- search ----------------------------------------------------------------------
 
-    /** [normalisedQuery] must already be lowercased and accent-folded, as the rows are. */
+    /**
+     * Searches every language at once, reporting which one matched.
+     *
+     * [normalisedQuery] must already be lowercased and accent-folded, as the rows are.
+     * Shorter matches sort first so an exact term outranks a longer one that merely starts
+     * with it.
+     */
     @Query(
         """
-        SELECT DISTINCT s.* FROM structure s
-        JOIN structure_search f ON f.structureId = s.id
-        WHERE f.locale = :locale AND f.normalised LIKE :normalisedQuery || '%'
-        ORDER BY s.id
+        SELECT structureId, locale FROM structure_search
+        WHERE normalised LIKE :normalisedQuery || '%'
+        ORDER BY LENGTH(normalised), structureId
         LIMIT :limit
         """
     )
-    suspend fun search(normalisedQuery: String, locale: String, limit: Int): List<StructureEntity>
+    suspend fun searchHits(normalisedQuery: String, limit: Int): List<SearchHitRow>
+
+    /** Every locale a structure has text in, for the detail screen's name list. */
+    @Query("SELECT * FROM structure_text WHERE structureId = :id")
+    suspend fun texts(id: String): List<StructureTextEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSearchRows(rows: List<com.ptk.anatomypro.core.data.entity.StructureSearchEntity>)

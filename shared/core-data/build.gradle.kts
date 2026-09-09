@@ -45,3 +45,8 @@ dependencies {
         add(it, libs.room.compiler)
     }
 }
+
+// Lint reads KSP's generated sources without declaring that it does, which Gradle rejects
+// as an undeclared dependency. Ordering is all that is actually missing.
+tasks.matching { it.name.startsWith("lintAnalyze") || it.name.endsWith("LintModel") }
+    .configureEach { mustRunAfter(tasks.matching { task -> task.name.startsWith("ksp") }) }

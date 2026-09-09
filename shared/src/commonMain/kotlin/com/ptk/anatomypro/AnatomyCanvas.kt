@@ -30,6 +30,7 @@ data class CanvasStats(
 @Composable
 expect fun AnatomyCanvas(
     modifier: Modifier,
+    highlighted: StructureId?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
 )

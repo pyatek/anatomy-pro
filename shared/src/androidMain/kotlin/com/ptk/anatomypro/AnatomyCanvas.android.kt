@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.renderer.api.MeshSource
@@ -40,6 +41,7 @@ private const val BUNDLED_PACK_ID = "packs/phase0-pack.id"
 @Composable
 actual fun AnatomyCanvas(
     modifier: Modifier,
+    highlighted: StructureId?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
 ) {
@@ -132,6 +134,10 @@ actual fun AnatomyCanvas(
         renderer.events.filterIsInstance<RendererEvent.Picked>().collect {
             currentOnPicked(it.structure)
         }
+    }
+
+    LaunchedEffect(renderer, highlighted) {
+        renderer.highlight(setOfNotNull(highlighted), HighlightTokens.Selected)
     }
 }
 
