@@ -1063,6 +1063,28 @@ structures, which supplies the hierarchy.
 **No Polish, no synonyms.** Latin and English come from TA2; the schema holds the rest and
 nothing fills it.
 
+### 24.6 The database is opened, not just compiled
+
+Every query in the DAO is checked by KSP at build time and none of that proves SQLite will
+accept it. Twice in this project a tested unit sat behind a path nothing executed — the
+renderer contract tests ran on a hosting path the app did not use, and `ta2.code_for` had a
+passing unit test while the export never called it. So the database is opened on both
+platforms and the queries run against real rows.
+
+`BundledSQLiteDriver` ships SQLite with the app rather than using the system's, so both
+platforms run identical SQL. That matters more than the binary size: the two otherwise
+differ in SQLite version and eventually in whether a feature is compiled in at all.
+
+Six tests cover behaviour on iOS against a real file — install, read back, walk the
+taxonomy from leaf to group, find the siblings §8.1's hard tier draws from, prefix search
+per locale, and reinstall without duplicating rows. The one that matters most asserts that
+editing a definition makes an existing verification stop authorising quiz answers while
+leaving the reviewer's row intact.
+
+Android runs a narrower instrumented test, because what only a device can show is that
+Room's Android builder, the bundled driver and the app's database directory work together.
+The behaviour is covered once, against the SQLite build both platforms share.
+
 ### 24.5 Deferred
 
 Search is a plain indexed table queried with `LIKE` over accent-folded terms rather than
