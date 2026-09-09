@@ -101,6 +101,14 @@ actual fun AnatomyCanvas(
                 if (windowStartNanos == 0L) windowStartNanos = frameTimeNanos
                 val elapsed = frameTimeNanos - windowStartNanos
                 if (elapsed >= NANOS_PER_SECOND) {
+                    val fps = (framesThisSecond * NANOS_PER_SECOND / elapsed).toInt()
+                    // One screenshot is a sample, not a measurement. Logging each second
+                    // lets a run be reduced to a median instead of an anecdote.
+                    android.util.Log.i(
+                        "AnatomyPerf",
+                        "pack=${pack.label} structures=${renderer.loadedStructureCount} " +
+                            "fps=$fps gpuMs=${renderer.gpuFrameMillis}",
+                    )
                     currentOnStats(
                         CanvasStats(
                             fps = (framesThisSecond * NANOS_PER_SECOND / elapsed).toInt(),

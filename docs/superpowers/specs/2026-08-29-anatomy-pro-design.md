@@ -915,42 +915,46 @@ structures (16.0 ms) and 599 (17.9 ms). Cost that does not scale with scene comp
 the emulator's translation layer, not the content, which is precisely why the gate names a
 physical device.
 
-### 23.9 First real-device measurements
+### 23.9 Real-device measurements
 
-Pixel 10, 120 Hz display, debug build. GPU time is Filament's own
-`denoisedGpuFrameDuration`, not a frame rate divided out.
+Pixel 10, 120 Hz, debug build. Medians of 21 steady-state samples, logged once per second
+with the first ten discarded for shader compilation and thermal settling. GPU time is
+Filament's own `denoisedGpuFrameDuration`.
 
-| Scene | Structures | Triangles | fps | GPU ms |
-|---|---|---|---|---|
-| toy cubes | 3 | ~72 | 119/120 | 4.1 |
-| `skeletal-trunk` | 86 | 294k | 85/120 | 11.3 |
-| `muscular-trunk` | 205 | 516k | 70/120 | 14.2 |
-| `trunk-all-systems` | 599 | 1,293k | 44/120 | 26.8 |
-| `muscular-trunk` at half resolution | 205 | 516k | 61/120 | 16.0 |
+| Pack | Structures | Triangles | fps | GPU median | GPU p90 |
+|---|---|---|---|---|---|
+| toy cubes | 3 | ~72 | 119 | ~4 ms | — |
+| `skeletal-trunk` | 86 | 294k | 116 | 7.8 ms | 8.3 ms |
+| `muscular-trunk-lod` | 205 | 249k | 89 | 11.1 ms | 12.7 ms |
+| `muscular-trunk` | 205 | 516k | 75 | 12.9 ms | 14.2 ms |
+| `trunk-all-systems` | 599 | 1,293k | 43 | 23.3 ms | 25.4 ms |
 
-Three things follow.
+**Method matters more than it looks.** An earlier pass took one screenshot per
+configuration and reported 11.3 ms for `skeletal-trunk` and 14.2 ms for `muscular-trunk`.
+Both were caught during warm-up, and the spread across repeated samples of an identical
+configuration was 6–7 ms — larger than the differences being attributed to changes. Single
+samples cannot support conclusions at this granularity, and two drawn from them here were
+wrong.
 
-**The earlier 40 fps was largely the pacing bug** of §23.7, not a rendering cost.
+**Per-structure cost dominates per-triangle cost.** The two 205-structure packs differ
+only in geometry: 2.1× the triangles costs 1.8 ms, about 16%. Against that, going from 86
+structures at 294k triangles to 205 structures at *fewer* triangles (249k) costs 3.3 ms,
+about 42%. Fitting the four points gives roughly 0.03 ms per structure against 0.007 ms
+per thousand triangles, so at these scene sizes the structure count is the lever and
+decimation is a secondary one.
 
-**Fixed per-frame overhead is about 4.1 ms** — clear, tone mapping, and the rest of
-post-processing on a 1080×2424 surface. Everything above that is content.
+**Where that leaves the budget**, against 16.7 ms for 60 fps:
 
-**It is not fill-rate bound.** Rendering at a quarter of the pixels did not reduce GPU
-time at all, so `DynamicResolutionOptions` — the cheapest lever available — will not help.
-Cost tracks scene size instead.
+- `skeletal-trunk` at 7.8 ms has better than 2× headroom. This is the free pack of §10 and
+  it is comfortable, plausibly including on mid-range hardware.
+- `muscular-trunk` at 12.9 ms passes on a flagship with about 23% to spare. §16 specifies
+  a mid-range device; at half this throughput it lands near 26 ms, or about 38 fps.
+- `trunk-all-systems` at 23.3 ms fails everywhere, as expected of a stress case.
 
-What the numbers cannot yet separate is *triangles* from *draw calls*: across these packs
-both scale together. That distinction decides which of §6.1's deferred mitigations is the
-right one — LOD generation addresses triangles, merging non-interactive geometry addresses
-draw calls — so a `muscular-trunk-lod` pack exists with the same 205 structures and 249k
-triangles instead of 516k. Same draw calls, half the geometry. It has not been measured.
-
-**The gate is at risk at the decided visible load.** `muscular-trunk` is §23.8's realistic
-worst case and it costs 14.2 ms on a current flagship — inside the 16.7 ms needed for
-60 fps, but with roughly 15% to spare. §16 asks for sustained 60 fps on a *mid-range*
-device, and a GPU at half this throughput would land near 28 ms, or about 35 fps. On
-present evidence the Android half of the gate passes on a flagship and fails on the device
-class it is actually specified against.
+So the Android half of the gate is comfortable for the skeletal pack and unproven for the
+largest single system. Neither LOD generation nor merging is clearly indicated yet: the
+lever the numbers point at is how many structures a single view puts on screen, which is a
+content and navigation decision before it is a rendering one.
 
 ### 23.4 Status
 
