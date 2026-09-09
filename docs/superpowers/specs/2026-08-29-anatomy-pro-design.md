@@ -1123,16 +1123,50 @@ It also showed that decimation at 5,000 was barely doing anything: most structur
 already under the cap and passed through untouched, which made a detail mesh nearly
 identical to its overview counterpart and therefore pointless.
 
-The two changes only pay off together. **Because close inspection no longer depends on the
-overview mesh, the overview target drops from 5,000 to 1,200 triangles.** Skeletal trunk
-goes from 293,645 triangles and 4.9 MB to 100,747 and 1.9 MB, with 86 detail meshes adding
-8.2 MB that are only fetched when something is selected. Measured earlier, that class of
-reduction was worth 12.9 ms → 11.1 ms at 205 structures.
+The overview target was dropped from 5,000 to 1,200 triangles on the reasoning that close
+inspection no longer depends on the overview mesh. **That was measured and reverted — see
+§25.4.** Detail meshes stand on their own; they do not currently buy a cheaper overview.
 
 Detail generation is behind `--detail` so an ordinary run does not emit thousands of files
 while the design is still moving.
 
-### 25.3 Unmeasured
+### 25.3 Measured
 
-The 1,200 figure has not been checked visually at region zoom, and the retargeted packs
-have not been run on hardware — the Pixel was disconnected when they were built.
+Pixel 10, medians of 20 steady-state samples, decimation target back at 5,000:
+
+| Pack | Leaves | Groups | Triangles | fps | GPU median |
+|---|---|---|---|---|---|
+| `skeletal-trunk` | 86 | 29 | 294k | 85 | 12.3 ms |
+| `muscular-trunk` | 205 | 42 | 516k | 70 | 13.9 ms |
+| `skeletal-body` | 278 | 69 | 523k | 61 | 16.8 ms |
+
+### 25.4 Decimating harder made it twice as slow
+
+The 1,200-triangle target was wrong, and measurably so. Built back to back on the same
+warm device:
+
+| `skeletal-trunk` | Triangles | GPU median | fps |
+|---|---|---|---|
+| target 5,000 | 293,645 | 12.9 ms | 82 |
+| target 1,200 | 100,747 | 24.5 ms | 30–40 |
+
+A third of the geometry, twice the frame time, reproduced across three runs with a minimum
+of 17.1 ms — not drift, and not the device warming up, since the control was measured
+immediately after.
+
+The likely mechanism is vertex cache locality. Blender's Decimate COLLAPSE rebuilds
+topology with no regard for the order vertices are fetched in, and a GPU's post-transform
+cache then misses on nearly every triangle. At the 5,000 target most structures are under
+the cap and keep the source's ordering — median source density is 3,309 triangles — so the
+comparison is not really 294k against 100k triangles, but *well-ordered* against
+*reordered* geometry.
+
+If that reading is right, the remedy is a vertex-cache optimisation pass over decimated
+meshes — `meshoptimizer`, which Filament already links but gltfio does not apply at load,
+or `gltfpack` as a pipeline step. Until that exists, **decimation costs more than it
+saves** and the target stays at 5,000, which for this source is close to no decimation at
+all.
+
+The wider lesson is the same one §23.9 recorded: a plausible mechanism is not a
+measurement. "Fewer triangles is faster" was assumed rather than tested, and the assumption
+survived being written into a spec section before a device contradicted it.

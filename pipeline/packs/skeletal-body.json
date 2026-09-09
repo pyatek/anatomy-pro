@@ -4,6 +4,6 @@
     "1: Skeletal system"
   ],
   "exclude": [],
-  "max_triangles_per_structure": 1200,
+  "max_triangles_per_structure": 5000,
   "note": "Whole-body skeleton. Tests whether a full-body overview is viable at all, or whether \u00a76.1's region-scoped loading is mandatory rather than merely preferred."
 }
