@@ -134,6 +134,9 @@ def main():
     target = int(pack.get("max_triangles_per_structure", 5000))
     table = ta2.load_table(args.ta2)
     closure = ancestors()
+    # How many collections enclose each collection; used to find the nearest group.
+    depth = {name: len(parents) for name, parents in closure.items()}
+    region = selection.pack_region(spec)
 
     chosen = []
     for obj in bpy.data.objects:
@@ -148,6 +151,17 @@ def main():
         chosen.append((obj, parsed, collections))
 
     print(f"[pipeline] {len(chosen)} mesh objects selected for {spec.pack_id}")
+
+    # `.g` objects stand in for collections as structures, so a collection with a group
+    # object can be a parent. Built before the main pass because a child needs its
+    # parent's identifier, whatever order the objects come in.
+    groups = {}
+    for obj, parsed, _ in chosen:
+        if parsed.discriminator == "g":
+            entry = table.lookup(parsed.core)
+            code = ta2.code_for(entry.ta2_id) if entry else "ZAN"
+            slug = naming.slugify(entry.latin if entry else parsed.core)
+            groups[parsed.core] = naming.structure_id(code, slug, parsed.laterality)
 
     provisional = []
     for obj, parsed, collections in chosen:
@@ -180,7 +194,10 @@ def main():
             "latin": entry.latin if entry else None,
             "definition": definition_of(parsed.core),
             "system": selection.system_for(collections),
-            "parent": obj.parent.name if obj.parent else None,
+            "region": selection.region_for(collections, preferred=region),
+            "parent_structure": selection.nearest_group(
+                collections - {parsed.core}, depth, groups
+            ),
             "laterality": parsed.laterality,
             "discriminator": parsed.discriminator,
             "triangles": triangles,
@@ -189,11 +206,6 @@ def main():
         })
         obj.name = node
         obj.select_set(True)
-
-    # Renaming happens after every lookup so parents can be resolved to node names.
-    renamed = {r["source_object"]: r["node_name"] for r in records}
-    for record in records:
-        record["parent"] = renamed.get(record["parent"])
 
     out = os.path.join(args.out, spec.pack_id)
     os.makedirs(out, exist_ok=True)

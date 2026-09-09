@@ -41,6 +41,64 @@ def is_included(collections: AbstractSet[str], spec: PackSpec) -> bool:
     return bool(collections & set(spec.include)) if spec.include else bool(spec.require)
 
 
+#: The source's `Main divisions` collection. Laterality is a separate field in §5, so the
+#: side is stripped: the two hands are one region, which is what §8.1's "same region"
+#: distractor tier means.
+_BODY_DIVISIONS = {
+    "Head": "head",
+    "Neck": "neck",
+    "Trunk": "trunk",
+    "Left upper limb": "upper-limb",
+    "Right upper limb": "upper-limb",
+    "Left lower limb": "lower-limb",
+    "Right lower limb": "lower-limb",
+    "Left hand": "hand",
+    "Right hand": "hand",
+    "Left foot": "foot",
+    "Right foot": "foot",
+}
+
+
+def region_for(collections: AbstractSet[str], preferred: Optional[str] = None) -> Optional[str]:
+    """The body division an object belongs to, without its side.
+
+    Structures genuinely span divisions - a muscle can run from neck to trunk - while §5
+    carries a single regionId. Which one is right depends on the pack doing the asking, so
+    a region-scoped pack claims its own; otherwise the choice is alphabetical and
+    arbitrary but at least deterministic.
+    """
+    found = sorted(_BODY_DIVISIONS[name] for name in collections if name in _BODY_DIVISIONS)
+    if preferred and preferred in found:
+        return preferred
+    return found[0] if found else None
+
+
+def pack_region(spec: PackSpec) -> Optional[str]:
+    """The body division a pack scopes itself to, if it names one."""
+    for name in tuple(spec.require) + tuple(spec.include):
+        if name in _BODY_DIVISIONS:
+            return _BODY_DIVISIONS[name]
+    return None
+
+
+def nearest_group(
+    collections: AbstractSet[str],
+    depth: "dict[str, int]",
+    groups: "dict[str, str]",
+) -> Optional[str]:
+    """The structure id of the innermost group collection containing this object.
+
+    §2.3 expected containment to be expressed by object parenting; the source expresses it
+    through collections instead, with `.g` objects standing in for them as structures.
+    Depth is how many collections enclose a collection, so the deepest match is the
+    nearest.
+    """
+    candidates = [(depth.get(name, 0), name) for name in collections if name in groups]
+    if not candidates:
+        return None
+    return groups[max(candidates)[1]]
+
+
 def system_for(collections: AbstractSet[str]) -> Optional[str]:
     """The lowest-numbered visibility layer the object belongs to.
 

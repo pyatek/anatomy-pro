@@ -58,3 +58,46 @@ def test_a_pack_can_require_a_region_and_a_system_together():
     assert not selection.is_included({"Trunk", "4: Muscular system"}, spec)
     # A skeletal object elsewhere in the body is in the system but not the region.
     assert not selection.is_included({"Bones of cranium", "1: Skeletal system"}, spec)
+
+
+def test_reads_the_region_from_the_body_division():
+    assert selection.region_for({"Trunk", "Body of rib", "1: Skeletal system"}) == "trunk"
+    assert selection.region_for({"Head", "Cranium"}) == "head"
+
+
+def test_a_region_does_not_carry_laterality():
+    # RegionId and Laterality are separate fields in §5, and for §8.1's "same region"
+    # distractor tier the two hands are one region, not two.
+    assert selection.region_for({"Left hand", "Bones of hand"}) == "hand"
+    assert selection.region_for({"Right upper limb"}) == "upper-limb"
+
+
+def test_has_no_region_when_the_object_is_in_no_body_division():
+    assert selection.region_for({"1: Skeletal system", "Bonus collection"}) is None
+
+
+def test_a_structure_spanning_regions_prefers_the_pack_s_own_region():
+    # A trunk pack must not label a rib "neck" merely because the object is also linked
+    # into the neck division. Which region a shared structure belongs to depends on the
+    # pack asking, so the pack's own division wins when the object is in it.
+    spanning = {"Trunk", "Neck", "1: Skeletal system"}
+    assert selection.region_for(spanning, preferred="trunk") == "trunk"
+    assert selection.region_for(spanning, preferred="head") in {"neck", "trunk"}
+
+
+def test_the_pack_region_is_read_from_its_own_specification():
+    assert selection.pack_region(selection.PackSpec("p", include=(), require=("Trunk", "1: Skeletal system"))) == "trunk"
+    assert selection.pack_region(selection.PackSpec("p", include=("Bones of thorax",))) is None
+
+
+def test_the_nearest_enclosing_group_becomes_the_parent():
+    # Z-Anatomy expresses containment through collections, not object parenting, and the
+    # `.g` group objects stand in for those collections as structures. The nearest one
+    # wins, measured by how deeply nested the collection is.
+    groups = {"Bones of thorax": "1105-costae-median", "Skeletal system": "9-skeleton-median"}
+    depth = {"Bones of thorax": 4, "Skeletal system": 2}
+    assert selection.nearest_group({"Bones of thorax", "Skeletal system"}, depth, groups) == "1105-costae-median"
+
+
+def test_an_object_in_no_known_group_has_no_parent():
+    assert selection.nearest_group({"Stray"}, {}, {"Bones of thorax": "x"}) is None

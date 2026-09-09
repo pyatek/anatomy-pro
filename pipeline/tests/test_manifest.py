@@ -6,7 +6,7 @@ def record(node, sid, tris, ta2_id="4205", latin="aorta_abdominalis"):
     return {
         "node_name": node, "structure_id": sid, "ta2_id": ta2_id,
         "english": "Abdominal aorta", "latin": latin, "definition": "A vessel.",
-        "system": "skeletal-system", "parent": None, "laterality": "M",
+        "system": "skeletal-system", "region": "trunk", "parent_structure": None, "laterality": "M",
         "discriminator": None, "triangles": tris, "source_object": node,
     }
 
@@ -54,3 +54,26 @@ def test_names_what_was_deliberately_not_done():
     # Without this the numbers get read as a final answer rather than a Phase 0 baseline.
     _, report = manifest.build("p", [record("a__b__M", "a-b-median", 10)])
     assert report["deferred"]
+
+
+def test_resolves_a_parent_node_to_the_parent_structure():
+    """§5 hierarchy is between structures, not nodes.
+
+    The exporter records a parent by node name because that is what Blender has; the
+    manifest has to translate it, or §8.1's sibling tier has nothing to group on.
+    """
+    child = record("child__x__M", "child-x-median", 10)
+    child["parent_structure"] = "parent-y-median"
+    parent = record("parent__y__M", "parent-y-median", 10)
+
+    doc, _ = manifest.build("p", [parent, child])
+    by_id = {s["structure_id"]: s for s in doc["structures"]}
+    assert by_id["child-x-median"]["parent_id"] == "parent-y-median"
+    assert by_id["parent-y-median"]["parent_id"] is None
+
+
+def test_a_parent_outside_the_pack_is_dropped_rather_than_dangling():
+    child = record("child__x__M", "child-x-median", 10)
+    child["parent_structure"] = "somewhere-else-median"
+    doc, _ = manifest.build("p", [child])
+    assert doc["structures"][0]["parent_id"] is None

@@ -23,6 +23,10 @@ DEFERRED = (
 
 
 def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
+    # A parent outside this pack resolves to nothing rather than to a dangling identifier
+    # the app would have to defend against.
+    present = {r["structure_id"] for r in records}
+
     structures: Dict[str, Dict[str, Any]] = {}
     for r in records:
         entry = structures.setdefault(
@@ -33,7 +37,9 @@ def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
                 "english": r["english"],
                 "latin": r["latin"],
                 "definition": r["definition"],
+                "parent_id": None,
                 "system": r["system"],
+                "region": r["region"],
                 "laterality": r["laterality"],
                 "nodes": [],
                 "triangles": 0,
@@ -41,6 +47,10 @@ def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
         )
         entry["nodes"].append(r["node_name"])
         entry["triangles"] += r["triangles"]
+        if entry["parent_id"] is None:
+            parent = r.get("parent_structure")
+            if parent and parent != r["structure_id"] and parent in present:
+                entry["parent_id"] = parent
 
     ordered = list(structures.values())
     total_triangles = sum(e["triangles"] for e in ordered)

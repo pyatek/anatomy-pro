@@ -1005,3 +1005,67 @@ therefore does not yet meet §12.
 
 **§16's exit criterion remains unmet, and is now purely a hardware question.** Every piece
 is built and tested; what is missing is a real phone of each kind to run it on.
+
+
+## 24. Addendum — 2026-09-09: core-data
+
+Phase 1's foundation. §5 said SQLDelight; this is Room, which now publishes real Kotlin
+Multiplatform artifacts (2.8.4, verified by resolving `room-runtime-iosarm64`) and brings
+KSP-checked queries and exported schemas that make a migration a reviewable diff.
+
+### 24.1 Content and review state are separate tables
+
+§5 models names, synonyms, definitions and verification alike, as per-locale maps. They
+behave differently: content is replaced wholesale when a pack updates, while verification
+is human review effort that §17 calls the project's scarcest resource.
+
+`structure_text` holds content. `structure_verification` holds review state and records a
+hash of the exact text that was approved. A pack update replaces text freely; a
+verification whose hash no longer matches stops satisfying the query that authorises quiz
+answers, so it reads as stale rather than as either lost or — worse — still valid. §7
+makes VERIFIED the gate on quiz answers, and a stale approval surviving an edit is exactly
+how a wrong name becomes a question that teaches something false.
+
+The hash is FNV-1a written out in `PackIngest`, not `hashCode`, so its value is defined by
+this project rather than by a compiler that is free to change it.
+
+### 24.2 §8.1 needs no hierarchy machinery
+
+Each difficulty tier is one predicate over one indexed column: easy is a different
+`systemId`, medium is the same `regionId` under a different `parentId`, hard is the same
+`parentId`. Neither a closure table nor recursive CTEs are warranted.
+
+### 24.3 Metadata outlives meshes
+
+§11 syncs structure metadata independently of packs and §14 evicts packs under memory
+pressure, so eviction clears the `pack` row's install state and mesh files while every
+`structure` row stays. A structure remains findable when its geometry is not resident,
+which is also what §10's paywall wants.
+
+### 24.4 What the source could not supply
+
+**Region was wrong before it was right.** Structures span body divisions — a muscle runs
+from neck to trunk — while §5 carries a single `regionId`. Picking alphabetically gave a
+trunk pack structures labelled `head` and `neck`. A region-scoped pack now claims its own
+division, which is deterministic and meaningful; an unscoped pack still picks arbitrarily.
+
+**The hierarchy is not where §2.3 expected it.** That section assumed nodes are parented
+to reflect containment. Blender object parenting is unused in the source; containment is
+expressed through collections. `.g` group objects stand in for some collections as
+structures, so parents can be derived where one exists — but they are sparse, and the
+skeletal trunk pack contains none at all. **`parentId` is therefore empty for all 86
+structures in it, and §8.1's hard tier has nothing to group on.** Resolving this needs a
+decision, recorded in §18 rather than settled here.
+
+**No Polish, no synonyms.** Latin and English come from TA2; the schema holds the rest and
+nothing fills it.
+
+### 24.5 Deferred
+
+Search is a plain indexed table queried with `LIKE` over accent-folded terms rather than
+FTS4: Room's `@Fts4` fails to resolve its own default `contentEntity` under KSP on Kotlin
+Multiplatform. At a few thousand rows this is not the bottleneck, and keeping search in
+its own table makes adopting FTS a contained migration.
+
+No verification audit trail. §7 wants edit history for the reviewer tool, which has no UI
+yet; `verifiedAt` plus the hash covers staleness, and history is an additive migration.
