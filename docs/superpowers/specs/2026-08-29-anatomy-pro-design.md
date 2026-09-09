@@ -927,6 +927,7 @@ Filament's own `denoisedGpuFrameDuration`.
 | `skeletal-trunk` | 86 | 294k | 116 | 7.8 ms | 8.3 ms |
 | `muscular-trunk-lod` | 205 | 249k | 89 | 11.1 ms | 12.7 ms |
 | `muscular-trunk` | 205 | 516k | 75 | 12.9 ms | 14.2 ms |
+| `skeletal-body` | 277 | 523k | 62 | 16.6 ms | 17.3 ms |
 | `trunk-all-systems` | 599 | 1,293k | 43 | 23.3 ms | 25.4 ms |
 
 **Method matters more than it looks.** An earlier pass took one screenshot per
@@ -950,6 +951,19 @@ decimation is a secondary one.
 - `muscular-trunk` at 12.9 ms passes on a flagship with about 23% to spare. §16 specifies
   a mid-range device; at half this throughput it lands near 26 ms, or about 38 fps.
 - `trunk-all-systems` at 23.3 ms fails everywhere, as expected of a stress case.
+
+**A whole-body view sits exactly on the limit.** Every pack above is scoped to the trunk,
+because §16 asks for one region; the source divides the body into head, neck, trunk, both
+limbs, both hands and both feet. A whole-body skeleton is 277 structures and renders at
+16.6 ms — level with the 16.7 ms a 60 fps frame allows, on a flagship. That makes §6.1's
+"load only the active region and system" a requirement rather than a preference: a
+full-body overview is affordable on current high-end hardware and not on the device class
+§16 specifies.
+
+Worth noting for content work: the whole-body skeletal selection is 622 objects but only
+277 structures, because 344 of them are the zero-geometry `.i` anchors that pair with the
+`.s` landmark surfaces. They are dropped because nothing without triangles can be drawn or
+picked.
 
 So the Android half of the gate is comfortable for the skeletal pack and unproven for the
 largest single system. Neither LOD generation nor merging is clearly indicated yet: the
