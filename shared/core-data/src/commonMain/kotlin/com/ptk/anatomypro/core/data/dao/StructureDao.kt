@@ -45,6 +45,10 @@ interface StructureDao {
     @Query("SELECT * FROM structure WHERE packId = :packId ORDER BY id")
     suspend fun structuresInPack(packId: String): List<StructureEntity>
 
+    /** The taxonomy children of a structure, for atlas navigation and the encyclopedia. */
+    @Query("SELECT * FROM structure WHERE parentId = :id ORDER BY id")
+    suspend fun children(id: String): List<StructureEntity>
+
     @Query("SELECT * FROM pack WHERE id = :id")
     suspend fun pack(id: String): PackEntity?
 

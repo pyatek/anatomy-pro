@@ -34,6 +34,20 @@ private val MANIFEST = """
       "laterality": "M",
       "nodes": ["361__cingulum_pectorale__M__a", "361__cingulum_pectorale__M__b"],
       "triangles": 900
+    },
+    {
+      "structure_id": "1105-costae-median",
+      "ta2_id": "1105",
+      "english": "Ribs",
+      "latin": "Costae",
+      "definition": null,
+      "system": "skeletal-system",
+      "region": "trunk",
+      "parent_id": null,
+      "laterality": "M",
+      "is_group": true,
+      "nodes": [],
+      "triangles": 0
     }
   ]
 }
@@ -87,6 +101,23 @@ class PackIngestTest {
         val terms = rows.search.filter { it.structureId == "1168-clavicula-left" }.map { it.normalised }
         assertTrue("clavicula" in terms, "expected folded latin name, got $terms")
         assertTrue("clavicle" in terms, "expected folded english name, got $terms")
+    }
+
+    @Test
+    fun marks_a_grouping_collection_as_a_group() {
+        // Groups are navigable and readable but draw nothing, so they must be
+        // distinguishable from a structure whose pack merely is not installed.
+        val ribs = rows.structures.single { it.id == "1105-costae-median" }
+        assertTrue(ribs.isGroup)
+        assertTrue(rows.meshRefs.none { it.structureId == "1105-costae-median" })
+        assertTrue(rows.structures.single { it.id == "1168-clavicula-left" }.isGroup.not())
+    }
+
+    @Test
+    fun a_group_is_still_searchable_and_readable() {
+        // The encyclopedia entry for "the ribs" is exactly this row.
+        assertTrue(rows.search.any { it.structureId == "1105-costae-median" && it.normalised == "costae" })
+        assertEquals("Ribs", rows.text.single { it.structureId == "1105-costae-median" && it.locale == "en" }.name)
     }
 
     @Test

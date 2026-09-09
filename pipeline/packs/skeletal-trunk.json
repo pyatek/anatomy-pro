@@ -1,6 +1,9 @@
 {
   "pack_id": "skeletal-trunk",
-  "require": ["Trunk", "1: Skeletal system"],
+  "require": [
+    "Trunk",
+    "1: Skeletal system"
+  ],
   "exclude": [],
-  "max_triangles_per_structure": 5000
+  "max_triangles_per_structure": 1200
 }

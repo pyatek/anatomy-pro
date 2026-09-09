@@ -77,3 +77,53 @@ def test_a_parent_outside_the_pack_is_dropped_rather_than_dangling():
     child["parent_structure"] = "somewhere-else-median"
     doc, _ = manifest.build("p", [child])
     assert doc["structures"][0]["parent_id"] is None
+
+
+def group(sid, english, parent=None):
+    return {
+        "structure_id": sid, "ta2_id": "1105", "english": english,
+        "latin": "Costae", "definition": None, "system": "skeletal-system",
+        "region": "trunk", "parent_id": parent, "laterality": "M",
+    }
+
+
+def test_group_structures_appear_with_no_geometry_of_their_own():
+    """A grouping collection is a structure you can read about and navigate to.
+
+    It carries no mesh refs: its geometry is its descendants', and duplicating that here
+    would make mesh_ref rows that do not correspond to any node (spec §5).
+    """
+    doc, _ = manifest.build(
+        "p",
+        [record("1107__costa_prima__L", "1107-costa-prima-left", 900)],
+        groups=[group("1105-costae-median", "Ribs")],
+    )
+    by_id = {s["structure_id"]: s for s in doc["structures"]}
+    ribs = by_id["1105-costae-median"]
+    assert ribs["nodes"] == []
+    assert ribs["triangles"] == 0
+    assert ribs["is_group"] is True
+    assert by_id["1107-costa-prima-left"]["is_group"] is False
+
+
+def test_groups_are_counted_apart_from_drawable_structures():
+    # The §6.1 budget is about what renders; a group draws nothing and must not inflate
+    # the draw-call estimate.
+    _, report = manifest.build(
+        "p",
+        [record("a__b__M", "a-b-median", 900)],
+        groups=[group("1105-costae-median", "Ribs")],
+    )
+    assert report["objects"]["structures"] == 1
+    assert report["objects"]["groups"] == 1
+    assert report["budget"]["draw_calls"]["estimate"] == 1
+
+
+def test_a_leaf_may_be_parented_to_a_group():
+    # The whole point of synthesising groups: they are what leaves hang from. Validating
+    # a parent only against other leaves silently discards every one of those links.
+    child = record("1107__costa_prima__L", "1107-costa-prima-left", 900)
+    child["parent_structure"] = "1105-costae-median"
+    doc, _ = manifest.build("p", [child], groups=[group("1105-costae-median", "Ribs")])
+    leaf = next(s for s in doc["structures"] if s["structure_id"] == "1107-costa-prima-left")
+    assert leaf["parent_id"] == "1105-costae-median"

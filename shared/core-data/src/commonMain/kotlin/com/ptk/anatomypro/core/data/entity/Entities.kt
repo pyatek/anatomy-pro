@@ -30,6 +30,12 @@ data class StructureEntity(
     val regionId: String?,
     val laterality: String,
     val packId: String,
+    /**
+     * A grouping collection promoted to a structure: navigable and readable, but drawing
+     * nothing of its own. Explicit rather than inferred from having no mesh refs, which
+     * an evicted pack would also look like.
+     */
+    val isGroup: Boolean,
 )
 
 /**

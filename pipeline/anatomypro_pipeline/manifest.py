@@ -22,10 +22,15 @@ DEFERRED = (
 )
 
 
-def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
+def build(
+    pack_id: str,
+    records: Sequence[Dict[str, Any]],
+    groups: Sequence[Dict[str, Any]] = (),
+) -> Tuple[Dict, Dict]:
     # A parent outside this pack resolves to nothing rather than to a dangling identifier
-    # the app would have to defend against.
-    present = {r["structure_id"] for r in records}
+    # the app would have to defend against. Groups count as present: they are precisely
+    # what leaves are parented to.
+    present = {r["structure_id"] for r in records} | {g["structure_id"] for g in groups}
 
     structures: Dict[str, Dict[str, Any]] = {}
     for r in records:
@@ -38,6 +43,7 @@ def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
                 "latin": r["latin"],
                 "definition": r["definition"],
                 "parent_id": None,
+                "is_group": False,
                 "system": r["system"],
                 "region": r["region"],
                 "laterality": r["laterality"],
@@ -52,16 +58,41 @@ def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
             if parent and parent != r["structure_id"] and parent in present:
                 entry["parent_id"] = parent
 
-    ordered = list(structures.values())
+    # Grouping collections are structures without geometry: navigable, readable, and
+    # usable as §8.1's parent for grouping siblings, but never drawn.
+    drawable = list(structures.values())
+    grouped = [
+        {
+            "structure_id": g["structure_id"],
+            "ta2_id": g["ta2_id"],
+            "english": g["english"],
+            "latin": g["latin"],
+            "definition": g["definition"],
+            "system": g["system"],
+            "region": g["region"],
+            "laterality": g["laterality"],
+            "parent_id": g["parent_id"],
+            "is_group": True,
+            "nodes": [],
+            "triangles": 0,
+        }
+        for g in groups
+    ]
+
+    ordered = drawable
     total_triangles = sum(e["triangles"] for e in ordered)
     matched = sum(1 for e in ordered if e["ta2_id"])
     counts = [e["triangles"] for e in ordered] or [0]
 
-    document = {"pack_id": pack_id, "structures": ordered}
+    document = {"pack_id": pack_id, "structures": drawable + grouped}
 
     report = {
         "pack_id": pack_id,
-        "objects": {"nodes": len(records), "structures": len(ordered)},
+        "objects": {
+            "nodes": len(records),
+            "structures": len(ordered),
+            "groups": len(grouped),
+        },
         "join": {
             "matched": matched,
             "unmatched": len(ordered) - matched,
@@ -88,6 +119,14 @@ def build(pack_id: str, records: Sequence[Dict[str, Any]]) -> Tuple[Dict, Dict]:
                 "under_minimum": sum(1 for c in counts if c < TRIANGLES_PER_STRUCTURE[0]),
                 "over_maximum": sum(1 for c in counts if c > TRIANGLES_PER_STRUCTURE[1]),
             },
+        },
+        # What the source actually carries, before decimation. A detail view loads this,
+        # so its distribution decides whether "undecimated" needs a ceiling.
+        "source_triangles": {
+            "total": sum(r.get("source_triangles", 0) for r in records),
+            "max": max((r.get("source_triangles", 0) for r in records), default=0),
+            "median": int(statistics.median([r.get("source_triangles", 0) for r in records] or [0])),
+            "over_100k": sum(1 for r in records if r.get("source_triangles", 0) > 100_000),
         },
         "unmatched_terms": sorted(e["english"] for e in ordered if not e["ta2_id"]),
         "deferred": list(DEFERRED),

@@ -52,6 +52,7 @@ object PackIngest {
                 regionId = entry.region,
                 laterality = entry.laterality,
                 packId = packId,
+                isGroup = entry.isGroup,
             )
 
             entry.latin?.let { text += textRow(entry, LOCALE_LATIN, it) }
@@ -144,6 +145,7 @@ object PackIngest {
         val region: String? = null,
         @SerialName("parent_id") val parentId: String? = null,
         val laterality: String,
+        @SerialName("is_group") val isGroup: Boolean = false,
         val nodes: List<String> = emptyList(),
     )
 }

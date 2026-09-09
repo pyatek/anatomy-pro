@@ -1,6 +1,9 @@
 {
   "pack_id": "muscular-trunk",
-  "require": ["Trunk", "4: Muscular system"],
+  "require": [
+    "Trunk",
+    "4: Muscular system"
+  ],
   "exclude": [],
-  "max_triangles_per_structure": 5000
+  "max_triangles_per_structure": 1200
 }

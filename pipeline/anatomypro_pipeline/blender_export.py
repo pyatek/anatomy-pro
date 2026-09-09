@@ -29,6 +29,11 @@ def parse_args(argv):
     parser.add_argument("--ta2", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--draco", action="store_true")
+    parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Also emit one undecimated glTF per structure for close inspection.",
+    )
     return parser.parse_args(argv)
 
 
@@ -87,6 +92,11 @@ def definition_of(core_name):
 #: Below this a collapse tends to destroy the shape rather than simplify it.
 DECIMATE_RATIO_FLOOR = 0.002
 
+#: A detail mesh is the source geometry. The ceiling only guards against outliers in
+#: systems that have not been profiled; nothing in the skeletal or muscular packs comes
+#: close, where the densest single structure is about 41k triangles.
+DETAIL_TRIANGLE_CEILING = 150_000
+
 
 def triangle_count(obj):
     """Triangles after modifiers, which is what actually reaches the exporter."""
@@ -118,6 +128,64 @@ def decimate(obj, target):
     # cannot reach the target within it is reported rather than silently left oversized.
     modifier.ratio = max(DECIMATE_RATIO_FLOOR, target / float(before))
     return before, triangle_count(obj)
+
+
+#: Collections describing where a structure is rather than what it is part of. Region is
+#: already its own field in §5, and letting it double as the taxonomy parent buries good
+#: groupings — a vertebra's useful siblings are the other vertebrae, not the 37 unrelated
+#: things that also happen to be in the thorax.
+_REGION_AXIS = {"Regions of human body", "9: Regions of human body", "Main divisions"}
+
+
+def collection_groups(table, closure, present_collections):
+    """Grouping collections that are themselves structures.
+
+    A collection qualifies when it holds geometry in this pack and its name resolves to a
+    Terminologia term. That join doubles as the filter: `Bonus collection` and
+    `Cross section planes` do not resolve, so they never become structures, and their
+    children attach to the next collection that does.
+    """
+    groups = {}
+    for name in present_collections:
+        if closure.get(name, {name}) & _REGION_AXIS:
+            continue
+        entry = table.lookup(name)
+        if not entry:
+            continue
+        groups[name] = naming.structure_id(
+            ta2.code_for(entry.ta2_id), naming.slugify(entry.latin), "M"
+        )
+    return groups
+
+
+def export_detail_meshes(chosen, structure_of_object, out_directory):
+    """One glTF per structure, at source density, for close inspection.
+
+    Written before decimation runs, because after it the source geometry is gone. A
+    structure modelled as several objects gets them all in one file.
+    """
+    directory = os.path.join(out_directory, "detail")
+    os.makedirs(directory, exist_ok=True)
+
+    by_structure = {}
+    for obj, _, _ in chosen:
+        by_structure.setdefault(structure_of_object[obj.name], []).append(obj)
+
+    for structure, objects in by_structure.items():
+        triangles = sum(triangle_count(o) for o in objects)
+        if triangles == 0 or triangles > DETAIL_TRIANGLE_CEILING:
+            continue
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in objects:
+            o.select_set(True)
+        bpy.ops.export_scene.gltf(
+            filepath=os.path.join(directory, f"{structure}.glb"),
+            export_format="GLB",
+            use_selection=True,
+            export_apply=True,
+            export_yup=True,
+        )
+    print(f"[pipeline] wrote {len(by_structure)} detail meshes")
 
 
 def main():
@@ -152,16 +220,12 @@ def main():
 
     print(f"[pipeline] {len(chosen)} mesh objects selected for {spec.pack_id}")
 
-    # `.g` objects stand in for collections as structures, so a collection with a group
-    # object can be a parent. Built before the main pass because a child needs its
-    # parent's identifier, whatever order the objects come in.
-    groups = {}
-    for obj, parsed, _ in chosen:
-        if parsed.discriminator == "g":
-            entry = table.lookup(parsed.core)
-            code = ta2.code_for(entry.ta2_id) if entry else "ZAN"
-            slug = naming.slugify(entry.latin if entry else parsed.core)
-            groups[parsed.core] = naming.structure_id(code, slug, parsed.laterality)
+    # The taxonomy comes from collections, not from object parenting, which the source
+    # does not use, nor from `.g` objects, which are too sparse to parent a whole pack.
+    present_collections = set()
+    for _, _, collections in chosen:
+        present_collections |= collections
+    group_ids = collection_groups(table, closure, present_collections)
 
     provisional = []
     for obj, parsed, collections in chosen:
@@ -170,6 +234,17 @@ def main():
         slug = naming.slugify(entry.latin if entry else parsed.core)
         provisional.append(naming.node_name(code, slug, parsed.laterality, parsed.discriminator))
     unique = naming.deduplicate(provisional)
+    structure_of_object = {
+        obj.name: naming.structure_id(
+            ta2.code_for(table.lookup(parsed.core).ta2_id) if table.lookup(parsed.core) else "ZAN",
+            naming.slugify(table.lookup(parsed.core).latin if table.lookup(parsed.core) else parsed.core),
+            parsed.laterality,
+        )
+        for (obj, parsed, _), _ in zip(chosen, unique)
+    }
+
+    if args.detail:
+        export_detail_meshes(chosen, structure_of_object, os.path.join(args.out, spec.pack_id))
 
     bpy.ops.object.select_all(action="DESELECT")
     records = []
@@ -195,9 +270,7 @@ def main():
             "definition": definition_of(parsed.core),
             "system": selection.system_for(collections),
             "region": selection.region_for(collections, preferred=region),
-            "parent_structure": selection.nearest_group(
-                collections - {parsed.core}, depth, groups
-            ),
+            "parent_structure": selection.nearest_group(collections, depth, group_ids),
             "laterality": parsed.laterality,
             "discriminator": parsed.discriminator,
             "triangles": triangles,
@@ -219,7 +292,27 @@ def main():
         export_yup=True,
     )
 
-    document, report = manifest.build(spec.pack_id, records)
+    # A group's own parent is the nearest matched collection above it, so the taxonomy
+    # nests rather than flattening onto whatever matched first.
+    group_rows = []
+    for name, structure in group_ids.items():
+        entry = table.lookup(name)
+        parent = selection.nearest_group(
+            closure.get(name, {name}) - {name}, depth, group_ids
+        )
+        group_rows.append({
+            "structure_id": structure,
+            "ta2_id": entry.ta2_id,
+            "english": entry.english,
+            "latin": entry.latin,
+            "definition": definition_of(name),
+            "system": None,
+            "region": region,
+            "laterality": "M",
+            "parent_id": parent if parent != structure else None,
+        })
+
+    document, report = manifest.build(spec.pack_id, records, groups=group_rows)
     report["skipped_empty"] = sorted(empty)
     report["decimation_floor_reached"] = sorted(
         {r["english"] for r in records if r["triangles"] > target}

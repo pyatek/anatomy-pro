@@ -1057,6 +1057,9 @@ skeletal trunk pack contains none at all. **`parentId` is therefore empty for al
 structures in it, and §8.1's hard tier has nothing to group on.** Resolving this needs a
 decision, recorded in §18 rather than settled here.
 
+**Resolved 2026-09-09 — see §25.** Grouping collections are now synthesised as
+structures, which supplies the hierarchy.
+
 **No Polish, no synonyms.** Latin and English come from TA2; the schema holds the rest and
 nothing fills it.
 
@@ -1069,3 +1072,67 @@ its own table makes adopting FTS a contained migration.
 
 No verification audit trail. §7 wants edit history for the reviewer tool, which has no UI
 yet; `verifiedAt` plus the hash covers staleness, and history is an additive migration.
+
+
+## 25. Addendum — 2026-09-09: group structures and detail meshes
+
+Two changes that turned out to depend on each other.
+
+### 25.1 Grouping collections become structures
+
+§24.4 left `parentId` empty because containment lives in collections and the `.g` group
+objects that stand in for some of them are too sparse to parent a pack. A collection is
+now promoted to a structure when it holds geometry in the pack **and** its name resolves
+to a Terminologia term.
+
+That join doubles as the filter. `Bonus collection`, `Cross section planes` and
+`Main divisions` do not resolve and never become structures; their children attach to the
+next collection that does. Across the whole atlas 1,944 collections reduce to 458 holding
+real geometry, of which 421 (92%) resolve.
+
+Collections on the **region axis are excluded** even when they resolve. Region is already
+its own field in §5, and letting it double as the taxonomy parent buries the useful
+groupings: with `Thorax` eligible, 37 unrelated bones became siblings; without it, the
+sibling sets are `Costal cartilages` (20), `Ribs` (14), `Thoracic vertebrae` (12),
+`Cervical vertebrae` (7). §8.1's hard tier wants the second kind.
+
+A group carries no `meshRefs`. Its geometry is its descendants', and duplicating that
+would produce `mesh_ref` rows corresponding to no node. `core-data` marks it with an
+explicit `isGroup` column rather than inferring it from having no refs, which an evicted
+pack would also look like.
+
+Skeletal trunk now reads, for every one of its 86 leaves:
+`Atlas (C1) → Cervical vertebrae → Bones of vertebral column → Vertebral column →
+Skeletal system`.
+
+This is also the encyclopedia's spine: a group is a thing to read about, not merely a
+grouping.
+
+### 25.2 Detail meshes, and why they let the overview get cheaper
+
+Selecting a structure loads `detail/<structure_id>.glb` — that structure alone, at source
+density — into a second renderer. No renderer change was needed: a detail view is
+`loadPack` with a one-structure `MeshSource`.
+
+Measuring the source first changed the design. Z-Anatomy's meshes are already modest:
+median 3,309 triangles for skeletal and 1,980 for muscular, the densest single structure
+41,410, and **nothing over 100k**. So a detail mesh needs no real ceiling — 150k guards
+only against systems not yet profiled.
+
+It also showed that decimation at 5,000 was barely doing anything: most structures were
+already under the cap and passed through untouched, which made a detail mesh nearly
+identical to its overview counterpart and therefore pointless.
+
+The two changes only pay off together. **Because close inspection no longer depends on the
+overview mesh, the overview target drops from 5,000 to 1,200 triangles.** Skeletal trunk
+goes from 293,645 triangles and 4.9 MB to 100,747 and 1.9 MB, with 86 detail meshes adding
+8.2 MB that are only fetched when something is selected. Measured earlier, that class of
+reduction was worth 12.9 ms → 11.1 ms at 205 structures.
+
+Detail generation is behind `--detail` so an ordinary run does not emit thousands of files
+while the design is still moving.
+
+### 25.3 Unmeasured
+
+The 1,200 figure has not been checked visually at region zoom, and the retargeted packs
+have not been run on hardware — the Pixel was disconnected when they were built.

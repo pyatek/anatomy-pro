@@ -1,6 +1,9 @@
 {
   "pack_id": "visceral-trunk",
-  "require": ["Trunk", "8: Visceral systems"],
+  "require": [
+    "Trunk",
+    "8: Visceral systems"
+  ],
   "exclude": [],
-  "max_triangles_per_structure": 5000
+  "max_triangles_per_structure": 1200
 }

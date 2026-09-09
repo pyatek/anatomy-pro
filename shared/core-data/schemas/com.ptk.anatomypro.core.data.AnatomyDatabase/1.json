@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "3c3ce34e8e51f57070452f408f2b96ac",
+    "identityHash": "befe34e469de56e0ef8aa3e601ed00a2",
     "entities": [
       {
         "tableName": "structure",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `taCode` TEXT, `parentId` TEXT, `systemId` TEXT, `regionId` TEXT, `laterality` TEXT NOT NULL, `packId` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `taCode` TEXT, `parentId` TEXT, `systemId` TEXT, `regionId` TEXT, `laterality` TEXT NOT NULL, `packId` TEXT NOT NULL, `isGroup` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -44,6 +44,12 @@
             "fieldPath": "packId",
             "columnName": "packId",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isGroup",
+            "columnName": "isGroup",
+            "affinity": "INTEGER",
             "notNull": true
           }
         ],
@@ -341,7 +347,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3c3ce34e8e51f57070452f408f2b96ac')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'befe34e469de56e0ef8aa3e601ed00a2')"
     ]
   }
 }
