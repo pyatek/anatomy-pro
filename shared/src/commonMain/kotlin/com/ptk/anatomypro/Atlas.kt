@@ -10,6 +10,8 @@ import com.ptk.anatomypro.core.data.AnatomyDatabase
 import com.ptk.anatomypro.core.data.PackInstaller
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomAtlasRepository
+import com.ptk.anatomypro.core.data.repository.RoomSettingsRepository
+import com.ptk.anatomypro.core.data.repository.SettingsRepository
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.renderer.api.MeshSource
 
@@ -52,4 +54,11 @@ fun rememberAtlas(): AtlasDependencies? {
         dependencies = AtlasDependencies(pack, RoomAtlasRepository(database))
     }
     return dependencies
+}
+
+/** Settings live in the same database, so they open with it and need no second store. */
+@Composable
+fun rememberSettingsRepository(): SettingsRepository {
+    val database = rememberAnatomyDatabase()
+    return remember(database) { RoomSettingsRepository(database) }
 }

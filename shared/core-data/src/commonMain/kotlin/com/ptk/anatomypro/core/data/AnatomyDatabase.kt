@@ -4,9 +4,11 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import com.ptk.anatomypro.core.data.dao.PreferenceDao
 import com.ptk.anatomypro.core.data.dao.StructureDao
 import com.ptk.anatomypro.core.data.entity.MeshRefEntity
 import com.ptk.anatomypro.core.data.entity.PackEntity
+import com.ptk.anatomypro.core.data.entity.PreferenceEntity
 import com.ptk.anatomypro.core.data.entity.StructureEntity
 import com.ptk.anatomypro.core.data.entity.StructureSearchEntity
 import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
@@ -22,13 +24,15 @@ import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
         StructureVerificationEntity::class,
         PackEntity::class,
         StructureSearchEntity::class,
+        PreferenceEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @ConstructedBy(AnatomyDatabaseConstructor::class)
 abstract class AnatomyDatabase : RoomDatabase() {
     abstract fun structures(): StructureDao
+    abstract fun preferences(): PreferenceDao
 }
 
 /** Room generates the actual per platform; the expect declaration has no body by design. */

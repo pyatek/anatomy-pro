@@ -37,6 +37,7 @@ fun AtlasScreen(
     onRowToggled: (StructureId) -> Unit,
     onRowSelected: (StructureSummary) -> Unit,
     modifier: Modifier = Modifier,
+    latinOnly: Boolean = false,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         canvas(Modifier.fillMaxWidth().weight(1f))
@@ -58,6 +59,7 @@ fun AtlasScreen(
                         isSelected = state.selected == row.summary.id,
                         onToggle = { onRowToggled(row.summary.id) },
                         onSelect = { onRowSelected(row.summary) },
+                        latinOnly = latinOnly,
                     )
                 }
             }
@@ -71,6 +73,7 @@ private fun TaxonomyRow(
     isSelected: Boolean,
     onToggle: () -> Unit,
     onSelect: () -> Unit,
+    latinOnly: Boolean,
 ) {
     val background =
         if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
@@ -96,13 +99,15 @@ private fun TaxonomyRow(
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = row.summary.name,
+                text = if (latinOnly) row.summary.latinName ?: row.summary.name else row.summary.name,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
             )
-            row.summary.latinName
-                ?.takeIf { it != row.summary.name }
-                ?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+            if (!latinOnly) {
+                row.summary.latinName
+                    ?.takeIf { it != row.summary.name }
+                    ?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+            }
         }
     }
 }

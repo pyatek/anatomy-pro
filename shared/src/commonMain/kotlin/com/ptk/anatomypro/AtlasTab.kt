@@ -49,7 +49,7 @@ private sealed interface AtlasRoute {
 }
 
 @Composable
-fun AtlasTab(locale: String = "en") {
+fun AtlasTab(locale: String, latinOnly: Boolean) {
     val atlas = rememberAtlas()
 
     if (atlas == null) {
@@ -66,6 +66,7 @@ fun AtlasTab(locale: String = "en") {
             repository = atlas.repository,
             packKey = atlas.pack.id.value,
             locale = locale,
+            latinOnly = latinOnly,
             onSearch = { route = AtlasRoute.Search },
             onOpenDetail = { route = AtlasRoute.Detail(it) },
         )
@@ -108,6 +109,7 @@ private fun BrowseRoute(
     repository: AtlasRepository,
     packKey: String,
     locale: String,
+    latinOnly: Boolean,
     onSearch: () -> Unit,
     onOpenDetail: (StructureId) -> Unit,
 ) {
@@ -143,6 +145,7 @@ private fun BrowseRoute(
                     onStats = { stats = it },
                 )
             },
+            latinOnly = latinOnly,
             onRowToggled = model::onRowToggled,
             onRowSelected = { summary ->
                 model.onRowSelected(summary)

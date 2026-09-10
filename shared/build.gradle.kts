@@ -54,6 +54,7 @@ kotlin {
             api(project(":shared:core-data"))
             api(project(":shared:feature-atlas"))
             api(project(":shared:feature-search"))
+            api(project(":shared:feature-settings"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
