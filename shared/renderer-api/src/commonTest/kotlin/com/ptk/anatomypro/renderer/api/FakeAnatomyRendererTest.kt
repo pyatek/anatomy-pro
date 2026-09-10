@@ -42,7 +42,6 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
 class FakeAnatomyRendererTest {
 
     private val pack = PackId("skeletal-thorax")
-    private val scapula = StructureId("a02-4-01-001-scapula-left")
     private val source = MeshSource("file:///packs/skeletal-thorax.glb")
 
     @Test
