@@ -1,18 +1,13 @@
 # State of play — 2026-09-10
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–25 there are the running record of what was actually built and why. This file is
+sections 20–26 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
 
-**26 commits sit on `phase0/ios-filament-host` and `main` is still at the Phase 0 module
-slice.** That branch now contains all of Phase 0 and most of Phase 1 — both renderers, the
-content pipeline, `core-data`, and five screens. The name stopped describing it around
-commit three.
-
-Merge it to `main` before doing anything else. Continuing to stack Phase 1 work on a branch
-named after a retired Phase 0 risk will only get more confusing.
+Nothing, for now. The merge this section used to demand is done: `main` carries all 26
+commits, `phase0/ios-filament-host` holds nothing `main` lacks, and `origin/main` agrees.
 
 ## What exists
 
@@ -45,15 +40,21 @@ Not verified, in rough order of how much it matters:
 
 ## What to do next
 
-**Transparent material variants.** This is the argument for doing it first: it unblocks the
-layer/system panel (prototype screen 07, and the last Phase 1 atlas feature) *and* closes
-§12, which has been open since Phase 0. `setOpacity` and `isolate` are `TODO()` on both
-platforms for the same reason — Filament bakes blending into the material, so a second
-material is needed rather than a parameter change. §12's outline highlighting is the same
-shader work, and doing both together is cheaper than either alone.
+**Transparent material variants — designed in §26, not yet built.** This is what unblocks
+the layer/system panel (prototype screen 07, the last Phase 1 atlas feature).
 
-§12 matters more than it looks: highlighting is colour and luminance only today, and Phase 2
-puts correct/wrong feedback directly on top of it.
+§26 splits it from §12's outline highlighting, which this file previously bundled with it.
+That bundling was wrong: the blended variant needs no shader at all — `gltfio`'s
+`MaterialProvider.MaterialKey` carries `alphaMode`, and the `UbershaderProvider` already in
+use vends a `BLEND` variant on request. §12 does need shaders, plus `matc`, which is not on
+this machine. Holding screen 07 behind that is the cost the bundle was hiding.
+
+The design also *removes* two renderer verbs rather than implementing them: `isolate` and
+`setSystemVisibility` are policy, and policy belongs in `feature-atlas` where §25.1's
+taxonomy is reachable. Screen 07 comes out fully unblocked, per-system toggles included.
+
+**Then §12, solid outlines only.** Dashed waits for Phase 2 to need it. Until §12 lands,
+highlighting is colour and luminance only and the quiz must not be built on it.
 
 **Then the quiz (Phase 2).** The data is ready. §8.1's three difficulty tiers are each one
 predicate over one indexed column, and the synthesised taxonomy gives the hard tier real

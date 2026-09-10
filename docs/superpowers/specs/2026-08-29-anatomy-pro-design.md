@@ -1205,3 +1205,156 @@ it.
 
 That also disposes of §25.4's proposed mechanism: vertex cache locality was a plausible
 explanation for a slowdown that was not real.
+
+---
+
+## 26. Addendum — 2026-09-10: transparency, and the interface it removes
+
+`docs/state-of-play.md` proposed transparent material variants and §12's outline
+highlighting as one piece of shader work, on the argument that both are material changes
+and doing them together is cheaper than either alone. That was wrong about the first half.
+This section records the design that replaces it, and the measurements of the toolchain
+that forced the split.
+
+This is a design, not a record of built work. §26.7 says what exists.
+
+### 26.1 The blended variant needs no shader
+
+Filament does bake blending into the material, so a second material is genuinely required.
+But the second material is already in the box: `gltfio`'s `MaterialProvider.MaterialKey`
+carries `alphaMode` — `0 = OPAQUE, 1 = MASK, 2 = BLEND` — and `createMaterialInstance` is
+public on both platforms. The `UbershaderProvider` the renderer already constructs vends a
+blended variant on request. Verified in the shipped `gltfio-android-1.75.1` sources and in
+`gltfio/MaterialProvider.h` for the iOS side.
+
+So transparency is a Kotlin and Objective-C++ change with no new build artifact.
+
+§12 is the opposite. Outline geometry needs custom `.mat` files and a `matc` step, and
+`matc` is not present: `ios-renderer/build/filament/` is the iOS binary release, `include`
+and `lib` only, with no host tools. That is a new tool dependency and a new build stage on
+top of the shader work itself. Bundling it with transparency would hold screen 07 hostage
+to it.
+
+The two are therefore split. Transparency ships first and alone.
+
+### 26.2 The interface loses two verbs
+
+Isolation is now specified as: **the selected structure opaque, its immediate context
+ghosted, everything else hidden.** Not per-system opacity, and not a low-alpha veil over
+the whole region. The reason is §23.9 — `skeletal-body` already measures 16.8 ms against a
+16.7 ms frame, and blended geometry does not get the depth-prepass rejection that opaque
+geometry does. Bounding the blended set is the difference between this being free and this
+being the thing that breaks the budget. Hiding the remainder *removes* draws.
+
+That definition is a policy, and the taxonomy it needs — §25.1's parent groups — lives in
+`core-data`. §4 gives the renderer geometry and picking and nothing else, so the policy
+belongs in `feature-atlas` and the renderer is told only the resulting sets:
+
+```kotlin
+// removed: isolate(structure, ghostNeighbours)   — composed in feature-atlas
+// removed: setSystemVisibility(system, visible)  — core-data knows a system's structures
+fun setVisibility(structures: Set<StructureId>, visible: Boolean)
+fun setOpacity(structures: Set<StructureId>, alpha: Float)
+fun highlight(structures: Set<StructureId>, style: HighlightStyle)   // unchanged
+```
+
+Three of §21.5's throwing methods become two implemented verbs, and `SystemId` leaves
+`renderer-api` altogether. Note what this does to §21.5's claim that `setSystemVisibility`
+"genuinely needs `core-data`" because node names do not encode a `SystemId`: true, and
+irrelevant once the caller resolves the set. **Screen 07 is unblocked whole**, per-system
+toggles included, without the pack manifest system index it was said to be waiting on.
+
+The general lesson is worth keeping: a renderer verb that names a domain concept is a verb
+in the wrong module.
+
+### 26.3 A ghost is one shared material instance
+
+The obvious implementation — duplicate each primitive's instance and lower its alpha —
+cannot be written. Filament's Java `MaterialInstance` exposes parameter setters and no
+getters, so a duplicate cannot read the source structure's colour in order to fade it.
+
+This is the right answer rather than a limitation. Anatomical context should read as a
+uniform pale shell, not as a washed-out copy of each structure's own colour, and a uniform
+shell needs no per-primitive state at all: **one** `BLEND`-keyed instance, created once per
+pack, referenced by every ghosted primitive. No per-primitive allocation, and the ghost
+count stops mattering to CPU cost.
+
+Blended materials do not write depth, so ghost shells do not occlude one another. For a
+faint context shell that is the desired look, and it removes sort order from the problem.
+
+If the uniform ghost reads badly against real anatomy, the fallback is to carry each
+structure's base colour in Kotlin from load time — which §4 prefers anyway — rather than to
+try to recover it from Filament.
+
+Hiding touches no material: `RenderableManager.setLayerMask` with `View.setVisibleLayers`.
+
+### 26.4 One owner for the material slot
+
+Visibility, opacity and highlight all contend for one `setMaterialInstanceAt` per primitive.
+Today `highlight` owns that slot alone and unwinds itself through `swapped` and
+`highlightInstances`; a second feature written the same way would mean two unwind stacks
+racing, and whichever wrote last would win.
+
+Instead the renderer keeps the three declared sets and resolves them to a single desired
+state per primitive — `base | ghost | highlight | hidden` — diffed against what is applied.
+Repeated calls with unchanged sets do nothing. Highlight beats ghost, deterministically and
+regardless of call order.
+
+The renderer still holds no truth the app cannot reconstruct: the three sets are exactly
+what the app last declared, so §4's recovery-by-replay after a lost surface is unaffected.
+
+### 26.5 The C seam
+
+Following the pairing `ar_set_highlight`/`ar_clear_highlight` established in
+`anatomy_renderer.h`, and its rule that node names cross the boundary rather than
+`StructureId`s:
+
+```c
+void ar_set_opacity(ar_renderer_ref, const char* const* names, size_t count, float alpha);
+void ar_clear_opacity(ar_renderer_ref);
+void ar_set_hidden(ar_renderer_ref, const char* const* names, size_t count);
+void ar_clear_hidden(ar_renderer_ref);
+```
+
+The header is a frozen ABI, so it is designed alongside §26.2 rather than discovered a
+second time while implementing the iOS half.
+
+### 26.6 What the contract has to prove
+
+§15 makes `AnatomyRendererContract` the shared definition of correct, so the new behaviour
+is specified there and runs on both platforms. Four cases carry the design:
+
+- ghost, then clear, returns every primitive to its original material instance;
+- hide, then show, does the same, and leaves no material instance behind;
+- **a hidden structure is not pickable** — visibility is enforced where picking reads it,
+  not merely where drawing does, so a peeled-away layer cannot answer a quiz question;
+- highlight and ghost applied to the same structure resolve identically in either order.
+
+`FakeAnatomyRenderer` records the three declared sets, which is what lets the screen tests
+for the layer panel assert against intent rather than against pixels.
+
+### 26.7 What §12 still needs
+
+Split out, and reduced. When it lands it is **solid outlines only**.
+`HighlightStyle.outlineStyle` keeps carrying `DASHED` unhonoured, as it already carries the
+outline channels unhonoured today, until Phase 2's correct/wrong feedback is the thing that
+needs a second non-colour channel. Adding a dash pattern to a shader that already draws an
+outline is a smaller change than writing the outline pass.
+
+The route is available at the pinned version: `View::setStencilBufferEnabled` and the full
+`MaterialInstance` stencil surface — compare function, reference value, read and write
+masks, and the three operations — are present in the vendored 1.75.1 headers. What is
+missing is `matc` and a build stage that runs it for two platforms.
+
+Until then §21.5 stands unchanged: highlighting is colour and luminance only, §12's
+guarantee is unmet, and the quiz must not be built on highlight styling alone.
+
+### 26.8 Status
+
+Nothing here is implemented. `setSystemVisibility`, `setOpacity` and `isolate` all still
+throw, and the two the design removes are still on the interface.
+
+What is verified is the toolchain the design rests on: the blended variant is reachable
+from the existing provider, `MaterialInstance` has no parameter getters, `matc` is absent,
+and Filament 1.75.1 exposes stencil. Nothing has been measured, and §25.4's method —
+interleaving the variants inside one session and repeating the pair — is how it will be.
