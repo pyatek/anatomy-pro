@@ -107,6 +107,81 @@ abstract class AnatomyRendererContract {
         assertEquals(null, error, "an error was reported during highlight")
     }
 
+    suspend fun verifyHidingAStructureRemovesItFromPicking() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.setVisibility(setOf(hitStructure), visible = false)
+        pickHit(renderer)
+        settle(renderer)
+
+        val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
+        assertEquals(
+            null,
+            (picked as RendererEvent.Picked).structure,
+            "a hidden structure was picked",
+        )
+    }
+
+    suspend fun verifyShowingAHiddenStructureRestoresPicking() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.setVisibility(setOf(hitStructure), visible = false)
+        settle(renderer)
+        renderer.setVisibility(setOf(hitStructure), visible = true)
+        pickHit(renderer)
+        settle(renderer)
+
+        val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
+        assertEquals(
+            hitStructure,
+            (picked as RendererEvent.Picked).structure,
+            "picked structure after being shown again",
+        )
+    }
+
+    suspend fun verifyGhostingIsReversible() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        // Like highlight, ghosting is asserted through survival and through picking, which
+        // the contract can see; colour, which it cannot see, is left to the eye.
+        renderer.setOpacity(setOf(hitStructure), alpha = 0.25f)
+        settle(renderer)
+        renderer.setOpacity(setOf(hitStructure), alpha = 1.0f)
+        pickHit(renderer)
+        settle(renderer)
+
+        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
+        assertEquals(null, error, "an error was reported while ghosting")
+
+        val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
+        assertEquals(
+            hitStructure,
+            (picked as RendererEvent.Picked).structure,
+            "a ghosted structure must stay pickable",
+        )
+    }
+
+    suspend fun verifyHighlightAndGhostResolveInEitherOrder() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.setOpacity(setOf(hitStructure), alpha = 0.25f)
+        renderer.highlight(setOf(hitStructure), HIGHLIGHT)
+        settle(renderer)
+
+        renderer.highlight(emptySet(), HIGHLIGHT)
+        renderer.setOpacity(setOf(hitStructure), alpha = 1.0f)
+        renderer.highlight(setOf(hitStructure), HIGHLIGHT)
+        renderer.setOpacity(setOf(hitStructure), alpha = 0.25f)
+        settle(renderer)
+
+        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
+        assertEquals(null, error, "an error was reported resolving highlight over ghost")
+    }
+
     suspend fun verifyUnloadingAPackForgetsIt() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)

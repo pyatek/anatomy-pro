@@ -2,7 +2,6 @@ package com.ptk.anatomypro.renderer.api
 
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
-import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -24,17 +23,19 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
 
     var loadedPacks: Set<PackId> = emptySet()
         private set
-    var isolated: StructureId? = null
-        private set
     var highlighted: Set<StructureId> = emptySet()
         private set
     var highlightStyle: HighlightStyle? = null
         private set
-    var hiddenSystems: Set<SystemId> = emptySet()
-        private set
     var cameraPose: CameraPose? = null
         private set
     var pickingEnabled: Boolean = true
+        private set
+    var hidden: Set<StructureId> = emptySet()
+        private set
+    var ghosted: Set<StructureId> = emptySet()
+        private set
+    var ghostAlpha: Float = 1f
         private set
 
     override suspend fun loadPack(pack: PackId, source: MeshSource) {
@@ -49,14 +50,13 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         _events.emit(RendererEvent.PackUnloaded(pack))
     }
 
-    override fun setSystemVisibility(system: SystemId, visible: Boolean) {
-        hiddenSystems = if (visible) hiddenSystems - system else hiddenSystems + system
+    override fun setVisibility(structures: Set<StructureId>, visible: Boolean) {
+        hidden = if (visible) hidden - structures else hidden + structures
     }
 
-    override fun setOpacity(structures: Set<StructureId>, alpha: Float) = Unit
-
-    override fun isolate(structure: StructureId?, ghostNeighbours: Boolean) {
-        isolated = structure
+    override fun setOpacity(structures: Set<StructureId>, alpha: Float) {
+        ghosted = if (alpha >= 1f) ghosted - structures else ghosted + structures
+        if (alpha < 1f) ghostAlpha = alpha
     }
 
     override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {

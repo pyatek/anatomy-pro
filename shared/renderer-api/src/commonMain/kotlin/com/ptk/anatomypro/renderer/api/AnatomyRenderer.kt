@@ -2,7 +2,6 @@ package com.ptk.anatomypro.renderer.api
 
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
-import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -25,9 +24,28 @@ interface AnatomyRenderer {
     suspend fun loadPack(pack: PackId, source: MeshSource)
     suspend fun unloadPack(pack: PackId)
 
-    fun setSystemVisibility(system: SystemId, visible: Boolean)
+    /**
+     * Shows or hides structures outright.
+     *
+     * Replaces both `setSystemVisibility` and `isolate`, which named domain concepts the
+     * renderer cannot see: a system's membership and §25.1's parent groups live in
+     * `core-data`, so resolving either to a set of structures is the app's job and doing
+     * it here would put policy in the one module §4 reserves for geometry.
+     *
+     * A hidden structure is not drawn and **is not picked** — a peeled-away layer must not
+     * be able to answer a quiz question.
+     */
+    fun setVisibility(structures: Set<StructureId>, visible: Boolean)
+
+    /**
+     * Ghosts structures at [alpha], or returns them to fully opaque at 1.0.
+     *
+     * A ghost is a uniform pale shell rather than a faded copy of each structure's own
+     * colour — see §26.3 — so every ghosted primitive shares one material instance and the
+     * size of [structures] costs nothing on the CPU.
+     */
     fun setOpacity(structures: Set<StructureId>, alpha: Float)
-    fun isolate(structure: StructureId?, ghostNeighbours: Boolean)
+
     fun highlight(structures: Set<StructureId>, style: HighlightStyle)
 
     fun focusCamera(structure: StructureId, durationMs: Int)

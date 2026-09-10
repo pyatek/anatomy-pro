@@ -46,22 +46,39 @@ class FakeAnatomyRendererTest {
     private val source = MeshSource("file:///packs/skeletal-thorax.glb")
 
     @Test
-    fun holds_isolation_and_highlight_state_so_a_lost_surface_can_be_replayed() = runTest {
+    fun holds_the_three_declared_sets_so_a_lost_surface_can_be_replayed() = runTest {
         val renderer = FakeAnatomyRenderer()
-        val style = HighlightStyle(
-            outlineArgb = 0xFFFFD3CB.toInt(),
-            outlineWidthDp = 2f,
-            outlineStyle = OutlineStyle.SOLID,
-            fillArgb = 0xFFF07C69.toInt(),
-            fillLuminanceShift = 0.25f,
-        )
+        val femur = StructureId("a02-5-04-001-femur-left")
+        val tibia = StructureId("a02-5-06-001-tibia-left")
 
-        renderer.isolate(scapula, ghostNeighbours = true)
-        renderer.highlight(setOf(scapula), style)
+        renderer.setVisibility(setOf(tibia), visible = false)
+        renderer.setOpacity(setOf(femur), alpha = 0.25f)
 
-        assertEquals(scapula, renderer.isolated)
-        assertEquals(setOf(scapula), renderer.highlighted)
-        assertEquals(style, renderer.highlightStyle)
+        assertEquals(setOf(tibia), renderer.hidden)
+        assertEquals(setOf(femur), renderer.ghosted)
+        assertEquals(0.25f, renderer.ghostAlpha)
+    }
+
+    @Test
+    fun showing_a_structure_removes_it_from_the_hidden_set() = runTest {
+        val renderer = FakeAnatomyRenderer()
+        val tibia = StructureId("a02-5-06-001-tibia-left")
+
+        renderer.setVisibility(setOf(tibia), visible = false)
+        renderer.setVisibility(setOf(tibia), visible = true)
+
+        assertEquals(emptySet(), renderer.hidden)
+    }
+
+    @Test
+    fun opacity_of_one_clears_the_ghost_set() = runTest {
+        val renderer = FakeAnatomyRenderer()
+        val femur = StructureId("a02-5-04-001-femur-left")
+
+        renderer.setOpacity(setOf(femur), alpha = 0.25f)
+        renderer.setOpacity(setOf(femur), alpha = 1.0f)
+
+        assertEquals(emptySet(), renderer.ghosted)
     }
 
     @Test

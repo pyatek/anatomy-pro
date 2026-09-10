@@ -19,7 +19,6 @@ import com.google.android.filament.gltfio.UbershaderProvider
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.StructureNode
-import com.ptk.anatomypro.core.model.SystemId
 import com.ptk.anatomypro.renderer.api.AnatomyRenderer
 import com.ptk.anatomypro.renderer.api.CameraPose
 import com.ptk.anatomypro.renderer.api.HighlightStyle
@@ -291,13 +290,10 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         pickingEnabled = enabled
     }
 
-    override fun setSystemVisibility(system: SystemId, visible: Boolean): Unit =
-        TODO("Phase 1: needs the pack manifest's system index")
+    override fun setVisibility(structures: Set<StructureId>, visible: Boolean): Unit =
+        TODO("Task 2-4: appearance resolver")
 
     override fun setOpacity(structures: Set<StructureId>, alpha: Float): Unit =
-        TODO("Phase 1: needs transparent material variants")
-
-    override fun isolate(structure: StructureId?, ghostNeighbours: Boolean): Unit =
         TODO("Phase 1: needs transparent material variants")
 
     override fun focusCamera(structure: StructureId, durationMs: Int): Unit =
