@@ -77,12 +77,18 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
     /**
      * Test hook: simulate the user tapping [structure], or empty space when null.
      *
-     * Honours [pickingEnabled] so the fake reports picks under exactly the conditions a
-     * real renderer does — otherwise a screen could pass its tests against behaviour the
-     * device would never produce.
+     * Honours [pickingEnabled] and [hidden] so the fake reports picks under exactly the
+     * conditions a real renderer does — otherwise a screen could pass its tests against
+     * behaviour the device would never produce.
+     *
+     * The two cases are not the same shape: picking disabled means the input never reached
+     * the renderer, so nothing is emitted at all; a hidden structure means the renderer's own
+     * picking pass ran and found nothing there, exactly as it would on a GPU where a hidden
+     * renderable is excluded from that pass — so this still emits a miss.
      */
     suspend fun emitPick(structure: StructureId?) {
         if (!pickingEnabled) return
-        _events.emit(RendererEvent.Picked(structure))
+        val reported = if (structure in hidden) null else structure
+        _events.emit(RendererEvent.Picked(reported))
     }
 }

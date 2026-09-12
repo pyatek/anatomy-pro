@@ -36,6 +36,10 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun honours_disabled_picking() = runTest { verifyPickingCanBeDisabled() }
     @Test fun accepts_a_highlight() = runTest { verifyHighlightingALoadedStructureIsAccepted() }
     @Test fun forgets_an_unloaded_pack() = runTest { verifyUnloadingAPackForgetsIt() }
+    @Test fun hides_a_structure_from_picking() = runTest { verifyHidingAStructureRemovesItFromPicking() }
+    @Test fun shows_a_hidden_structure_again() = runTest { verifyShowingAHiddenStructureRestoresPicking() }
+    @Test fun reverses_a_ghost() = runTest { verifyGhostingIsReversible() }
+    @Test fun resolves_highlight_over_ghost() = runTest { verifyHighlightAndGhostResolveInEitherOrder() }
 }
 
 /** Behaviour that belongs to the fake specifically, rather than to the interface. */
