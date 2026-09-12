@@ -89,11 +89,24 @@ std::string pathFromUri(const char* uri) {
     return value;
 }
 
+bool contains(const std::vector<std::string>& names, const std::string& name) {
+    for (const auto& candidate : names) {
+        if (candidate == name) return true;
+    }
+    return false;
+}
+
+/*
+ * De-duplicates on the way in. A repeated name would otherwise make entitiesFor visit the
+ * same entity twice in one apply pass; the second visit would read back the material the
+ * first visit just installed and record it as "original", corrupting the unwind stack for
+ * every feature sharing it.
+ */
 std::vector<std::string> collect(const char* const* names, size_t count) {
     std::vector<std::string> result;
     if (!names) return result;
     for (size_t i = 0; i < count; ++i) {
-        if (names[i]) result.emplace_back(names[i]);
+        if (names[i] && !contains(result, names[i])) result.emplace_back(names[i]);
     }
     return result;
 }
@@ -187,6 +200,12 @@ void configureSurface(ar_renderer* r, SwapChain* swapChain, uint32_t width, uint
     r->view->setViewport({0, 0, width, height});
     // Layer 1 is neither drawn nor picked; ar_set_hidden moves renderables onto it.
     r->view->setVisibleLayers(kLayerMask, kLayerVisible);
+    // A ghost is context the user can still tap (§26.2: the ghosted set is the isolated
+    // structure's neighbours, which is exactly what navigation taps on next) — Filament
+    // disables picking transparent renderables by default, which would otherwise make a
+    // ghosted structure indistinguishable from a hidden one to ar_pick_at. The cost is one
+    // extra depth pass.
+    r->view->setTransparentPickingEnabled(true);
     frameAsset(r);
 
     QueuedEvent ready;
@@ -221,29 +240,31 @@ MaterialInstance* ghostMaterial(ar_renderer* r) {
     return instance;
 }
 
-bool contains(const std::vector<std::string>& names, const std::string& name) {
-    for (const auto& candidate : names) {
-        if (candidate == name) return true;
-    }
-    return false;
-}
-
 /* Returns every entity whose node name is in `names`. */
 std::vector<Entity> entitiesFor(ar_renderer* r, const std::vector<std::string>& names) {
     std::vector<Entity> result;
     for (const auto& name : names) {
-        Entity found[8];
-        const size_t matches = r->asset->getEntitiesByName(name.c_str(), found, 8);
-        for (size_t m = 0; m < matches; ++m) result.push_back(found[m]);
+        // A fixed-size buffer would silently drop matches beyond its capacity — for
+        // ar_set_hidden that means a leftover fragment of a structure that was supposed
+        // to disappear entirely. Passing a null buffer returns the exact match count
+        // without writing, so ask for that first and then fetch all of them.
+        const size_t matchCount = r->asset->getEntitiesByName(name.c_str(), nullptr, 0);
+        if (matchCount == 0) continue;
+        std::vector<Entity> found(matchCount);
+        const size_t written = r->asset->getEntitiesByName(name.c_str(), found.data(), matchCount);
+        result.insert(result.end(), found.begin(), found.begin() + written);
     }
     return result;
 }
 
 /*
- * Resolves the three declared sets to one state per primitive, and applies it.
+ * Resolves the three declared sets to one state per primitive, and applies it (§26.4).
  *
  * Called after every change, so no two features race over setMaterialInstanceAt. Highlight
  * beats ghost: a structure the app is pointing at is not also faded out.
+ *
+ * Clear-and-reapply rather than the per-primitive diff §26.4 describes: the ghosted set is
+ * bounded by design (§26.2), so a diff would be machinery bought before anything needs it.
  */
 void applyAppearance(ar_renderer* r) {
     if (!r->engine || !r->asset) return;
@@ -271,19 +292,29 @@ void applyAppearance(ar_renderer* r) {
     MaterialInstance* ghost = nullptr;
     if (!r->ghostedNodes.empty()) {
         ghost = ghostMaterial(r);
-        if (ghost) {
+        // Guarded the same way the highlight path guards its baseColorFactor set below,
+        // even though this ubershader variant is always known to expose it — one standard
+        // of trust for a parameter set from this function, not two.
+        if (ghost && ghost->getMaterial()->hasParameter("baseColorFactor")) {
             ghost->setParameter("baseColorFactor", RgbaType::sRGB,
                                 float4{kGhostRed, kGhostGreen, kGhostBlue, r->ghostAlpha});
         }
     }
     if (ghost) {
         for (const auto& entity : entitiesFor(r, r->ghostedNodes)) {
-            if (contains(r->highlightedNodes, r->entityToNode[entity.getId()])) continue;
+            const auto nodeEntry = r->entityToNode.find(entity.getId());
+            const bool isHighlighted = nodeEntry != r->entityToNode.end() &&
+                                        contains(r->highlightedNodes, nodeEntry->second);
+            if (isHighlighted) continue;
             auto instance = rm.getInstance(entity);
             if (!instance) continue;
             for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
                 MaterialInstance* original = rm.getMaterialInstanceAt(instance, p);
                 if (!original) continue;
+                // Belt-and-braces: collect() de-duplicates names, but if a primitive were
+                // ever visited twice regardless, re-recording an already-installed ghost as
+                // "original" would make it permanent. Skip rather than corrupt the unwind.
+                if (original == ghost) continue;
                 r->swapped.push_back({entity, p, original});
                 rm.setMaterialInstanceAt(instance, p, ghost);
             }
@@ -530,7 +561,10 @@ void ar_clear_hidden(ar_renderer_ref r) {
 void ar_set_opacity(ar_renderer_ref r, const char* const* nodeNames, size_t count, float alpha) {
     if (!r || !r->engine || !r->asset) return;
     r->ghostedNodes = collect(nodeNames, count);
-    r->ghostAlpha = alpha;
+    // An alpha of 0 would be a structure that is invisible yet still drawn and still costs
+    // a blended draw — a worse way to get nothing on screen than ar_set_hidden. Clamped to
+    // a valid range, as luminance_shift already is (below) for the same reason.
+    r->ghostAlpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
     applyAppearance(r);
 }
 
