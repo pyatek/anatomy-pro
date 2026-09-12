@@ -755,7 +755,16 @@ In `init`, after `view.isPostProcessingEnabled = true`:
 
 ```kotlin
         view.setVisibleLayers(LAYER_MASK, LAYER_VISIBLE)
+        // A ghost is context the learner can still tap, and Filament disables transparent
+        // picking by default — without this, swapping a primitive to the blended material
+        // silently removes it from `pick`, making ghosted and hidden indistinguishable to a
+        // tap (§26.3). The cost is one extra depth pass.
+        view.setTransparentPickingEnabled(true)
 ```
+
+**Both of these are corrections carried over from the iOS review, which caught them there
+first — do not reship them here.** `setTransparentPickingEnabled` exists in the Android Java
+binding at `View.java:867`; it is verified present, not a guess.
 
 Add the ghost material, mirroring the shim:
 
@@ -829,6 +838,14 @@ Replace the `highlight` override and the two `TODO()`s with:
      * Clear-and-reapply rather than a diff: the ghosted set is bounded by design (§26.2),
      * so a diff would be machinery bought before anything needs it. Highlight beats ghost —
      * a structure the app is pointing at is not also faded out.
+     *
+     * Both loops read a primitive's original material before this pass installs anything.
+     * That ordering is load-bearing: on iOS the same loops recorded an already-installed
+     * override as the "original" when a set contained the same node twice, which left the
+     * ghost permanently installed and, in the highlight path, a freed material instance on a
+     * renderable. Kotlin's `Set<StructureId>` de-duplicates structures for free, so the
+     * iOS de-duplication has no analogue here — but if this ever iterates node names or a
+     * list instead, the hazard returns.
      */
     private fun applyAppearance() {
         val current = asset ?: return

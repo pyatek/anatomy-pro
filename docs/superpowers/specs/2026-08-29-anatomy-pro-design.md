@@ -1286,7 +1286,16 @@ If the uniform ghost reads badly against real anatomy, the fallback is to carry 
 structure's base colour in Kotlin from load time — which §4 prefers anyway — rather than to
 try to recover it from Filament.
 
+A ghost must stay **pickable**, and that is not free: Filament disables transparent picking
+by default, so moving a primitive into the blended bucket silently removes it from
+`View::pick`. `setTransparentPickingEnabled(true)` is therefore load-bearing rather than
+optional — without it, ghosted and hidden become indistinguishable to a tap, and §26.2's
+ghosted set is precisely the neighbours the learner taps to navigate. The cost is one extra
+depth pass.
+
 Hiding touches no material: `RenderableManager.setLayerMask` with `View.setVisibleLayers`.
+That path needs no such flag — the layer mask gates the picking pass as well as the colour
+pass, so a hidden structure stops being pickable for free, which is what §26.6 asserts.
 
 ### 26.4 One owner for the material slot
 
@@ -1296,9 +1305,16 @@ Today `highlight` owns that slot alone and unwinds itself through `swapped` and
 racing, and whichever wrote last would win.
 
 Instead the renderer keeps the three declared sets and resolves them to a single desired
-state per primitive — `base | ghost | highlight | hidden` — diffed against what is applied.
-Repeated calls with unchanged sets do nothing. Highlight beats ghost, deterministically and
-regardless of call order.
+state per primitive — `base | ghost | highlight | hidden`. Highlight beats ghost,
+deterministically and regardless of call order.
+
+The resolution is clear-and-reapply, not a diff against what is already applied: every
+change unwinds all three features and re-derives the whole result. An earlier draft of this
+section specified a diff, and it was dropped deliberately — §26.2 bounds the ghosted set, so
+the diff would be machinery bought before anything needs it. One consequence is worth
+stating because it is easy to reintroduce: both apply loops must read a primitive's original
+material *before* the pass installs anything, or a set containing the same node twice records
+an override as the original and the unwind restores the wrong instance.
 
 The renderer still holds no truth the app cannot reconstruct: the three sets are exactly
 what the app last declared, so §4's recovery-by-replay after a lost surface is unaffected.
