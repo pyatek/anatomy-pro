@@ -89,6 +89,25 @@ std::string pathFromUri(const char* uri) {
     return value;
 }
 
+std::vector<std::string> collect(const char* const* names, size_t count) {
+    std::vector<std::string> result;
+    if (!names) return result;
+    for (size_t i = 0; i < count; ++i) {
+        if (names[i]) result.emplace_back(names[i]);
+    }
+    return result;
+}
+
+/* Layer 0 is drawn and picked; layer 1 is neither. */
+constexpr uint8_t kLayerVisible = 0x1;
+constexpr uint8_t kLayerHidden = 0x2;
+constexpr uint8_t kLayerMask = kLayerVisible | kLayerHidden;
+
+/* A neutral bone-pale shell. Deliberately not the structure's own colour — see §26.3. */
+constexpr float kGhostRed = 0.82f;
+constexpr float kGhostGreen = 0.80f;
+constexpr float kGhostBlue = 0.78f;
+
 } // namespace
 
 struct ar_renderer {
@@ -113,6 +132,13 @@ struct ar_renderer {
 
     std::vector<SwappedMaterial> swapped;
     std::vector<MaterialInstance*> highlightInstances;
+    std::vector<std::string> hiddenNodes;
+    std::vector<std::string> ghostedNodes;
+    std::vector<std::string> highlightedNodes;
+    float ghostAlpha = 1.0f;
+    int32_t highlightArgb = 0;
+    float highlightLift = 0.0f;
+    MaterialInstance* ghostMaterial = nullptr;
 
     bool pickingEnabled = true;
     uint32_t width = 0;
@@ -159,6 +185,8 @@ void configureSurface(ar_renderer* r, SwapChain* swapChain, uint32_t width, uint
     r->width = width;
     r->height = height;
     r->view->setViewport({0, 0, width, height});
+    // Layer 1 is neither drawn nor picked; ar_set_hidden moves renderables onto it.
+    r->view->setVisibleLayers(kLayerMask, kLayerVisible);
     frameAsset(r);
 
     QueuedEvent ready;
@@ -166,21 +194,143 @@ void configureSurface(ar_renderer* r, SwapChain* swapChain, uint32_t width, uint
     r->push(std::move(ready));
 }
 
-void clearHighlightInternal(ar_renderer* r) {
+MaterialInstance* ghostMaterial(ar_renderer* r) {
+    if (r->ghostMaterial) return r->ghostMaterial;
+
+    // The ubershader archive already carries a BLEND variant; asking the provider for one
+    // is the whole of "transparent material variants" (§26.1). MaterialKey is a hashed POD
+    // of bitfields, so it must be zero-initialised or the padding poisons the lookup.
+    filament::gltfio::MaterialKey key = {};
+    key.alphaMode = filament::gltfio::AlphaMode::BLEND;
+    key.doubleSided = false;
+    key.unlit = false;
+
+    filament::gltfio::UvMap uvmap = {};
+    filament::gltfio::constrainMaterial(&key, &uvmap);
+
+    MaterialInstance* instance = r->materials->createMaterialInstance(&key, &uvmap, "ghost", nullptr);
+    if (!instance) return nullptr;
+
+    // The ubershader defaults to a fully metallic surface, which renders a translucent
+    // shell as a dark smear. Both must be set explicitly.
+    const Material* material = instance->getMaterial();
+    if (material->hasParameter("metallicFactor")) instance->setParameter("metallicFactor", 0.0f);
+    if (material->hasParameter("roughnessFactor")) instance->setParameter("roughnessFactor", 0.8f);
+
+    r->ghostMaterial = instance;
+    return instance;
+}
+
+bool contains(const std::vector<std::string>& names, const std::string& name) {
+    for (const auto& candidate : names) {
+        if (candidate == name) return true;
+    }
+    return false;
+}
+
+/* Returns every entity whose node name is in `names`. */
+std::vector<Entity> entitiesFor(ar_renderer* r, const std::vector<std::string>& names) {
+    std::vector<Entity> result;
+    for (const auto& name : names) {
+        Entity found[8];
+        const size_t matches = r->asset->getEntitiesByName(name.c_str(), found, 8);
+        for (size_t m = 0; m < matches; ++m) result.push_back(found[m]);
+    }
+    return result;
+}
+
+/*
+ * Resolves the three declared sets to one state per primitive, and applies it.
+ *
+ * Called after every change, so no two features race over setMaterialInstanceAt. Highlight
+ * beats ghost: a structure the app is pointing at is not also faded out.
+ */
+void applyAppearance(ar_renderer* r) {
+    if (!r->engine || !r->asset) return;
     auto& rm = r->engine->getRenderableManager();
+
+    // Unwind everything first, so the result depends on the sets and not on call order.
     for (const auto& entry : r->swapped) {
         auto instance = rm.getInstance(entry.entity);
         if (instance) rm.setMaterialInstanceAt(instance, entry.primitiveIndex, entry.original);
     }
     r->swapped.clear();
-
     for (auto* material : r->highlightInstances) r->engine->destroy(material);
     r->highlightInstances.clear();
+
+    for (size_t i = 0, count = r->asset->getEntityCount(); i < count; ++i) {
+        auto instance = rm.getInstance(r->asset->getEntities()[i]);
+        if (instance) rm.setLayerMask(instance, kLayerMask, kLayerVisible);
+    }
+
+    for (const auto& entity : entitiesFor(r, r->hiddenNodes)) {
+        auto instance = rm.getInstance(entity);
+        if (instance) rm.setLayerMask(instance, kLayerMask, kLayerHidden);
+    }
+
+    MaterialInstance* ghost = nullptr;
+    if (!r->ghostedNodes.empty()) {
+        ghost = ghostMaterial(r);
+        if (ghost) {
+            ghost->setParameter("baseColorFactor", RgbaType::sRGB,
+                                float4{kGhostRed, kGhostGreen, kGhostBlue, r->ghostAlpha});
+        }
+    }
+    if (ghost) {
+        for (const auto& entity : entitiesFor(r, r->ghostedNodes)) {
+            if (contains(r->highlightedNodes, r->entityToNode[entity.getId()])) continue;
+            auto instance = rm.getInstance(entity);
+            if (!instance) continue;
+            for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
+                MaterialInstance* original = rm.getMaterialInstanceAt(instance, p);
+                if (!original) continue;
+                r->swapped.push_back({entity, p, original});
+                rm.setMaterialInstanceAt(instance, p, ghost);
+            }
+        }
+    }
+
+    if (!r->highlightedNodes.empty()) {
+        const float4 tint{
+            float((r->highlightArgb >> 16) & 0xFF) / 255.0f,
+            float((r->highlightArgb >> 8) & 0xFF) / 255.0f,
+            float(r->highlightArgb & 0xFF) / 255.0f,
+            float((uint32_t(r->highlightArgb) >> 24) & 0xFF) / 255.0f,
+        };
+        const float lift = r->highlightLift < 0.0f ? 0.0f : r->highlightLift;
+        for (const auto& entity : entitiesFor(r, r->highlightedNodes)) {
+            auto instance = rm.getInstance(entity);
+            if (!instance) continue;
+            for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
+                MaterialInstance* original = rm.getMaterialInstanceAt(instance, p);
+                if (!original) continue;
+                const Material* material = original->getMaterial();
+                MaterialInstance* replacement = MaterialInstance::duplicate(original);
+                if (material->hasParameter("baseColorFactor")) {
+                    replacement->setParameter("baseColorFactor", RgbaType::sRGB, tint);
+                }
+                if (material->hasParameter("emissiveFactor")) {
+                    replacement->setParameter("emissiveFactor",
+                                              float3{tint.r * lift, tint.g * lift, tint.b * lift});
+                }
+                r->swapped.push_back({entity, p, original});
+                r->highlightInstances.push_back(replacement);
+                rm.setMaterialInstanceAt(instance, p, replacement);
+            }
+        }
+    }
 }
 
 void releaseAsset(ar_renderer* r) {
     if (!r->asset) return;
-    clearHighlightInternal(r);
+    r->hiddenNodes.clear();
+    r->ghostedNodes.clear();
+    r->highlightedNodes.clear();
+    applyAppearance(r);
+    if (r->ghostMaterial) {
+        r->engine->destroy(r->ghostMaterial);
+        r->ghostMaterial = nullptr;
+    }
     r->scene->removeEntities(r->asset->getEntities(), r->asset->getEntityCount());
     r->assetLoader->destroyAsset(r->asset);
     r->asset = nullptr;
@@ -353,48 +503,41 @@ const char* ar_node_name_at(ar_renderer_ref r, size_t index) {
 void ar_set_highlight(ar_renderer_ref r, const char* const* nodeNames, size_t count,
                       int32_t outlineArgb, float luminanceShift) {
     if (!r || !r->engine || !r->asset) return;
-    clearHighlightInternal(r);
-    if (!nodeNames || count == 0) return;
-
-    const float4 tint{
-        float((outlineArgb >> 16) & 0xFF) / 255.0f,
-        float((outlineArgb >> 8) & 0xFF) / 255.0f,
-        float(outlineArgb & 0xFF) / 255.0f,
-        float((uint32_t(outlineArgb) >> 24) & 0xFF) / 255.0f,
-    };
-    const float lift = luminanceShift < 0.0f ? 0.0f : luminanceShift;
-
-    auto& rm = r->engine->getRenderableManager();
-    for (size_t i = 0; i < count; ++i) {
-        if (!nodeNames[i]) continue;
-        Entity found[8];
-        const size_t matches = r->asset->getEntitiesByName(nodeNames[i], found, 8);
-        for (size_t m = 0; m < matches; ++m) {
-            auto instance = rm.getInstance(found[m]);
-            if (!instance) continue;
-            for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
-                MaterialInstance* original = rm.getMaterialInstanceAt(instance, p);
-                if (!original) continue;
-                const Material* material = original->getMaterial();
-                MaterialInstance* replacement = MaterialInstance::duplicate(original);
-                if (material->hasParameter("baseColorFactor")) {
-                    replacement->setParameter("baseColorFactor", RgbaType::sRGB, tint);
-                }
-                if (material->hasParameter("emissiveFactor")) {
-                    replacement->setParameter("emissiveFactor",
-                                              float3{tint.r * lift, tint.g * lift, tint.b * lift});
-                }
-                r->swapped.push_back({found[m], p, original});
-                r->highlightInstances.push_back(replacement);
-                rm.setMaterialInstanceAt(instance, p, replacement);
-            }
-        }
-    }
+    r->highlightedNodes = collect(nodeNames, count);
+    r->highlightArgb = outlineArgb;
+    r->highlightLift = luminanceShift;
+    applyAppearance(r);
 }
 
 void ar_clear_highlight(ar_renderer_ref r) {
     if (!r || !r->engine) return;
-    clearHighlightInternal(r);
+    r->highlightedNodes.clear();
+    applyAppearance(r);
+}
+
+void ar_set_hidden(ar_renderer_ref r, const char* const* nodeNames, size_t count) {
+    if (!r || !r->engine || !r->asset) return;
+    r->hiddenNodes = collect(nodeNames, count);
+    applyAppearance(r);
+}
+
+void ar_clear_hidden(ar_renderer_ref r) {
+    if (!r || !r->engine) return;
+    r->hiddenNodes.clear();
+    applyAppearance(r);
+}
+
+void ar_set_opacity(ar_renderer_ref r, const char* const* nodeNames, size_t count, float alpha) {
+    if (!r || !r->engine || !r->asset) return;
+    r->ghostedNodes = collect(nodeNames, count);
+    r->ghostAlpha = alpha;
+    applyAppearance(r);
+}
+
+void ar_clear_opacity(ar_renderer_ref r) {
+    if (!r || !r->engine) return;
+    r->ghostedNodes.clear();
+    applyAppearance(r);
 }
 
 void ar_set_picking_enabled(ar_renderer_ref r, bool enabled) {

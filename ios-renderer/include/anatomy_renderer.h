@@ -81,6 +81,27 @@ void ar_set_highlight(ar_renderer_ref renderer, const char* const* node_names, s
                       int32_t outline_argb, float luminance_shift);
 void ar_clear_highlight(ar_renderer_ref renderer);
 
+/*
+ * Hides nodes outright: not drawn, and not picked.
+ *
+ * Hiding is a layer mask rather than a material, so it costs nothing per node and removes
+ * draws rather than adding them. Each call replaces the previous hidden set.
+ */
+void ar_set_hidden(ar_renderer_ref renderer, const char* const* node_names, size_t count);
+void ar_clear_hidden(ar_renderer_ref renderer);
+
+/*
+ * Ghosts nodes at `alpha`.
+ *
+ * Every ghosted node shares one blended material instance, so a ghost is a uniform pale
+ * shell rather than a faded copy of each node's own colour — Filament exposes no way to
+ * read a material instance's parameters back, and the uniform shell is the better look
+ * anyway. Each call replaces the previous ghosted set.
+ */
+void ar_set_opacity(ar_renderer_ref renderer, const char* const* node_names, size_t count,
+                    float alpha);
+void ar_clear_opacity(ar_renderer_ref renderer);
+
 void ar_set_picking_enabled(ar_renderer_ref renderer, bool enabled);
 /* Asynchronous: the result arrives as AR_EVENT_PICKED after subsequent frames render. */
 void ar_pick_at(ar_renderer_ref renderer, float x_px, float y_px);
