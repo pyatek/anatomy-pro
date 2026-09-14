@@ -38,7 +38,7 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun forgets_an_unloaded_pack() = runTest { verifyUnloadingAPackForgetsIt() }
     @Test fun hides_a_structure_from_picking() = runTest { verifyHidingAStructureRemovesItFromPicking() }
     @Test fun shows_a_hidden_structure_again() = runTest { verifyShowingAHiddenStructureRestoresPicking() }
-    @Test fun reverses_a_ghost() = runTest { verifyGhostingIsReversible() }
+    @Test fun keeps_a_ghosted_structure_pickable() = runTest { verifyAGhostedStructureStaysPickable() }
     @Test fun resolves_highlight_over_ghost() = runTest { verifyHighlightAndGhostResolveInEitherOrder() }
 }
 

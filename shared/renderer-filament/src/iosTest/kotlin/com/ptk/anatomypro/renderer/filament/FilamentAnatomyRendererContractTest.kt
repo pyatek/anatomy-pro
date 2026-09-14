@@ -61,7 +61,7 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun forgets_an_unloaded_pack() = runBlocking { verifyUnloadingAPackForgetsIt() }
     @Test fun hides_a_structure_from_picking() = runBlocking { verifyHidingAStructureRemovesItFromPicking() }
     @Test fun shows_a_hidden_structure_again() = runBlocking { verifyShowingAHiddenStructureRestoresPicking() }
-    @Test fun reverses_a_ghost() = runBlocking { verifyGhostingIsReversible() }
+    @Test fun keeps_a_ghosted_structure_pickable() = runBlocking { verifyAGhostedStructureStaysPickable() }
     @Test fun resolves_highlight_over_ghost() = runBlocking { verifyHighlightAndGhostResolveInEitherOrder() }
 
     private companion object {

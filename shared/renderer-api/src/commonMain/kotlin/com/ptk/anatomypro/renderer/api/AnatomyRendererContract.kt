@@ -141,20 +141,19 @@ abstract class AnatomyRendererContract {
         )
     }
 
-    suspend fun verifyGhostingIsReversible() = withRenderer { renderer ->
+    suspend fun verifyAGhostedStructureStaysPickable() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
 
-        // Like highlight, ghosting is asserted through survival and through picking, which
-        // the contract can see; colour, which it cannot see, is left to the eye.
         renderer.setOpacity(setOf(hitStructure), alpha = 0.25f)
         settle(renderer)
-        renderer.setOpacity(setOf(hitStructure), alpha = 1.0f)
+
+        // The pick happens while the structure is still ghosted, which is the whole point:
+        // Filament drops blended renderables out of picking unless transparent picking is
+        // switched on, and §26.2 needs a ghosted neighbour to stay tappable — it is what the
+        // learner taps to navigate. Picking after the ghost was reversed would prove nothing.
         pickHit(renderer)
         settle(renderer)
-
-        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
-        assertEquals(null, error, "an error was reported while ghosting")
 
         val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
         assertEquals(
@@ -162,12 +161,26 @@ abstract class AnatomyRendererContract {
             (picked as RendererEvent.Picked).structure,
             "a ghosted structure must stay pickable",
         )
+
+        // Reversal is exercised but only weakly asserted: the contract cannot read a
+        // primitive's material back, so "the original was restored" has no observable
+        // channel here. A second pick cannot help — `events` replays, so awaiting another
+        // Picked would re-match the one above.
+        renderer.setOpacity(setOf(hitStructure), alpha = 1.0f)
+        settle(renderer)
+
+        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
+        assertEquals(null, error, "an error was reported while ghosting")
     }
 
     suspend fun verifyHighlightAndGhostResolveInEitherOrder() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
 
+        // This test detects crashes and wiring failures only: it does not verify material state
+        // (colour, opacity, or other visual attributes), which have no observable channel
+        // through this interface. It exercises interleaving to ensure the renderer does not
+        // fault when calls are made in arbitrary order.
         renderer.setOpacity(setOf(hitStructure), alpha = 0.25f)
         renderer.highlight(setOf(hitStructure), HIGHLIGHT)
         settle(renderer)
