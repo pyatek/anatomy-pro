@@ -17,7 +17,9 @@ import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_PICKED
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_READY
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_attach_headless
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_attach_layer
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_hidden
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_highlight
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_opacity
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_create
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_destroy
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_gpu_frame_nanos
@@ -30,10 +32,13 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_poll_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_renderer_ref
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_highlight
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_hidden
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_opacity
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_picking_enabled
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_unload_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_wait_for_gpu
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CArrayPointer
 import kotlinx.cinterop.CPointed
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -78,6 +83,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private var nodeToStructure: Map<String, StructureId> = emptyMap()
     private var lastUnloaded: PackId? = null
     private var disposed = false
+
+    /**
+     * The hidden set is held here, not in the shim, because the interface is declarative
+     * per call — `setVisibility(x, false)` then `setVisibility(y, false)` must hide both —
+     * while the C seam takes a whole set. Kotlin owning it is also what §4 requires.
+     */
+    private val hidden = mutableSetOf<StructureId>()
+    private val ghosted = mutableSetOf<StructureId>()
 
     /** Draws offscreen. Used by contract tests, which have no window. */
     fun attachHeadless(width: Int, height: Int) {
@@ -150,6 +163,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     override suspend fun unloadPack(pack: PackId) {
         if (loadedPack != pack) return
         lastUnloaded = pack
+        hidden.clear()
+        ghosted.clear()
         ar_unload_model(handle, null)
         loadedPack = null
         nodesByStructure = emptyMap()
@@ -164,16 +179,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             drain()
             return
         }
-        memScoped {
-            val names = allocArray<CPointerVar<ByteVar>>(nodes.size)
-            nodes.forEachIndexed { index, name -> names[index] = name.cstr.getPointer(this) }
-            ar_set_highlight(
-                handle,
-                names,
-                nodes.size.toULong(),
-                style.outlineArgb,
-                style.fillLuminanceShift,
-            )
+        passNodes(nodes) { names, count ->
+            ar_set_highlight(handle, names, count, style.outlineArgb, style.fillLuminanceShift)
         }
         drain()
     }
@@ -182,11 +189,33 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         ar_set_picking_enabled(handle, enabled)
     }
 
-    override fun setVisibility(structures: Set<StructureId>, visible: Boolean): Unit =
-        TODO("Task 2-4: appearance resolver")
+    override fun setVisibility(structures: Set<StructureId>, visible: Boolean) {
+        if (visible) hidden -= structures else hidden += structures
+        val nodes = hidden.flatMap { nodesByStructure[it].orEmpty() }
+        if (nodes.isEmpty()) ar_clear_hidden(handle) else passNodes(nodes) { names, count ->
+            ar_set_hidden(handle, names, count)
+        }
+        drain()
+    }
 
-    override fun setOpacity(structures: Set<StructureId>, alpha: Float): Unit =
-        TODO("Phase 1: needs transparent material variants")
+    override fun setOpacity(structures: Set<StructureId>, alpha: Float) {
+        if (alpha >= 1f) ghosted -= structures else ghosted += structures
+        val nodes = ghosted.flatMap { nodesByStructure[it].orEmpty() }
+        if (nodes.isEmpty()) ar_clear_opacity(handle) else passNodes(nodes) { names, count ->
+            ar_set_opacity(handle, names, count, alpha)
+        }
+        drain()
+    }
+
+    /** Marshals node names into a C array valid for the duration of [block]. */
+    private inline fun passNodes(
+        nodes: List<String>,
+        block: (CArrayPointer<CPointerVar<ByteVar>>, ULong) -> Unit,
+    ) = memScoped {
+        val names = allocArray<CPointerVar<ByteVar>>(nodes.size)
+        nodes.forEachIndexed { index, name -> names[index] = name.cstr.getPointer(this) }
+        block(names, nodes.size.toULong())
+    }
 
     override fun focusCamera(structure: StructureId, durationMs: Int): Unit =
         TODO("Phase 1: camera animation; Phase 0 frames the whole asset on load")
