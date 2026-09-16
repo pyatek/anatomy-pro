@@ -820,8 +820,17 @@ Replace the `highlight` override and the two `TODO()`s with:
     }
 
     override fun setOpacity(structures: Set<StructureId>, alpha: Float) {
-        if (alpha >= 1f) ghosted -= structures else ghosted += structures
-        ghostAlpha = alpha
+        // Hold the alpha rather than taking the incoming one on every call. A caller that
+        // un-ghosts one structure of several passes alpha = 1f, and the survivors must keep
+        // the alpha they were ghosted at — on iOS, taking it unconditionally re-sent 1.0 for
+        // structures the caller never named, leaving them opaque in the neutral ghost tint
+        // with their own colour gone. Same hazard here; the fix is the same.
+        if (alpha >= 1f) {
+            ghosted -= structures
+        } else {
+            ghosted += structures
+            ghostAlpha = alpha
+        }
         applyAppearance()
     }
 

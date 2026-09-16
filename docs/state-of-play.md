@@ -21,7 +21,8 @@ content packs. It needs Blender installed and reaches `gltfpack` through `npx`.
 **Five of the prototype's 21 screens are real**: 01 language selection, 04 atlas viewer,
 05 structure detail, 06 search, 20 settings. Three bottom-bar tabs are honest placeholders.
 
-**68 tests pass**, all on the iOS simulator or the JVM host. Android's renderer contract and
+**83 tests pass on the iOS simulator and 65 on the JVM host** — common tests run on both, so
+those figures overlap rather than sum. Android's renderer contract and
 database wiring have their own instrumented tests, which need a device.
 
 ## What is verified, and what is not
