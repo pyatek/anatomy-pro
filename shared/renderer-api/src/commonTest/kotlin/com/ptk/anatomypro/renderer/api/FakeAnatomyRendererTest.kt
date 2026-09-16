@@ -39,7 +39,7 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun hides_a_structure_from_picking() = runTest { verifyHidingAStructureRemovesItFromPicking() }
     @Test fun shows_a_hidden_structure_again() = runTest { verifyShowingAHiddenStructureRestoresPicking() }
     @Test fun keeps_a_ghosted_structure_pickable() = runTest { verifyAGhostedStructureStaysPickable() }
-    @Test fun resolves_highlight_over_ghost() = runTest { verifyHighlightAndGhostResolveInEitherOrder() }
+    @Test fun does_not_fault_when_highlight_and_ghost_interleave() = runTest { verifyDoesNotFaultWhenHighlightAndGhostInterleave() }
 }
 
 /** Behaviour that belongs to the fake specifically, rather than to the interface. */
@@ -82,6 +82,19 @@ class FakeAnatomyRendererTest {
         renderer.setOpacity(setOf(femur), alpha = 1.0f)
 
         assertEquals(emptySet(), renderer.ghosted)
+    }
+
+    @Test
+    fun un_ghosting_one_structure_leaves_the_rest_at_their_original_alpha() = runTest {
+        val renderer = FakeAnatomyRenderer()
+        val femur = StructureId("a02-5-04-001-femur-left")
+        val fibula = StructureId("a02-5-07-001-fibula-left")
+
+        renderer.setOpacity(setOf(femur, fibula), alpha = 0.25f)
+        renderer.setOpacity(setOf(fibula), alpha = 1.0f)
+
+        assertEquals(setOf(femur), renderer.ghosted)
+        assertEquals(0.25f, renderer.ghostAlpha)
     }
 
     @Test

@@ -173,7 +173,7 @@ abstract class AnatomyRendererContract {
         assertEquals(null, error, "an error was reported while ghosting")
     }
 
-    suspend fun verifyHighlightAndGhostResolveInEitherOrder() = withRenderer { renderer ->
+    suspend fun verifyDoesNotFaultWhenHighlightAndGhostInterleave() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
 

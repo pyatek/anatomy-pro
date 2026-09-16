@@ -92,6 +92,17 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private val hidden = mutableSetOf<StructureId>()
     private val ghosted = mutableSetOf<StructureId>()
 
+    /**
+     * The alpha of the last partial ghost, mirroring `FakeAnatomyRenderer.ghostAlpha`.
+     *
+     * There is one shared blended material instance per §26.3, so the survivors of [ghosted]
+     * must keep wearing whatever alpha put them there rather than whatever alpha the most
+     * recent call happened to carry — otherwise un-ghosting one structure would re-send the
+     * rest at `alpha = 1.0` and strand them fully opaque but still on the ghost material,
+     * wearing its neutral tint instead of their own colour.
+     */
+    private var ghostAlpha = 1f
+
     /** Draws offscreen. Used by contract tests, which have no window. */
     fun attachHeadless(width: Int, height: Int) {
         ar_attach_headless(handle, width.toUInt(), height.toUInt())
@@ -154,6 +165,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     }
 
     override suspend fun loadPack(pack: PackId, source: MeshSource) {
+        // ar_load_model calls releaseAsset on the C side first, which clears the shim's own
+        // hidden/ghosted/highlight sets (see AnatomyRenderer.mm). Kotlin's copies have to be
+        // cleared in step, or a set carried over from the previous pack would be stale: the
+        // next unrelated setVisibility/setOpacity call would re-send it and hide or ghost
+        // nodes nobody asked to touch in the newly loaded pack.
+        forgetPerPackState()
         ar_load_model(handle, source.uri)
         loadedPack = pack
         indexNodes()
@@ -163,13 +180,19 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     override suspend fun unloadPack(pack: PackId) {
         if (loadedPack != pack) return
         lastUnloaded = pack
-        hidden.clear()
-        ghosted.clear()
+        forgetPerPackState()
         ar_unload_model(handle, null)
         loadedPack = null
         nodesByStructure = emptyMap()
         nodeToStructure = emptyMap()
         drain()
+    }
+
+    /** Clears the state that belongs to one loaded pack and cannot outlive it. */
+    private fun forgetPerPackState() {
+        hidden.clear()
+        ghosted.clear()
+        ghostAlpha = 1f
     }
 
     override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
@@ -199,10 +222,13 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     }
 
     override fun setOpacity(structures: Set<StructureId>, alpha: Float) {
-        if (alpha >= 1f) ghosted -= structures else ghosted += structures
+        if (alpha >= 1f) ghosted -= structures else {
+            ghosted += structures
+            ghostAlpha = alpha
+        }
         val nodes = ghosted.flatMap { nodesByStructure[it].orEmpty() }
         if (nodes.isEmpty()) ar_clear_opacity(handle) else passNodes(nodes) { names, count ->
-            ar_set_opacity(handle, names, count, alpha)
+            ar_set_opacity(handle, names, count, ghostAlpha)
         }
         drain()
     }

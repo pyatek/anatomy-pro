@@ -42,7 +42,10 @@ interface AnatomyRenderer {
      *
      * A ghost is a uniform pale shell rather than a faded copy of each structure's own
      * colour — see §26.3 — so every ghosted primitive shares one material instance and the
-     * size of [structures] costs nothing on the CPU.
+     * size of [structures] costs nothing on the CPU. The same sharing cuts the other way:
+     * there is only one alpha, not one per structure, so the most recent sub-1.0 [alpha]
+     * applies to the *entire* ghosted set, not just [structures]. `setOpacity({a}, 0.25f)`
+     * followed by `setOpacity({b}, 0.5f)` leaves both `a` and `b` at 0.5.
      */
     fun setOpacity(structures: Set<StructureId>, alpha: Float)
 
