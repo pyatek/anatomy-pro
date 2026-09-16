@@ -40,18 +40,24 @@ Not verified, in rough order of how much it matters:
 
 ## What to do next
 
-**Transparent material variants — designed in §26, not yet built.** This is what unblocks
-the layer/system panel (prototype screen 07, the last Phase 1 atlas feature).
+**Transparent material variants — §26, built on iOS, not yet on Android or measured.**
+`setVisibility` and `setOpacity` are implemented and pass ten contract tests against real
+Filament on the simulator, including that a hidden structure is not pickable and a ghosted
+one stays pickable. `isolate` and `setSystemVisibility` are gone from the interface, replaced
+by `IsolationPolicy` in `feature-atlas`; that is what unblocks the layer/system panel
+(prototype screen 07, the last Phase 1 atlas feature) once something calls it.
 
-§26 splits it from §12's outline highlighting, which this file previously bundled with it.
-That bundling was wrong: the blended variant needs no shader at all — `gltfio`'s
+§26 splits transparency from §12's outline highlighting, which this file previously bundled
+with it. That bundling was wrong: the blended variant needs no shader at all — `gltfio`'s
 `MaterialProvider.MaterialKey` carries `alphaMode`, and the `UbershaderProvider` already in
 use vends a `BLEND` variant on request. §12 does need shaders, plus `matc`, which is not on
 this machine. Holding screen 07 behind that is the cost the bundle was hiding.
 
-The design also *removes* two renderer verbs rather than implementing them: `isolate` and
-`setSystemVisibility` are policy, and policy belongs in `feature-atlas` where §25.1's
-taxonomy is reachable. Screen 07 comes out fully unblocked, per-system toggles included.
+What remains: Android's `setVisibility`/`setOpacity` still throw `TODO()` — deferred until a
+device is available, not a bug. Nothing has been measured against the §23.9 budget yet;
+§25.4's interleaved-variants method is how that will happen. And `IsolationPolicy` has no
+production caller yet, so screen 07 itself is still the next thing to build, not a checked-off
+item — the chain from taxonomy to renderer to shim has never run end to end.
 
 **Then §12, solid outlines only.** Dashed waits for Phase 2 to need it. Until §12 lands,
 highlighting is colour and luminance only and the quiz must not be built on it.

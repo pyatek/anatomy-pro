@@ -1117,6 +1117,7 @@ On the Pixel 10, in the Android harness, with `skeletal-body` loaded. Take `gpuF
 1. everything visible, nothing ghosted (the §23.9 baseline);
 2. one structure focused, siblings ghosted, the rest hidden;
 3. everything visible, half the pack ghosted (the pathological case the design avoids, measured so the cost of getting it wrong is on record).
+4. The review established that `entitiesFor` in `AnatomyRenderer.mm` does a full `getEntitiesByName` scan per name, so hiding N of E nodes is already O(N·E) — co-equal with or larger than `collect()`'s O(n²) de-duplication, and on the same call. One fix serves both: build an `unordered_map<string, vector<Entity>>` in the loop that already walks every entity and its name, after which `collect` can use an `unordered_set` and `entitiesFor` becomes a hash lookup. Measure the hide/focus transition before deciding — §25.4 is explicit that this project settles performance by interleaved measurement, not by reasoning about complexity.
 
 - [ ] **Step 2: Rewrite §26.8**
 

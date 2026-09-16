@@ -1216,7 +1216,7 @@ and doing them together is cheaper than either alone. That was wrong about the f
 This section records the design that replaces it, and the measurements of the toolchain
 that forced the split.
 
-This is a design, not a record of built work. §26.7 says what exists.
+This is a design, not a record of built work. §26.8 says what exists.
 
 ### 26.1 The blended variant needs no shader
 
@@ -1305,8 +1305,11 @@ Today `highlight` owns that slot alone and unwinds itself through `swapped` and
 racing, and whichever wrote last would win.
 
 Instead the renderer keeps the three declared sets and resolves them to a single desired
-state per primitive — `base | ghost | highlight | hidden`. Highlight beats ghost,
-deterministically and regardless of call order.
+material per primitive — `base | ghost | highlight`. Highlight beats ghost,
+deterministically and regardless of call order. `hidden` is not a fourth material state: a
+hidden primitive can still carry a ghost or highlight material underneath, and that is
+harmless and correctly unwound, because the layer mask that hides it (§26.3) gates the draw
+call itself. Hidden wins at the draw call, not at the material slot.
 
 The resolution is clear-and-reapply, not a diff against what is already applied: every
 change unwinds all three features and re-derives the whole result. An earlier draft of this
@@ -1367,10 +1370,25 @@ guarantee is unmet, and the quiz must not be built on highlight styling alone.
 
 ### 26.8 Status
 
-Nothing here is implemented. `setSystemVisibility`, `setOpacity` and `isolate` all still
-throw, and the two the design removes are still on the interface.
+`setVisibility` and `setOpacity` are implemented on iOS and verified against real Filament
+on the simulator: ten contract tests, including that a hidden structure is not pickable and
+that a **ghosted** structure stays pickable. `isolate` and `setSystemVisibility` are gone
+from the interface; `IsolationPolicy` in `feature-atlas` replaces them.
 
-What is verified is the toolchain the design rests on: the blended variant is reachable
-from the existing provider, `MaterialInstance` has no parameter getters, `matc` is absent,
-and Filament 1.75.1 exposes stencil. Nothing has been measured, and §25.4's method —
-interleaving the variants inside one session and repeating the pair — is how it will be.
+Android still throws `TODO()` on both verbs. That is deferred, not missing — it needs a
+physical device, and the `TODO()`s are the honest state until one is available.
+
+Nothing has been measured. §25.4's method — interleaving the variants inside one session and
+repeating the pair — is how it will be.
+
+Two gaps are worth recording rather than glossing over:
+
+- `IsolationPolicy` has no production caller yet, so the full chain — taxonomy →
+  `Isolation` → renderer → shim — has never run end to end. The policy is tested in
+  isolation (so to speak); nothing yet drives it from a screen.
+- Whether the ghost actually reads as a pale shell rather than a dark smear is still
+  unconfirmed. §26.6's contract cannot see colour, so this has never been checked against a
+  device, only reasoned about in §26.3.
+
+`SystemId` in `core-model` now has zero references. It is expected to return with the layer
+panel, which is the first caller that will need it again.
