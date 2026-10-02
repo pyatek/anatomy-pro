@@ -7,7 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.ptk.anatomypro.core.data.AnatomyDatabase
+import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.PackInstaller
+import com.ptk.anatomypro.core.data.notBuiltAppDependencies
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomAtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomSettingsRepository
@@ -61,4 +63,21 @@ fun rememberAtlas(): AtlasDependencies? {
 fun rememberSettingsRepository(): SettingsRepository {
     val database = rememberAnatomyDatabase()
     return remember(database) { RoomSettingsRepository(database) }
+}
+
+/**
+ * The production set.
+ *
+ * Six of the eight repositories refuse rather than answer; see notBuiltAppDependencies.
+ * Replacing one when Phase 3 builds it is a one-line change here and nothing else.
+ *
+ * [AppDependencies.atlas] is null here for now: AtlasTab still installs and owns the atlas
+ * through its own rememberAtlas(), and nothing reads this field yet. Calling rememberAtlas()
+ * here as well would install the bundled pack twice on every launch. Plan Task 15 moves
+ * rememberAtlas() behind this holder, and AtlasTab's call goes with it.
+ */
+@Composable
+fun rememberAppDependencies(): AppDependencies {
+    val settings = rememberSettingsRepository()
+    return remember(settings) { notBuiltAppDependencies(atlas = null, settings = settings) }
 }

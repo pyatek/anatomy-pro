@@ -18,8 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.NameDisplay
 import com.ptk.anatomypro.core.designsystem.AnatomyTheme
+import com.ptk.anatomypro.core.designsystem.ProvideAppLocale
 import com.ptk.anatomypro.feature.settings.LanguageSelectionScreen
 import com.ptk.anatomypro.feature.settings.SettingsScreen
 import com.ptk.anatomypro.feature.settings.SettingsUiState
@@ -32,32 +34,37 @@ import com.ptk.anatomypro.navigation.AnatomyDestination
  *
  * Settings are read once here and passed down rather than reached for by each screen, so
  * a language change reaches the atlas, the detail page and search from a single source.
+ * The repositories arrive as [dependencies] rather than being chosen here, so a debug entry
+ * point can supply fakes while production supplies Room and refusals (all-screens spec §6).
+ * [ProvideAppLocale] makes every string resource follow the interface locale, not the
+ * system's (§13).
  */
 @Composable
-fun App() {
+fun App(dependencies: AppDependencies) {
     AnatomyTheme {
-        val repository = rememberSettingsRepository()
-        val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(repository) }
+        val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(dependencies.settings) }
         val settingsState: SettingsUiState by settingsModel.state.collectAsState()
 
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
-            ) {
-                when {
-                    settingsState.isLoading -> Centered("…")
+        ProvideAppLocale(settingsState.settings.interfaceLocale) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
+                ) {
+                    when {
+                        settingsState.isLoading -> Centered("…")
 
-                    // Prototype screen 01. Shown until the choice is made, not until a
-                    // language differs from the default: accepting the defaults is a
-                    // decision too, and it has to be recorded as one.
-                    !settingsState.settings.onboarded -> LanguageSelectionScreen(
-                        state = settingsState,
-                        onInterfaceLocale = settingsModel::onInterfaceLocale,
-                        onExaminationLocale = settingsModel::onExaminationLocale,
-                        onContinue = settingsModel::onOnboardingComplete,
-                    )
+                        // Prototype screen 01. Shown until the choice is made, not until a
+                        // language differs from the default: accepting the defaults is a
+                        // decision too, and it has to be recorded as one.
+                        !settingsState.settings.onboarded -> LanguageSelectionScreen(
+                            state = settingsState,
+                            onInterfaceLocale = settingsModel::onInterfaceLocale,
+                            onExaminationLocale = settingsModel::onExaminationLocale,
+                            onContinue = settingsModel::onOnboardingComplete,
+                        )
 
-                    else -> MainScaffold(settingsState, settingsModel)
+                        else -> MainScaffold(settingsState, settingsModel)
+                    }
                 }
             }
         }

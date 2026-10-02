@@ -12,6 +12,8 @@ kotlin {
 }
 dependencies {
     implementation(project(":shared"))
+    // Debug only: the release source set never sees the fakes, so it cannot link them.
+    debugImplementation(project(":shared:core-data-fake"))
 
     implementation(libs.androidx.activity.compose)
 
