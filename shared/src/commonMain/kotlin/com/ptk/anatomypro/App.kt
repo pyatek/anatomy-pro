@@ -44,6 +44,11 @@ fun App(dependencies: AppDependencies) {
     AnatomyTheme {
         val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(dependencies.settings) }
         val settingsState: SettingsUiState by settingsModel.state.collectAsState()
+        // Held above ProvideAppLocale on purpose. A language change rebuilds everything
+        // beneath it (that is how string resources pick the new locale up), and state
+        // remembered down there would be thrown away with it: switching language on the
+        // settings tab used to land the user back on the atlas.
+        var destination by rememberSaveable { mutableStateOf(AnatomyDestination.Atlas) }
 
         ProvideAppLocale(settingsState.settings.interfaceLocale) {
             Surface(modifier = Modifier.fillMaxSize()) {
@@ -63,7 +68,12 @@ fun App(dependencies: AppDependencies) {
                             onContinue = settingsModel::onOnboardingComplete,
                         )
 
-                        else -> MainScaffold(settingsState, settingsModel)
+                        else -> MainScaffold(
+                            state = settingsState,
+                            model = settingsModel,
+                            destination = destination,
+                            onDestination = { destination = it },
+                        )
                     }
                 }
             }
@@ -72,9 +82,12 @@ fun App(dependencies: AppDependencies) {
 }
 
 @Composable
-private fun MainScaffold(state: SettingsUiState, model: SettingsViewModel) {
-    var destination by rememberSaveable { mutableStateOf(AnatomyDestination.Atlas) }
-
+private fun MainScaffold(
+    state: SettingsUiState,
+    model: SettingsViewModel,
+    destination: AnatomyDestination,
+    onDestination: (AnatomyDestination) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             when (destination) {
@@ -98,7 +111,7 @@ private fun MainScaffold(state: SettingsUiState, model: SettingsViewModel) {
                 else -> Centered("${destination.label} — jeszcze nie zbudowane")
             }
         }
-        AnatomyBottomBar(selected = destination, onSelect = { destination = it })
+        AnatomyBottomBar(selected = destination, onSelect = onDestination)
     }
 }
 
