@@ -1,0 +1,40 @@
+package com.ptk.anatomypro.core.data.model
+
+import com.ptk.anatomypro.core.model.SystemId
+import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class EntitlementsTest {
+
+    private val skeletal = SystemId("skeletal")
+    private val muscular = SystemId("muscular")
+
+    @Test
+    fun skeletal_is_free_forever_even_with_no_subscription_and_nothing_owned() {
+        val none = Entitlements(subscribed = false, ownedSystems = emptySet())
+
+        assertTrue(none.allows(skeletal))
+    }
+
+    @Test
+    fun another_system_is_not_free() {
+        val none = Entitlements(subscribed = false, ownedSystems = emptySet())
+
+        assertFalse(none.allows(muscular))
+    }
+
+    @Test
+    fun a_subscription_allows_everything() {
+        val subscribed = Entitlements(subscribed = true, ownedSystems = emptySet())
+
+        assertTrue(subscribed.allows(muscular))
+    }
+
+    @Test
+    fun an_owned_system_is_allowed_without_a_subscription() {
+        val owned = Entitlements(subscribed = false, ownedSystems = setOf(muscular))
+
+        assertTrue(owned.allows(muscular))
+    }
+}
