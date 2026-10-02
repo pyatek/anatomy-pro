@@ -95,9 +95,15 @@ actual fun AnatomyCanvas(
         val choreographer = Choreographer.getInstance()
         var framesThisSecond = 0
         var windowStartNanos = 0L
+        // removeFrameCallback is not enough on its own. Compose disposes effects while
+        // Choreographer is running a frame, and a callback already taken off the queue for
+        // that frame still runs after removal — against a renderer the other effect has just
+        // destroyed. Leaving the atlas for another destination crashed this way.
+        var active = true
 
         val callback = object : Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
+                if (!active) return
                 if (renderer.renderFrame(frameTimeNanos)) framesThisSecond++
 
                 if (windowStartNanos == 0L) windowStartNanos = frameTimeNanos
@@ -127,7 +133,10 @@ actual fun AnatomyCanvas(
             }
         }
         choreographer.postFrameCallback(callback)
-        onDispose { choreographer.removeFrameCallback(callback) }
+        onDispose {
+            active = false
+            choreographer.removeFrameCallback(callback)
+        }
     }
 
     LaunchedEffect(renderer) {
