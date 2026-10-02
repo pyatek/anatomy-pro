@@ -18,9 +18,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import anatomypro.shared.feature_settings.generated.resources.Res
+import anatomypro.shared.feature_settings.generated.resources.settings_examination_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_examination_title
+import anatomypro.shared.feature_settings.generated.resources.settings_group_accessibility
+import anatomypro.shared.feature_settings.generated.resources.settings_group_languages
+import anatomypro.shared.feature_settings.generated.resources.settings_group_names
+import anatomypro.shared.feature_settings.generated.resources.settings_interface_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_interface_title
+import anatomypro.shared.feature_settings.generated.resources.settings_loading
+import anatomypro.shared.feature_settings.generated.resources.settings_names_all
+import anatomypro.shared.feature_settings.generated.resources.settings_names_latin_and_display
+import anatomypro.shared.feature_settings.generated.resources.settings_names_latin_only
+import anatomypro.shared.feature_settings.generated.resources.settings_patterns_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_patterns_title
+import anatomypro.shared.feature_settings.generated.resources.settings_timer_off
+import anatomypro.shared.feature_settings.generated.resources.settings_timer_on
+import anatomypro.shared.feature_settings.generated.resources.settings_timer_title
+import anatomypro.shared.feature_settings.generated.resources.settings_title
+import anatomypro.shared.feature_settings.generated.resources.settings_tree_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_tree_title
 import com.ptk.anatomypro.core.data.model.NameDisplay
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
+import org.jetbrains.compose.resources.stringResource
 
 /** Prototype screen 20. */
 @Composable
@@ -35,7 +56,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     if (state.isLoading) {
-        Text("Wczytywanie…", modifier = modifier.padding(16.dp))
+        Text(stringResource(Res.string.settings_loading), modifier = modifier.padding(16.dp))
         return
     }
     val settings = state.settings
@@ -44,26 +65,26 @@ fun SettingsScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        Text("Ustawienia", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(Res.string.settings_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
 
-        Group("JĘZYKI · NIEZALEŻNE") {
+        Group(stringResource(Res.string.settings_group_languages)) {
             Choice(
-                title = "Język interfejsu",
-                subtitle = "Menu, przyciski, opisy",
+                title = stringResource(Res.string.settings_interface_title),
+                subtitle = stringResource(Res.string.settings_interface_subtitle),
                 options = state.interfaceOptions,
                 selected = settings.interfaceLocale,
                 onSelect = onInterfaceLocale,
             )
             Choice(
-                title = "Język egzaminowania",
-                subtitle = "Pytania i odpowiedzi w testach",
+                title = stringResource(Res.string.settings_examination_title),
+                subtitle = stringResource(Res.string.settings_examination_subtitle),
                 options = state.examinationOptions,
                 selected = settings.examinationLocale,
                 onSelect = onExaminationLocale,
             )
         }
 
-        Group("WYŚWIETLANIE NAZW") {
+        Group(stringResource(Res.string.settings_group_names)) {
             for (display in NameDisplay.entries) {
                 Row(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
@@ -79,22 +100,24 @@ fun SettingsScreen(
             }
         }
 
-        Group("DOSTĘPNOŚĆ") {
+        Group(stringResource(Res.string.settings_group_accessibility)) {
             Toggle(
-                title = "Limit czasu w testach",
-                subtitle = if (settings.quizTimerEnabled) "Włączony" else "Wyłączony · testy bez zegara",
+                title = stringResource(Res.string.settings_timer_title),
+                subtitle = stringResource(
+                    if (settings.quizTimerEnabled) Res.string.settings_timer_on else Res.string.settings_timer_off,
+                ),
                 checked = settings.quizTimerEnabled,
                 onChange = onQuizTimer,
             )
             Toggle(
-                title = "Tryb drzewa struktur",
-                subtitle = "Lista zamiast modelu 3D",
+                title = stringResource(Res.string.settings_tree_title),
+                subtitle = stringResource(Res.string.settings_tree_subtitle),
                 checked = settings.structureTreeMode,
                 onChange = onStructureTreeMode,
             )
             Toggle(
-                title = "Wzory zamiast kolorów",
-                subtitle = "Kreskowanie i etykiety na modelu",
+                title = stringResource(Res.string.settings_patterns_title),
+                subtitle = stringResource(Res.string.settings_patterns_subtitle),
                 checked = settings.patternsNotColour,
                 onChange = onPatternsNotColour,
             )
@@ -102,11 +125,14 @@ fun SettingsScreen(
     }
 }
 
-private fun NameDisplay.label() = when (this) {
-    NameDisplay.LatinAndDisplay -> "Łacina + język interfejsu"
-    NameDisplay.LatinOnly -> "Tylko łacina"
-    NameDisplay.All -> "Wszystkie"
-}
+@Composable
+private fun NameDisplay.label() = stringResource(
+    when (this) {
+        NameDisplay.LatinAndDisplay -> Res.string.settings_names_latin_and_display
+        NameDisplay.LatinOnly -> Res.string.settings_names_latin_only
+        NameDisplay.All -> Res.string.settings_names_all
+    },
+)
 
 @Composable
 private fun Group(label: String, content: @Composable () -> Unit) {

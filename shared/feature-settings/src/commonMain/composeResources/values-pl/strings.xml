@@ -1,0 +1,33 @@
+<resources>
+    <string name="settings_loading">Wczytywanie…</string>
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_group_languages">JĘZYKI · NIEZALEŻNE</string>
+    <string name="settings_interface_title">Język interfejsu</string>
+    <string name="settings_interface_subtitle">Menu, przyciski, opisy</string>
+    <string name="settings_examination_title">Język egzaminowania</string>
+    <string name="settings_examination_subtitle">Pytania i odpowiedzi w testach</string>
+    <string name="settings_group_names">WYŚWIETLANIE NAZW</string>
+    <string name="settings_names_latin_and_display">Łacina + język interfejsu</string>
+    <string name="settings_names_latin_only">Tylko łacina</string>
+    <string name="settings_names_all">Wszystkie</string>
+    <string name="settings_group_accessibility">DOSTĘPNOŚĆ</string>
+    <string name="settings_timer_title">Limit czasu w testach</string>
+    <string name="settings_timer_on">Włączony</string>
+    <string name="settings_timer_off">Wyłączony · testy bez zegara</string>
+    <string name="settings_tree_title">Tryb drzewa struktur</string>
+    <string name="settings_tree_subtitle">Lista zamiast modelu 3D</string>
+    <string name="settings_patterns_title">Wzory zamiast kolorów</string>
+    <string name="settings_patterns_subtitle">Kreskowanie i etykiety na modelu</string>
+    <string name="language_step">KROK 1 Z 3</string>
+    <string name="language_title">Dwa języki, ustawiane osobno</string>
+    <string name="language_body">Czytaj interfejs w jednym języku, a egzaminuj się w innym. Oba można zmienić w Ustawieniach.</string>
+    <string name="language_interface_label">JĘZYK INTERFEJSU</string>
+    <string name="language_examination_label">JĘZYK EGZAMINOWANIA</string>
+    <string name="language_summary">Interfejs %1$s · Egzamin %2$s</string>
+    <string name="language_continue">Dalej</string>
+    <string name="language_selected">WYBRANE</string>
+    <string name="locale_note_interface_pl">polski</string>
+    <string name="locale_note_interface_en">angielski</string>
+    <string name="locale_note_examination_la">Terminologia Anatomica</string>
+    <string name="locale_note_examination_en">Odpowiedzi po angielsku</string>
+</resources>

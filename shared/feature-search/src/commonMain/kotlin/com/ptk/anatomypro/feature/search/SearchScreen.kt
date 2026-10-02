@@ -18,9 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import anatomypro.shared.feature_search.generated.resources.Res
+import anatomypro.shared.feature_search.generated.resources.search_field
+import anatomypro.shared.feature_search.generated.resources.search_match
+import anatomypro.shared.feature_search.generated.resources.search_recent
+import anatomypro.shared.feature_search.generated.resources.search_results
+import anatomypro.shared.feature_search.generated.resources.search_scope
+import anatomypro.shared.feature_search.generated.resources.search_searching
 import com.ptk.anatomypro.core.data.model.SearchHit
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** Prototype screen 06: one field, every language at once, the match badged. */
 @Composable
@@ -36,15 +45,15 @@ fun SearchScreen(
             value = state.query,
             onValueChange = onQueryChanged,
             singleLine = true,
-            label = { Text("Szukaj") },
+            label = { Text(stringResource(Res.string.search_field)) },
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         )
 
         Text(
             text = when {
-                !state.hasQuery -> "SZUKA W LAT · POL · ENG"
-                state.isSearching -> "Szukanie…"
-                else -> "${state.hits.size} wyników"
+                !state.hasQuery -> stringResource(Res.string.search_scope)
+                state.isSearching -> stringResource(Res.string.search_searching)
+                else -> pluralStringResource(Res.plurals.search_results, state.hits.size, state.hits.size)
             },
             style = MaterialTheme.typography.labelSmall,
             color = TextTertiary,
@@ -53,7 +62,7 @@ fun SearchScreen(
 
         if (!state.hasQuery) {
             if (state.recent.isNotEmpty()) {
-                Text("OSTATNIE", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+                Text(stringResource(Res.string.search_recent), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
                 for (term in state.recent) {
                     Text(
                         text = term,
@@ -83,7 +92,7 @@ fun SearchScreen(
                             fontWeight = if (hit.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
                         )
                         Text(
-                            text = "MATCH · ${hit.matchedLocale.uppercase()}",
+                            text = stringResource(Res.string.search_match, hit.matchedLocale.uppercase()),
                             style = MaterialTheme.typography.labelSmall,
                             color = Accent,
                         )

@@ -1,0 +1,13 @@
+<resources>
+    <string name="search_field">Szukaj</string>
+    <string name="search_scope">SZUKA W LAT · POL · ENG</string>
+    <string name="search_searching">Szukanie…</string>
+    <plurals name="search_results">
+        <item quantity="one">%1$d wynik</item>
+        <item quantity="few">%1$d wyniki</item>
+        <item quantity="many">%1$d wyników</item>
+        <item quantity="other">%1$d wyniku</item>
+    </plurals>
+    <string name="search_recent">OSTATNIE</string>
+    <string name="search_match">TRAFIENIE · %1$s</string>
+</resources>

@@ -27,10 +27,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import anatomypro.shared.generated.resources.Res
+import anatomypro.shared.generated.resources.tab_atlas
+import anatomypro.shared.generated.resources.tab_profile
+import anatomypro.shared.generated.resources.tab_ranking
+import anatomypro.shared.generated.resources.tab_test
+import anatomypro.shared.generated.resources.tab_today
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.NavHairline
 import com.ptk.anatomypro.core.designsystem.NavSurface
 import com.ptk.anatomypro.core.designsystem.TextTertiary
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The prototype's bottom bar.
@@ -72,7 +79,7 @@ fun AnatomyBottomBar(
                     ) {
                         Canvas(Modifier.size(21.dp)) { drawIcon(destination, tint) }
                         Text(
-                            text = destination.label,
+                            text = destination.label(),
                             color = tint,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
@@ -156,15 +163,14 @@ private fun DrawScope.drawIcon(destination: TopLevel, tint: Color) {
     }
 }
 
-/**
- * The tab labels, kept as literals for one more task: plan Task 16 replaces this with string
- * resources, so that this change moves navigation and nothing else.
- */
-private val TopLevel.label: String
-    get() = when (this) {
-        TopLevel.Today -> "DZIŚ"
-        TopLevel.Atlas -> "ATLAS"
-        TopLevel.Test -> "TEST"
-        TopLevel.Ranking -> "RANKING"
-        TopLevel.Profile -> "PROFIL"
-    }
+/** The tab's label, in the interface language. */
+@Composable
+private fun TopLevel.label(): String = stringResource(
+    when (this) {
+        TopLevel.Today -> Res.string.tab_today
+        TopLevel.Atlas -> Res.string.tab_atlas
+        TopLevel.Test -> Res.string.tab_test
+        TopLevel.Ranking -> Res.string.tab_ranking
+        TopLevel.Profile -> Res.string.tab_profile
+    },
+)

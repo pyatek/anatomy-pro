@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 data class StructureDetailUiState(
     val detail: StructureDetail? = null,
     val isLoading: Boolean = true,
-    val error: String? = null,
+    val error: DetailError? = null,
 ) {
     /**
      * The title is the Latin name, because Latin is the canonical key (spec §13) and the
@@ -48,15 +48,18 @@ class StructureDetailViewModel(
                         isLoading = false,
                         // A structure the tree offered but the repository cannot produce is
                         // a data fault, not an empty screen.
-                        error = if (detail == null) "Nie znaleziono struktury" else null,
+                        error = if (detail == null) DetailError.NotFound else null,
                     )
                 }
                 .onFailure {
                     _state.value = StructureDetailUiState(
                         isLoading = false,
-                        error = it.message ?: "Nie udało się wczytać",
+                        error = DetailError.LoadFailed,
                     )
                 }
         }
     }
 }
+
+/** A kind rather than text, for the same reason as [AtlasError]. */
+enum class DetailError { NotFound, LoadFailed }

@@ -22,6 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import anatomypro.shared.generated.resources.Res
+import anatomypro.shared.generated.resources.atlas_opening
+import anatomypro.shared.generated.resources.atlas_search
+import anatomypro.shared.generated.resources.atlas_stats
+import anatomypro.shared.generated.resources.atlas_title
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.model.StructureId
@@ -34,6 +39,7 @@ import com.ptk.anatomypro.feature.atlas.StructureDetailViewModel
 import com.ptk.anatomypro.feature.search.SearchScreen
 import com.ptk.anatomypro.feature.search.SearchUiState
 import com.ptk.anatomypro.feature.search.SearchViewModel
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The Atlas tab's start screen: the model and the structure tree.
@@ -73,7 +79,7 @@ fun SearchRoute(repository: AtlasRepository?, onBack: () -> Unit, onOpenDetail: 
     val model: SearchViewModel = viewModel { SearchViewModel(repository) }
     val state: SearchUiState by model.state.collectAsState()
     Column(Modifier.fillMaxSize()) {
-        TopBar(title = "SZUKAJ", onBack = onBack)
+        TopBar(title = stringResource(Res.string.atlas_search), onBack = onBack)
         SearchScreen(
             state = state,
             onQueryChanged = model::onQueryChanged,
@@ -114,7 +120,7 @@ fun DetailRoute(
 @Composable
 private fun Opening() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Otwieranie atlasu…", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(Res.string.atlas_opening), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -140,9 +146,9 @@ private fun BrowseRoute(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("ATLAS", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(Res.string.atlas_title), style = MaterialTheme.typography.labelSmall)
             Text(
-                text = "SZUKAJ",
+                text = stringResource(Res.string.atlas_search),
                 style = MaterialTheme.typography.labelSmall,
                 color = Accent,
                 modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onSearch).padding(top = 14.dp),
@@ -171,8 +177,14 @@ private fun BrowseRoute(
         // Kept from the Phase 0 harness: §16's budget is still unconfirmed on a mid-range
         // device, and losing the number would cost the ability to notice a regression.
         Text(
-            text = "${stats.pack} · ${stats.structures} struktur · " +
-                "${stats.fps}/${stats.refreshHz} fps · GPU ${(stats.gpuMillis * 10).toInt() / 10f} ms",
+            text = stringResource(
+                Res.string.atlas_stats,
+                stats.pack,
+                stats.structures,
+                stats.fps,
+                stats.refreshHz,
+                ((stats.gpuMillis * 10).toInt() / 10f).toString(),
+            ),
             style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(6.dp),

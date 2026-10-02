@@ -5,6 +5,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.compose.components.resources)
             api(project(":shared:core-data"))
             api(project(":shared:renderer-api"))
             implementation(project(":shared:core-designsystem"))

@@ -40,7 +40,7 @@ class AtlasViewModel(
                     _state.value = AtlasUiState(rows = flatten(), isLoading = false)
                 }
                 .onFailure {
-                    _state.value = AtlasUiState(isLoading = false, error = it.message ?: "load failed")
+                    _state.value = AtlasUiState(isLoading = false, error = AtlasError.LoadFailed)
                 }
         }
     }

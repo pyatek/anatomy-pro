@@ -1,0 +1,12 @@
+<resources>
+    <string name="tab_today">DZIŚ</string>
+    <string name="tab_atlas">ATLAS</string>
+    <string name="tab_test">TEST</string>
+    <string name="tab_ranking">RANKING</string>
+    <string name="tab_profile">PROFIL</string>
+    <string name="atlas_title">ATLAS</string>
+    <string name="atlas_search">SZUKAJ</string>
+    <string name="atlas_opening">Otwieranie atlasu…</string>
+    <string name="atlas_stats">%1$s · struktury: %2$d · %3$d/%4$d fps · GPU %5$s ms</string>
+    <string name="not_built_yet">%1$s — jeszcze nie zbudowane</string>
+</resources>

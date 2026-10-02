@@ -16,8 +16,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import anatomypro.shared.feature_settings.generated.resources.Res
+import anatomypro.shared.feature_settings.generated.resources.language_body
+import anatomypro.shared.feature_settings.generated.resources.language_continue
+import anatomypro.shared.feature_settings.generated.resources.language_examination_label
+import anatomypro.shared.feature_settings.generated.resources.language_interface_label
+import anatomypro.shared.feature_settings.generated.resources.language_selected
+import anatomypro.shared.feature_settings.generated.resources.language_step
+import anatomypro.shared.feature_settings.generated.resources.language_summary
+import anatomypro.shared.feature_settings.generated.resources.language_title
+import anatomypro.shared.feature_settings.generated.resources.locale_note_examination_en
+import anatomypro.shared.feature_settings.generated.resources.locale_note_examination_la
+import anatomypro.shared.feature_settings.generated.resources.locale_note_interface_en
+import anatomypro.shared.feature_settings.generated.resources.locale_note_interface_pl
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Prototype screen 01: the first-run choice.
@@ -40,42 +55,46 @@ fun LanguageSelectionScreen(
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Text("KROK 1 Z 3", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+        Text(stringResource(Res.string.language_step), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
         Text(
-            "Dwa języki, ustawiane osobno",
+            stringResource(Res.string.language_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            "Czytaj interfejs w jednym języku, a egzaminuj się w innym. " +
-                "Oba można zmienić w Ustawieniach.",
+            stringResource(Res.string.language_body),
             style = MaterialTheme.typography.bodyMedium,
             color = TextTertiary,
         )
 
         Picker(
-            label = "JĘZYK INTERFEJSU",
+            label = stringResource(Res.string.language_interface_label),
             options = state.interfaceOptions,
+            noteOf = ::interfaceNote,
             selected = settings.interfaceLocale,
             onSelect = onInterfaceLocale,
         )
         Picker(
-            label = "JĘZYK EGZAMINOWANIA",
+            label = stringResource(Res.string.language_examination_label),
             options = state.examinationOptions,
+            noteOf = ::examinationNote,
             selected = settings.examinationLocale,
             onSelect = onExaminationLocale,
         )
 
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
             Text(
-                text = "Interfejs ${settings.interfaceLocale.uppercase()} · " +
-                    "Egzamin ${settings.examinationLocale.uppercase()}",
+                text = stringResource(
+                    Res.string.language_summary,
+                    settings.interfaceLocale.uppercase(),
+                    settings.examinationLocale.uppercase(),
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text("Dalej")
+                Text(stringResource(Res.string.language_continue))
             }
         }
     }
@@ -85,6 +104,7 @@ fun LanguageSelectionScreen(
 private fun Picker(
     label: String,
     options: List<LocaleOption>,
+    noteOf: (String) -> StringResource?,
     selected: String,
     onSelect: (String) -> Unit,
 ) {
@@ -100,12 +120,28 @@ private fun Picker(
             ) {
                 Column {
                     Text(option.name, style = MaterialTheme.typography.bodyMedium)
-                    Text(option.note, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+                    noteOf(option.code)?.let { note ->
+                        Text(stringResource(note), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+                    }
                 }
                 if (isSelected) {
-                    Text("WYBRANE", style = MaterialTheme.typography.labelSmall, color = Accent)
+                    Text(stringResource(Res.string.language_selected), style = MaterialTheme.typography.labelSmall, color = Accent)
                 }
             }
         }
     }
+}
+
+/** What an interface language is, in the interface language: "Polski" is "Polish" in English. */
+private fun interfaceNote(code: String): StringResource? = when (code) {
+    "pl" -> Res.string.locale_note_interface_pl
+    "en" -> Res.string.locale_note_interface_en
+    else -> null
+}
+
+/** What examining in a language means, in the interface language. */
+private fun examinationNote(code: String): StringResource? = when (code) {
+    "la" -> Res.string.locale_note_examination_la
+    "en" -> Res.string.locale_note_examination_en
+    else -> null
 }

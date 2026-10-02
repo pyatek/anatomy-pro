@@ -11,7 +11,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** A language the interface can be read in, or the examination conducted in. */
-data class LocaleOption(val code: String, val name: String, val note: String)
+/**
+ * One language a picker offers. [name] is the language's own name for itself — "Polski",
+ * "Latina" — and so is deliberately not translated: a language picker reads the same in
+ * every interface language. What it is for is described beside it by the screen, from
+ * string resources, in the interface language.
+ */
+data class LocaleOption(val code: String, val name: String)
 
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
@@ -27,14 +33,14 @@ data class SettingsUiState(
          * language no pack can render would be a promise the content cannot keep.
          */
         val INTERFACE_LOCALES = listOf(
-            LocaleOption("pl", "Polski", "Polish"),
-            LocaleOption("en", "English", "English"),
+            LocaleOption("pl", "Polski"),
+            LocaleOption("en", "English"),
         )
 
         /** Latin is always available: it is the canonical key every pack carries (§13). */
         val EXAMINATION_LOCALES = listOf(
-            LocaleOption("la", "Latina", "Terminologia Anatomica"),
-            LocaleOption("en", "English", "Answers in English"),
+            LocaleOption("la", "Latina"),
+            LocaleOption("en", "English"),
         )
     }
 }

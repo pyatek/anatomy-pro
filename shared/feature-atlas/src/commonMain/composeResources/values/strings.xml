@@ -1,0 +1,12 @@
+<resources>
+    <string name="atlas_select_prompt">select a structure</string>
+    <string name="atlas_loading">Loading the atlas…</string>
+    <string name="atlas_empty">No structures installed</string>
+    <string name="atlas_load_failed">The atlas could not be loaded</string>
+    <string name="detail_section_structure">STRUCTURE</string>
+    <string name="detail_loading">Loading…</string>
+    <string name="detail_section_definition">DEFINITION</string>
+    <string name="detail_section_hierarchy">PLACE IN THE HIERARCHY</string>
+    <string name="detail_not_found">Structure not found</string>
+    <string name="detail_load_failed">Could not be loaded</string>
+</resources>

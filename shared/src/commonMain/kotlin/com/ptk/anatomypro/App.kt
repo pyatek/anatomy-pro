@@ -1,5 +1,10 @@
 package com.ptk.anatomypro
 
+import anatomypro.shared.generated.resources.Res
+import anatomypro.shared.generated.resources.not_built_yet
+import anatomypro.shared.generated.resources.tab_ranking
+import anatomypro.shared.generated.resources.tab_test
+import anatomypro.shared.generated.resources.tab_today
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,6 +44,8 @@ import com.ptk.anatomypro.navigation.DailyRoute
 import com.ptk.anatomypro.navigation.ProfileRoute
 import com.ptk.anatomypro.navigation.QuizRoute
 import com.ptk.anatomypro.navigation.TopLevel
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The app shell.
@@ -157,9 +164,9 @@ private fun MainScaffold(
 
                 // Plans 2-6 add their composable<Route> entries here. Until then each unbuilt
                 // tab's start route needs a screen, or selecting the tab crashes the NavHost.
-                composable<DailyRoute.Home> { Centered("DZIŚ — jeszcze nie zbudowane") }
-                composable<QuizRoute.Topics> { Centered("TEST — jeszcze nie zbudowane") }
-                composable<DailyRoute.Leaderboard> { Centered("RANKING — jeszcze nie zbudowane") }
+                composable<DailyRoute.Home> { NotBuilt(Res.string.tab_today) }
+                composable<QuizRoute.Topics> { NotBuilt(Res.string.tab_test) }
+                composable<DailyRoute.Leaderboard> { NotBuilt(Res.string.tab_ranking) }
             }
         }
         AnatomyBottomBar(selected = tab, onSelect = { navController.selectTab(it, current = tab) })
@@ -193,6 +200,11 @@ private fun NavDestination.tab(): TopLevel? = when {
     hasRoute<AtlasRoute.Browse>() || hasRoute<AtlasRoute.Search>() || hasRoute<AtlasRoute.Layers>() ||
         hasRoute<AtlasRoute.Tree>() || hasRoute<AtlasRoute.Detail>() -> TopLevel.Atlas
     else -> null
+}
+
+@Composable
+private fun NotBuilt(tab: StringResource) {
+    Centered(stringResource(Res.string.not_built_yet, stringResource(tab)))
 }
 
 @Composable

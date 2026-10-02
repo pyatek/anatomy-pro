@@ -18,8 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import anatomypro.shared.feature_atlas.generated.resources.Res
+import anatomypro.shared.feature_atlas.generated.resources.detail_load_failed
+import anatomypro.shared.feature_atlas.generated.resources.detail_loading
+import anatomypro.shared.feature_atlas.generated.resources.detail_not_found
+import anatomypro.shared.feature_atlas.generated.resources.detail_section_definition
+import anatomypro.shared.feature_atlas.generated.resources.detail_section_hierarchy
+import anatomypro.shared.feature_atlas.generated.resources.detail_section_structure
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
+import org.jetbrains.compose.resources.stringResource
 
 /** Prototype screen 05: read about one structure. */
 @Composable
@@ -41,12 +49,19 @@ fun StructureDetailScreen(
                 color = Accent,
                 modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onBack).padding(horizontal = 8.dp),
             )
-            SectionLabel("STRUKTURA")
+            SectionLabel(stringResource(Res.string.detail_section_structure))
         }
 
         when {
-            state.isLoading -> Note("Wczytywanie…")
-            state.error != null -> Note(state.error)
+            state.isLoading -> Note(stringResource(Res.string.detail_loading))
+            state.error != null -> Note(
+                stringResource(
+                    when (state.error) {
+                        DetailError.NotFound -> Res.string.detail_not_found
+                        DetailError.LoadFailed -> Res.string.detail_load_failed
+                    },
+                ),
+            )
             else -> Column(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
@@ -74,7 +89,7 @@ fun StructureDetailScreen(
 
                 state.detail?.definition?.let {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SectionLabel("DEFINICJA")
+                        SectionLabel(stringResource(Res.string.detail_section_definition))
                         Text(it, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -82,7 +97,7 @@ fun StructureDetailScreen(
                 val ancestors = state.detail?.ancestors.orEmpty()
                 if (ancestors.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SectionLabel("POZYCJA W HIERARCHII")
+                        SectionLabel(stringResource(Res.string.detail_section_hierarchy))
                         ancestors.forEachIndexed { depth, ancestor ->
                             Text(
                                 text = ancestor.name,

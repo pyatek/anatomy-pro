@@ -21,8 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import anatomypro.shared.feature_atlas.generated.resources.Res
+import anatomypro.shared.feature_atlas.generated.resources.atlas_empty
+import anatomypro.shared.feature_atlas.generated.resources.atlas_load_failed
+import anatomypro.shared.feature_atlas.generated.resources.atlas_loading
+import anatomypro.shared.feature_atlas.generated.resources.atlas_select_prompt
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.model.StructureId
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Browse the taxonomy and highlight what is selected.
@@ -43,15 +49,15 @@ fun AtlasScreen(
         canvas(Modifier.fillMaxWidth().weight(1f))
 
         Text(
-            text = state.selectedName ?: "select a structure",
+            text = state.selectedName ?: stringResource(Res.string.atlas_select_prompt),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
         when {
-            state.isLoading -> Message("Loading atlas…")
-            state.error != null -> Message(state.error)
-            state.rows.isEmpty() -> Message("No structures installed")
+            state.isLoading -> Message(stringResource(Res.string.atlas_loading))
+            state.error != null -> Message(stringResource(Res.string.atlas_load_failed))
+            state.rows.isEmpty() -> Message(stringResource(Res.string.atlas_empty))
             else -> LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
                 items(state.rows, key = { it.summary.id.value }) { row ->
                     TaxonomyRow(

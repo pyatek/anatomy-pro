@@ -1,0 +1,12 @@
+<resources>
+    <string name="atlas_select_prompt">wybierz strukturę</string>
+    <string name="atlas_loading">Wczytywanie atlasu…</string>
+    <string name="atlas_empty">Brak zainstalowanych struktur</string>
+    <string name="atlas_load_failed">Nie udało się wczytać atlasu</string>
+    <string name="detail_section_structure">STRUKTURA</string>
+    <string name="detail_loading">Wczytywanie…</string>
+    <string name="detail_section_definition">DEFINICJA</string>
+    <string name="detail_section_hierarchy">POZYCJA W HIERARCHII</string>
+    <string name="detail_not_found">Nie znaleziono struktury</string>
+    <string name="detail_load_failed">Nie udało się wczytać</string>
+</resources>

@@ -27,5 +27,11 @@ data class AtlasUiState(
     val selected: StructureId? = null,
     val selectedName: String? = null,
     val isLoading: Boolean = true,
-    val error: String? = null,
+    val error: AtlasError? = null,
 )
+
+/**
+ * What went wrong, as a kind rather than as text: a ViewModel cannot read string resources,
+ * and an exception's message is not copy a student should see.
+ */
+enum class AtlasError { LoadFailed }
