@@ -50,6 +50,7 @@ kotlin {
             api(project(":shared:core-model"))
             api(project(":shared:renderer-api"))
             implementation(project(":shared:core-designsystem"))
+            implementation(project(":shared:core-navigation"))
             implementation(project(":shared:renderer-filament"))
             api(project(":shared:core-data"))
             api(project(":shared:feature-atlas"))
