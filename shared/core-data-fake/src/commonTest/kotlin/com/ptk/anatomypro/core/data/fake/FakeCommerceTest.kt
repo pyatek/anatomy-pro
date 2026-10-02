@@ -123,6 +123,24 @@ class FakeCommerceTest {
     }
 
     @Test
+    fun a_download_is_queued_before_any_bytes_arrive() = runTest {
+        // Screen 03's first state: the request is accepted, nothing is transferring yet.
+        val repository = FakePackRepository()
+        val seen = mutableListOf<PackStatus>()
+        backgroundScope.launch {
+            repository.packs.collect { packs -> seen += packs.first { it.id == PackId("muscular-body") }.status }
+        }
+        runCurrent()
+
+        repository.download(PackId("muscular-body"))
+        runCurrent()
+
+        val queued = seen.indexOfFirst { it is PackStatus.Queued }
+        val downloading = seen.indexOfFirst { it is PackStatus.Downloading }
+        assertTrue(queued in 0 until downloading, "expected Queued before Downloading: $seen")
+    }
+
+    @Test
     fun a_download_can_be_made_to_fail_part_way_so_screen_03_can_offer_a_resume() = runTest {
         val repository = FakePackRepository(downloadFailure = PackFailure.NETWORK)
 

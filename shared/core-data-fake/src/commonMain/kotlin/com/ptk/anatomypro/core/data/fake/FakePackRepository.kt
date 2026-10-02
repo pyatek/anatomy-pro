@@ -69,6 +69,8 @@ class FakePackRepository(
     override suspend fun download(id: PackId) {
         behaviour.respond {
             val pack = _packs.value.first { it.id == id }
+            setStatus(id, PackStatus.Queued)
+            yield()
             for (step in 1..DOWNLOAD_STEPS) {
                 if (downloadFailure != null && step > DOWNLOAD_STEPS / 2) {
                     setStatus(id, PackStatus.Failed(downloadFailure, resumable = downloadFailure == PackFailure.NETWORK))

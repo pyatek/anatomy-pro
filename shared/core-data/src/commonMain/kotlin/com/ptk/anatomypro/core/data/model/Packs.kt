@@ -20,6 +20,9 @@ data class PackState(
 sealed interface PackStatus {
     data object Available : PackStatus
 
+    /** Requested, nothing transferring yet: screen 03's first state (all-screens spec §9). */
+    data object Queued : PackStatus
+
     data class Downloading(val bytesDone: Long, val bytesTotal: Long) : PackStatus {
         /** 0f before the total is known, rather than a division by zero on screen 03. */
         val fraction: Float get() = if (bytesTotal == 0L) 0f else bytesDone.toFloat() / bytesTotal
