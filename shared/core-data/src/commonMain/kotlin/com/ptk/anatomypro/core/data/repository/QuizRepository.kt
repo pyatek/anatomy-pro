@@ -25,6 +25,11 @@ interface QuizRepository {
         format: QuizFormat,
         questionCount: Int,
         seed: Long,
+        /**
+         * The examination locale (§13), which every structure name in the session is given
+         * in — options, prompts and answer feedback. Independent of the interface locale.
+         */
+        locale: String,
     ): QuizSession
 
     suspend fun submit(session: QuizSessionId, answer: QuizAnswer): AnswerResult

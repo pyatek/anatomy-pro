@@ -72,6 +72,8 @@ data class QuizSession(
     val questions: List<QuizQuestion>,
     /** Recorded so a bad question set can be reproduced (spec §8.2). */
     val seed: Long,
+    /** The examination locale names are given in. Reproducing a set needs it beside [seed]. */
+    val locale: String,
 )
 
 /**

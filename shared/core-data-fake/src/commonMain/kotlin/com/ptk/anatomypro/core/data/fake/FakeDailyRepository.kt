@@ -37,7 +37,7 @@ class FakeDailyRepository(
         if (!available) DailyQuiz.Unavailable else state
     }
 
-    override suspend fun start(): DailyQuiz.InProgress = behaviour.respond {
+    override suspend fun start(locale: String): DailyQuiz.InProgress = behaviour.respond {
         check(available) { "the daily quiz requires a connection (§14)" }
         check(state is DailyQuiz.NotStarted) { "one attempt per day (§9.1)" }
 
@@ -47,6 +47,7 @@ class FakeDailyRepository(
             questionCount = QUESTION_COUNT,
             // Seeded on the date: everyone gets the same set today (§9.1).
             seed = date.toEpochDays(),
+            locale = locale,
         )
         val started = DailyQuiz.InProgress(date, session.questions, startedAt = CLOCK_START)
         state = started

@@ -63,6 +63,7 @@ class FakeQuizRepository(
         format: QuizFormat,
         questionCount: Int,
         seed: Long,
+        locale: String,
     ): QuizSession = behaviour.respond {
         val pool = answerable(topic)
         require(pool.size >= OPTION_COUNT) {
@@ -74,7 +75,7 @@ class FakeQuizRepository(
 
         val questions = targets.mapIndexed { index, target ->
             val distractors = pool.filter { it.id != target.id }.shuffled(random).take(OPTION_COUNT - 1)
-            val options = (distractors + target).shuffled(random).map { AtlasFixture.toSummary(it, "pl") }
+            val options = (distractors + target).shuffled(random).map { AtlasFixture.toSummary(it, locale) }
             val id = QuizQuestionId("q-${seed}-$index")
 
             when (format) {
@@ -88,8 +89,8 @@ class FakeQuizRepository(
                 QuizFormat.TAP_THE_STRUCTURE -> QuizQuestion.TapTheStructure(
                     id = id,
                     difficulty = Difficulty.HARD,
-                    prompt = AtlasFixture.nameOf(target, "la"),
-                    promptLocale = "la",
+                    prompt = AtlasFixture.nameOf(target, locale),
+                    promptLocale = if (locale in target.names) locale else "la",
                     target = target.id,
                 )
             }
@@ -101,6 +102,7 @@ class FakeQuizRepository(
             format = format,
             questions = questions,
             seed = seed,
+            locale = locale,
         )
         sessions[session.id] = session
         submitted[session.id] = mutableListOf()
@@ -119,9 +121,9 @@ class FakeQuizRepository(
             val result = AnswerResult(
                 questionId = answer.questionId,
                 correct = answer.chosen == expectedId,
-                expected = requireNotNull(AtlasFixture.summary(expectedId, "pl")),
-                chosen = answer.chosen?.let { AtlasFixture.summary(it, "pl") },
-                sharedAncestor = answer.chosen?.let { sharedAncestorOf(expectedId, it) },
+                expected = requireNotNull(AtlasFixture.summary(expectedId, held.locale)),
+                chosen = answer.chosen?.let { AtlasFixture.summary(it, held.locale) },
+                sharedAncestor = answer.chosen?.let { sharedAncestorOf(expectedId, it, held.locale) },
                 elapsedMillis = answer.elapsedMillis,
             )
             submitted.getValue(session) += result
@@ -143,9 +145,9 @@ class FakeQuizRepository(
     }
 
     /** The lowest group both structures sit under — what screen 12 explains. */
-    private fun sharedAncestorOf(a: StructureId, b: StructureId): StructureSummary? {
-        val chainOfA = AtlasFixture.ancestorsOf(a, "pl").map { it.id }.toSet()
-        return AtlasFixture.ancestorsOf(b, "pl").lastOrNull { it.id in chainOfA }
+    private fun sharedAncestorOf(a: StructureId, b: StructureId, locale: String): StructureSummary? {
+        val chainOfA = AtlasFixture.ancestorsOf(a, locale).map { it.id }.toSet()
+        return AtlasFixture.ancestorsOf(b, locale).lastOrNull { it.id in chainOfA }
     }
 
     private companion object {

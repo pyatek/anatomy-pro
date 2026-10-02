@@ -19,7 +19,7 @@ class FakeQuizRepositoryTest {
     private val ribs = QuizTopicId("costae")
 
     private suspend fun session(count: Int = 4) =
-        repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, count, seed = 1L)
+        repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, count, seed = 1L, locale = "la")
 
     @Test
     fun a_topic_grid_is_offered_with_mastery_as_a_fraction() = runTest {
@@ -43,8 +43,8 @@ class FakeQuizRepositoryTest {
 
     @Test
     fun a_different_seed_asks_something_different() = runTest {
-        val one = repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 1L)
-        val two = repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 2L)
+        val one = repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 1L, locale = "la")
+        val two = repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 2L, locale = "la")
 
         assertNotEquals(
             one.questions.map { (it as QuizQuestion.NameTheHighlighted).highlighted },
@@ -124,4 +124,55 @@ class FakeQuizRepositoryTest {
         assertEquals(2, summary.total)
         assertEquals(listOf(second.correct.id), summary.needsReview.map { it.id })
     }
+
+    @Test
+    fun options_are_named_in_the_examination_locale_the_session_was_started_in() = runTest {
+        // §13: a student may read the UI in Polish while being examined in Latin, so the
+        // options follow the session's locale, never a fixed one.
+        suspend fun optionNames(locale: String) = runTestSession(locale).questions
+            .flatMap { (it as QuizQuestion.NameTheHighlighted).options }
+            .map { it.name }
+
+        assertTrue(optionNames("la").all { it.startsWith("Costa ") }, "${optionNames("la")}")
+        assertTrue(optionNames("en").all { it.startsWith("Rib ") }, "${optionNames("en")}")
+    }
+
+    @Test
+    fun an_unknown_locale_falls_back_to_latin_because_latin_is_the_canonical_key() = runTest {
+        val names = runTestSession("de").questions
+            .flatMap { (it as QuizQuestion.NameTheHighlighted).options }
+            .map { it.name }
+
+        assertTrue(names.all { it.startsWith("Costa ") }, "$names")
+    }
+
+    @Test
+    fun a_tap_prompt_is_shown_in_the_session_locale_and_says_which() = runTest {
+        val session = repository.startSession(ribs, QuizFormat.TAP_THE_STRUCTURE, 4, seed = 1L, locale = "en")
+        val question = session.questions.first() as QuizQuestion.TapTheStructure
+
+        assertEquals("en", question.promptLocale)
+        assertTrue(question.prompt.startsWith("Rib "))
+    }
+
+    @Test
+    fun an_answer_result_names_both_structures_in_the_session_locale() = runTest {
+        val session = runTestSession("en")
+        val question = session.questions.first() as QuizQuestion.NameTheHighlighted
+        val wrong = question.options.first { it.id != question.correct.id }
+
+        val result = repository.submit(session.id, QuizAnswer(question.id, wrong.id, elapsedMillis = 900))
+
+        assertTrue(result.expected.name.startsWith("Rib "))
+        assertTrue(result.chosen!!.name.startsWith("Rib "))
+        assertEquals("Ribs", result.sharedAncestor?.name)
+    }
+
+    @Test
+    fun the_session_records_its_locale_beside_its_seed_so_it_can_be_reproduced() = runTest {
+        assertEquals("en", runTestSession("en").locale)
+    }
+
+    private suspend fun runTestSession(locale: String) =
+        repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 1L, locale = locale)
 }
