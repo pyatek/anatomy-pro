@@ -1,14 +1,9 @@
 package com.ptk.anatomypro.feature.search
 
-import com.ptk.anatomypro.core.data.model.SearchHit
-import com.ptk.anatomypro.core.data.model.StructureDetail
-import com.ptk.anatomypro.core.data.model.StructureSummary
-import com.ptk.anatomypro.core.data.repository.AtlasRepository
-import com.ptk.anatomypro.core.model.Laterality
-import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
+import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -19,28 +14,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-private fun hit(id: String, latin: String, locale: String) = SearchHit(
-    StructureSummary(StructureId(id), latin, latin, Laterality.MEDIAN, false, false),
-    locale,
-)
-
-private class RecordingRepository(private val results: List<SearchHit>) : AtlasRepository {
-    val queries = mutableListOf<String>()
-    override suspend fun roots(locale: String) = emptyList<StructureSummary>()
-    override suspend fun children(parent: StructureId, locale: String) = emptyList<StructureSummary>()
-    override suspend fun summary(id: StructureId, locale: String): StructureSummary? = null
-    override suspend fun detail(id: StructureId, locale: String): StructureDetail? = null
-    override suspend fun search(query: String, limit: Int): List<SearchHit> {
-        queries += query
-        return results
-    }
-}
-
 class SearchViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
-    private val results = listOf(hit("1105-costae-median", "Costae", "la"))
-    private val repository = RecordingRepository(results)
+    private val repository = FakeAtlasRepository()
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
     @AfterTest fun tearDown() = Dispatchers.resetMain()
@@ -58,10 +35,12 @@ class SearchViewModelTest {
     @Test
     fun results_carry_the_language_they_matched_in() = runTest(dispatcher) {
         val model = SearchViewModel(repository)
-        model.onQueryChanged("costa")
+        model.onQueryChanged("Żebro VII")
         advanceUntilIdle()
 
-        assertEquals("la", model.state.value.hits.single().matchedLocale)
+        val best = model.state.value.hits.first()
+        assertEquals("costa-vii", best.summary.id.value)
+        assertEquals("pl", best.matchedLocale)
     }
 
     @Test
@@ -69,13 +48,13 @@ class SearchViewModelTest {
         val model = SearchViewModel(repository)
         model.onQueryChanged("costa")
         advanceUntilIdle()
-        repository.queries.clear()
+        val asked = repository.queries.size
 
         model.onQueryCleared()
         advanceUntilIdle()
 
         assertTrue(model.state.value.hits.isEmpty())
-        assertTrue(repository.queries.isEmpty(), "a blank query still hit the database")
+        assertEquals(asked, repository.queries.size, "a blank query still hit the database")
     }
 
     @Test
@@ -83,22 +62,20 @@ class SearchViewModelTest {
         val model = SearchViewModel(repository)
 
         model.onQueryChanged("costa"); advanceUntilIdle()
-        model.onHitOpened(results.first())
-        model.onQueryChanged("sternum"); advanceUntilIdle()
-        model.onHitOpened(results.first())
+        model.onHitOpened(model.state.value.hits.first())
+        model.onQueryChanged("vertebra"); advanceUntilIdle()
+        model.onHitOpened(model.state.value.hits.first())
         model.onQueryChanged("costa"); advanceUntilIdle()
-        model.onHitOpened(results.first())
+        model.onHitOpened(model.state.value.hits.first())
 
-        assertEquals(listOf("costa", "sternum"), model.state.value.recent)
+        assertEquals(listOf("costa", "vertebra"), model.state.value.recent)
     }
 
     @Test
     fun a_failing_repository_leaves_the_screen_usable() = runTest(dispatcher) {
         // Search failing is not worth an error screen; an empty result and a working field
         // lets the user try again, which is what they would do anyway.
-        val broken = object : AtlasRepository by RecordingRepository(emptyList()) {
-            override suspend fun search(query: String, limit: Int): List<SearchHit> = error("no database")
-        }
+        val broken = FakeAtlasRepository(FakeBehaviour(failure = { IllegalStateException("no database") }))
         val model = SearchViewModel(broken)
 
         model.onQueryChanged("costa")

@@ -1,8 +1,7 @@
 package com.ptk.anatomypro.feature.atlas
 
-import com.ptk.anatomypro.core.data.model.StructureSummary
-import com.ptk.anatomypro.core.data.repository.AtlasRepository
-import com.ptk.anatomypro.core.model.Laterality
+import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
+import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.model.StructureId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.resetMain
@@ -17,36 +16,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private fun summary(id: String, name: String, group: Boolean = false, children: Boolean = false) =
-    StructureSummary(StructureId(id), name, name, Laterality.MEDIAN, group, children)
-
-private class FakeAtlasRepository(
-    private val tree: Map<String, List<StructureSummary>>,
-    private val roots: List<StructureSummary>,
-) : AtlasRepository {
-    var childrenCalls = 0
-        private set
-
-    override suspend fun roots(locale: String) = roots
-    override suspend fun children(parent: StructureId, locale: String): List<StructureSummary> {
-        childrenCalls++
-        return tree[parent.value].orEmpty()
-    }
-    override suspend fun summary(id: StructureId, locale: String) =
-        (roots + tree.values.flatten()).firstOrNull { it.id == id }
-    override suspend fun detail(id: StructureId, locale: String) = null
-    override suspend fun search(query: String, limit: Int) = emptyList<com.ptk.anatomypro.core.data.model.SearchHit>()
-}
-
 class AtlasViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
-    private val ribs = summary("1105-costae-median", "Ribs", group = true, children = true)
-    private val first = summary("1107-costa-prima-left", "First rib")
-    private val repository = FakeAtlasRepository(
-        roots = listOf(ribs),
-        tree = mapOf("1105-costae-median" to listOf(first)),
-    )
+    private val skeletal = StructureId("skeletal")
+    private val ribs = StructureId("costae")
+    private val seventhRib = StructureId("costa-vii")
+    private val repository = FakeAtlasRepository()
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
     @AfterTest fun tearDown() = Dispatchers.resetMain()
@@ -58,7 +34,7 @@ class AtlasViewModelTest {
         val model = viewModel()
         advanceUntilIdle()
 
-        assertEquals(listOf("Ribs"), model.state.value.rows.map { it.summary.name })
+        assertEquals(listOf("Skeletal system"), model.state.value.rows.map { it.summary.name })
         assertEquals(false, model.state.value.isLoading)
     }
 
@@ -67,11 +43,14 @@ class AtlasViewModelTest {
         val model = viewModel()
         advanceUntilIdle()
 
-        model.onRowToggled(ribs.id)
+        model.onRowToggled(skeletal)
         advanceUntilIdle()
 
-        assertEquals(listOf("Ribs", "First rib"), model.state.value.rows.map { it.summary.name })
-        assertEquals(listOf(0, 1), model.state.value.rows.map { it.depth })
+        assertEquals(
+            listOf("Skeletal system", "Ribs", "Cervical vertebrae"),
+            model.state.value.rows.map { it.summary.name },
+        )
+        assertEquals(listOf(0, 1, 1), model.state.value.rows.map { it.depth })
     }
 
     @Test
@@ -81,7 +60,7 @@ class AtlasViewModelTest {
         val model = viewModel()
         advanceUntilIdle()
 
-        repeat(3) { model.onRowToggled(ribs.id); advanceUntilIdle() }
+        repeat(3) { model.onRowToggled(skeletal); advanceUntilIdle() }
 
         assertEquals(1, repository.childrenCalls)
     }
@@ -90,13 +69,15 @@ class AtlasViewModelTest {
     fun selecting_a_leaf_marks_it_for_highlighting() = runTest(dispatcher) {
         val model = viewModel()
         advanceUntilIdle()
-        model.onRowToggled(ribs.id)
+        model.onRowToggled(skeletal)
+        advanceUntilIdle()
+        model.onRowToggled(ribs)
         advanceUntilIdle()
 
-        model.onRowSelected(model.state.value.rows.last().summary)
+        model.onRowSelected(model.state.value.rows.single { it.summary.id == seventhRib }.summary)
 
-        assertEquals(first.id, model.state.value.selected)
-        assertEquals("First rib", model.state.value.selectedName)
+        assertEquals(seventhRib, model.state.value.selected)
+        assertEquals("Rib VII", model.state.value.selectedName)
     }
 
     @Test
@@ -108,7 +89,7 @@ class AtlasViewModelTest {
         model.onRowSelected(model.state.value.rows.first().summary)
 
         assertNull(model.state.value.selected)
-        assertEquals("Ribs", model.state.value.selectedName)
+        assertEquals("Skeletal system", model.state.value.selectedName)
     }
 
     @Test
@@ -116,18 +97,18 @@ class AtlasViewModelTest {
         val model = viewModel()
         advanceUntilIdle()
 
-        model.onPickedInModel(first.id)
+        model.onPickedInModel(seventhRib)
         advanceUntilIdle()
 
-        assertEquals(first.id, model.state.value.selected)
-        assertEquals("First rib", model.state.value.selectedName)
+        assertEquals(seventhRib, model.state.value.selected)
+        assertEquals("Rib VII", model.state.value.selectedName)
     }
 
     @Test
     fun a_miss_in_the_model_clears_the_selection() = runTest(dispatcher) {
         val model = viewModel()
         advanceUntilIdle()
-        model.onPickedInModel(first.id)
+        model.onPickedInModel(seventhRib)
         advanceUntilIdle()
 
         model.onPickedInModel(null)
@@ -138,13 +119,7 @@ class AtlasViewModelTest {
 
     @Test
     fun a_failing_repository_surfaces_as_an_error_rather_than_an_empty_tree() = runTest(dispatcher) {
-        val broken = object : AtlasRepository {
-            override suspend fun roots(locale: String): List<StructureSummary> = error("no database")
-            override suspend fun children(parent: StructureId, locale: String) = emptyList<StructureSummary>()
-            override suspend fun summary(id: StructureId, locale: String): StructureSummary? = null
-            override suspend fun detail(id: StructureId, locale: String) = null
-            override suspend fun search(query: String, limit: Int) = emptyList<com.ptk.anatomypro.core.data.model.SearchHit>()
-        }
+        val broken = FakeAtlasRepository(FakeBehaviour(failure = { IllegalStateException("no database") }))
         val model = AtlasViewModel(broken, "en")
         advanceUntilIdle()
 

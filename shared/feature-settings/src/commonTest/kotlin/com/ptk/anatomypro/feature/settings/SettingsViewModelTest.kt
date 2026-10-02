@@ -1,11 +1,8 @@
 package com.ptk.anatomypro.feature.settings
 
-import com.ptk.anatomypro.core.data.model.AppSettings
+import com.ptk.anatomypro.core.data.fake.FakeSettingsRepository
 import com.ptk.anatomypro.core.data.model.NameDisplay
-import com.ptk.anatomypro.core.data.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -17,18 +14,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-private class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepository {
-    private val state = MutableStateFlow(initial)
-    override val settings: Flow<AppSettings> = state
-    override suspend fun update(transform: (AppSettings) -> AppSettings) {
-        state.value = transform(state.value)
-    }
-}
-
 class SettingsViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
-    private val repository = InMemorySettings()
+    private val repository = FakeSettingsRepository()
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
     @AfterTest fun tearDown() = Dispatchers.resetMain()
