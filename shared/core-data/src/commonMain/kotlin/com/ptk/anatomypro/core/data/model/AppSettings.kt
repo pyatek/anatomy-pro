@@ -27,4 +27,12 @@ data class AppSettings(
     val patternsNotColour: Boolean = true,
     /** Whether the first-run language choice has been made. */
     val onboarded: Boolean = false,
+    /** Screen 02's goal setting. A preference, not a domain (spec §4.8). */
+    val studiedSystems: Set<String> = emptySet(),
 )
+
+/** Sorted so an unchanged set encodes identically and writes no row (see the update loop). */
+internal fun encodeStudiedSystems(systems: Set<String>): String = systems.sorted().joinToString(",")
+
+internal fun decodeStudiedSystems(stored: String?): Set<String> =
+    stored?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()

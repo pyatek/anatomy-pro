@@ -4,6 +4,8 @@ import com.ptk.anatomypro.core.data.AnatomyDatabase
 import com.ptk.anatomypro.core.data.entity.PreferenceEntity
 import com.ptk.anatomypro.core.data.model.AppSettings
 import com.ptk.anatomypro.core.data.model.NameDisplay
+import com.ptk.anatomypro.core.data.model.decodeStudiedSystems
+import com.ptk.anatomypro.core.data.model.encodeStudiedSystems
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -45,6 +47,7 @@ class RoomSettingsRepository(private val database: AnatomyDatabase) : SettingsRe
             structureTreeMode = map[KEY_TREE_MODE].toBooleanOr(defaults.structureTreeMode),
             patternsNotColour = map[KEY_PATTERNS].toBooleanOr(defaults.patternsNotColour),
             onboarded = map[KEY_ONBOARDED].toBooleanOr(defaults.onboarded),
+            studiedSystems = decodeStudiedSystems(map[KEY_STUDIED]),
         )
     }
 
@@ -56,6 +59,7 @@ class RoomSettingsRepository(private val database: AnatomyDatabase) : SettingsRe
         KEY_TREE_MODE to structureTreeMode.toString(),
         KEY_PATTERNS to patternsNotColour.toString(),
         KEY_ONBOARDED to onboarded.toString(),
+        KEY_STUDIED to encodeStudiedSystems(studiedSystems),
     )
 
     private fun String?.toBooleanOr(fallback: Boolean) = when (this) {
@@ -72,5 +76,6 @@ class RoomSettingsRepository(private val database: AnatomyDatabase) : SettingsRe
         const val KEY_TREE_MODE = "a11y.treeMode"
         const val KEY_PATTERNS = "a11y.patterns"
         const val KEY_ONBOARDED = "onboarded"
+        const val KEY_STUDIED = "study.systems"
     }
 }
