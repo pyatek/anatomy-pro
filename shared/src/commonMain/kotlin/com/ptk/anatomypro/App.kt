@@ -12,12 +12,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.NameDisplay
 import com.ptk.anatomypro.core.designsystem.AnatomyTheme
@@ -27,7 +33,12 @@ import com.ptk.anatomypro.feature.settings.SettingsScreen
 import com.ptk.anatomypro.feature.settings.SettingsUiState
 import com.ptk.anatomypro.feature.settings.SettingsViewModel
 import com.ptk.anatomypro.navigation.AnatomyBottomBar
-import com.ptk.anatomypro.navigation.AnatomyDestination
+import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.navigation.AtlasRoute
+import com.ptk.anatomypro.navigation.DailyRoute
+import com.ptk.anatomypro.navigation.ProfileRoute
+import com.ptk.anatomypro.navigation.QuizRoute
+import com.ptk.anatomypro.navigation.TopLevel
 
 /**
  * The app shell.
@@ -45,10 +56,10 @@ fun App(dependencies: AppDependencies) {
         val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(dependencies.settings) }
         val settingsState: SettingsUiState by settingsModel.state.collectAsState()
         // Held above ProvideAppLocale on purpose. A language change rebuilds everything
-        // beneath it (that is how string resources pick the new locale up), and state
+        // beneath it (that is how string resources pick the new locale up), and navigation
         // remembered down there would be thrown away with it: switching language on the
         // settings tab used to land the user back on the atlas.
-        var destination by rememberSaveable { mutableStateOf(AnatomyDestination.Atlas) }
+        val navController = rememberNavController()
 
         ProvideAppLocale(settingsState.settings.interfaceLocale) {
             Surface(modifier = Modifier.fillMaxSize()) {
@@ -69,10 +80,10 @@ fun App(dependencies: AppDependencies) {
                         )
 
                         else -> MainScaffold(
+                            dependencies = dependencies,
                             state = settingsState,
                             model = settingsModel,
-                            destination = destination,
-                            onDestination = { destination = it },
+                            navController = navController,
                         )
                     }
                 }
@@ -81,38 +92,107 @@ fun App(dependencies: AppDependencies) {
     }
 }
 
+/**
+ * The five tabs over one NavHost.
+ *
+ * Each tab keeps its own back stack (all-screens spec §7) through navigation-compose's
+ * save-and-restore: leaving a tab saves its stack, returning restores it. The selected tab
+ * is read from the back stack rather than held beside it, so the system back gesture cannot
+ * leave the bar pointing at a tab the user has left.
+ */
 @Composable
 private fun MainScaffold(
+    dependencies: AppDependencies,
     state: SettingsUiState,
     model: SettingsViewModel,
-    destination: AnatomyDestination,
-    onDestination: (AnatomyDestination) -> Unit,
+    navController: NavHostController,
 ) {
+    val entry by navController.currentBackStackEntryAsState()
+    val tab = entry?.destination?.tab() ?: TopLevel.Atlas
+    val locale = state.settings.interfaceLocale
+    val openDetail: (StructureId) -> Unit = { navController.navigate(AtlasRoute.Detail(it.value)) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
-            when (destination) {
-                AnatomyDestination.Atlas -> AtlasTab(
-                    locale = state.settings.interfaceLocale,
-                    latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
-                )
+            NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
+                composable<AtlasRoute.Browse> {
+                    AtlasTab(
+                        repository = dependencies.atlas,
+                        locale = locale,
+                        latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
+                        onOpenDetail = openDetail,
+                        onSearch = { navController.navigate(AtlasRoute.Search) },
+                    )
+                }
+                composable<AtlasRoute.Search> {
+                    SearchRoute(
+                        repository = dependencies.atlas,
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = openDetail,
+                    )
+                }
+                composable<AtlasRoute.Detail> { backStackEntry ->
+                    DetailRoute(
+                        repository = dependencies.atlas,
+                        id = StructureId(backStackEntry.toRoute<AtlasRoute.Detail>().structureId),
+                        locale = locale,
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = openDetail,
+                    )
+                }
 
                 // Profile is not built. Settings live behind it in the prototype, so the
                 // tab shows settings rather than a second placeholder.
-                AnatomyDestination.Profile -> SettingsScreen(
-                    state = state,
-                    onInterfaceLocale = model::onInterfaceLocale,
-                    onExaminationLocale = model::onExaminationLocale,
-                    onNameDisplay = model::onNameDisplay,
-                    onQuizTimer = model::onQuizTimer,
-                    onStructureTreeMode = model::onStructureTreeMode,
-                    onPatternsNotColour = model::onPatternsNotColour,
-                )
+                composable<ProfileRoute.Profile> {
+                    SettingsScreen(
+                        state = state,
+                        onInterfaceLocale = model::onInterfaceLocale,
+                        onExaminationLocale = model::onExaminationLocale,
+                        onNameDisplay = model::onNameDisplay,
+                        onQuizTimer = model::onQuizTimer,
+                        onStructureTreeMode = model::onStructureTreeMode,
+                        onPatternsNotColour = model::onPatternsNotColour,
+                    )
+                }
 
-                else -> Centered("${destination.label} — jeszcze nie zbudowane")
+                // Plans 2-6 add their composable<Route> entries here. Until then each unbuilt
+                // tab's start route needs a screen, or selecting the tab crashes the NavHost.
+                composable<DailyRoute.Home> { Centered("DZIŚ — jeszcze nie zbudowane") }
+                composable<QuizRoute.Topics> { Centered("TEST — jeszcze nie zbudowane") }
+                composable<DailyRoute.Leaderboard> { Centered("RANKING — jeszcze nie zbudowane") }
             }
         }
-        AnatomyBottomBar(selected = destination, onSelect = onDestination)
+        AnatomyBottomBar(selected = tab, onSelect = { navController.selectTab(it, current = tab) })
     }
+}
+
+/** Selecting the current tab returns it to its start; selecting another restores its stack. */
+private fun NavHostController.selectTab(target: TopLevel, current: TopLevel) {
+    if (target == current) {
+        popBackStack(target.start, inclusive = false)
+        return
+    }
+    navigate(target.start) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+/**
+ * Which tab a destination belongs to. The route types do not say on their own: the Today and
+ * Ranking tabs both start on a [DailyRoute].
+ */
+private fun NavDestination.tab(): TopLevel? = when {
+    hasRoute<DailyRoute.Leaderboard>() -> TopLevel.Ranking
+    hasRoute<DailyRoute.Home>() || hasRoute<DailyRoute.Lobby>() -> TopLevel.Today
+    hasRoute<QuizRoute.Topics>() || hasRoute<QuizRoute.Question>() ||
+        hasRoute<QuizRoute.Feedback>() || hasRoute<QuizRoute.Summary>() -> TopLevel.Test
+    hasRoute<ProfileRoute.Profile>() || hasRoute<ProfileRoute.Settings>() ||
+        hasRoute<ProfileRoute.Packs>() || hasRoute<ProfileRoute.Paywall>() -> TopLevel.Profile
+    hasRoute<AtlasRoute.Browse>() || hasRoute<AtlasRoute.Search>() || hasRoute<AtlasRoute.Layers>() ||
+        hasRoute<AtlasRoute.Tree>() || hasRoute<AtlasRoute.Detail>() -> TopLevel.Atlas
+    else -> null
 }
 
 @Composable

@@ -71,13 +71,13 @@ fun rememberSettingsRepository(): SettingsRepository {
  * Six of the eight repositories refuse rather than answer; see notBuiltAppDependencies.
  * Replacing one when Phase 3 builds it is a one-line change here and nothing else.
  *
- * [AppDependencies.atlas] is null here for now: AtlasTab still installs and owns the atlas
- * through its own rememberAtlas(), and nothing reads this field yet. Calling rememberAtlas()
- * here as well would install the bundled pack twice on every launch. Plan Task 15 moves
- * rememberAtlas() behind this holder, and AtlasTab's call goes with it.
+ * The atlas is installed here, at the entry point, rather than inside the Atlas tab: above
+ * ProvideAppLocale, so a language change does not reinstall the pack, and once, so returning
+ * to the tab does not either. [AppDependencies.atlas] is null until the install finishes.
  */
 @Composable
 fun rememberAppDependencies(): AppDependencies {
+    val atlas = rememberAtlas()
     val settings = rememberSettingsRepository()
-    return remember(settings) { notBuiltAppDependencies(atlas = null, settings = settings) }
+    return remember(atlas, settings) { notBuiltAppDependencies(atlas = atlas?.repository, settings = settings) }
 }

@@ -36,85 +36,100 @@ import com.ptk.anatomypro.feature.search.SearchUiState
 import com.ptk.anatomypro.feature.search.SearchViewModel
 
 /**
- * Where the Atlas tab is: the model, a search field, or one structure's page.
+ * The Atlas tab's start screen: the model and the structure tree.
  *
- * Kept as a sealed state rather than a navigation library because the tab has three
- * destinations and no deep links yet. When either becomes untrue this is the seam to
- * replace, and nothing outside this file knows about it.
+ * Search and a structure's page are destinations of their own in the NavHost (all-screens
+ * spec §7), so they get the system back gesture and their own saved state; this composable
+ * only says where to go. [repository] is null while the bundled pack is still installing,
+ * which is a different thing to show than an empty atlas.
  */
-private sealed interface AtlasRoute {
-    data object Browse : AtlasRoute
-    data object Search : AtlasRoute
-    data class Detail(val id: StructureId) : AtlasRoute
+@Composable
+fun AtlasTab(
+    repository: AtlasRepository?,
+    locale: String,
+    latinOnly: Boolean,
+    onOpenDetail: (StructureId) -> Unit,
+    onSearch: () -> Unit,
+) {
+    if (repository == null) {
+        Opening()
+        return
+    }
+    BrowseRoute(
+        repository = repository,
+        locale = locale,
+        latinOnly = latinOnly,
+        onSearch = onSearch,
+        onOpenDetail = onOpenDetail,
+    )
 }
 
 @Composable
-fun AtlasTab(locale: String, latinOnly: Boolean) {
-    val atlas = rememberAtlas()
-
-    if (atlas == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Otwieranie atlasu…", style = MaterialTheme.typography.bodyMedium)
-        }
+fun SearchRoute(repository: AtlasRepository?, onBack: () -> Unit, onOpenDetail: (StructureId) -> Unit) {
+    if (repository == null) {
+        Opening()
         return
     }
-
-    var route: AtlasRoute by remember(atlas.pack.id) { mutableStateOf(AtlasRoute.Browse) }
-
-    when (val current = route) {
-        AtlasRoute.Browse -> BrowseRoute(
-            repository = atlas.repository,
-            packKey = atlas.pack.id.value,
-            locale = locale,
-            latinOnly = latinOnly,
-            onSearch = { route = AtlasRoute.Search },
-            onOpenDetail = { route = AtlasRoute.Detail(it) },
+    val model: SearchViewModel = viewModel { SearchViewModel(repository) }
+    val state: SearchUiState by model.state.collectAsState()
+    Column(Modifier.fillMaxSize()) {
+        TopBar(title = "SZUKAJ", onBack = onBack)
+        SearchScreen(
+            state = state,
+            onQueryChanged = model::onQueryChanged,
+            onHitSelected = {
+                model.onHitOpened(it)
+                onOpenDetail(it.summary.id)
+            },
+            onRecentSelected = model::onRecentSelected,
         )
+    }
+}
 
-        AtlasRoute.Search -> {
-            val model: SearchViewModel = viewModel(key = "search-${atlas.pack.id.value}") {
-                SearchViewModel(atlas.repository)
-            }
-            val state: SearchUiState by model.state.collectAsState()
-            Column(Modifier.fillMaxSize()) {
-                TopBar(title = "SZUKAJ", onBack = { route = AtlasRoute.Browse })
-                SearchScreen(
-                    state = state,
-                    onQueryChanged = model::onQueryChanged,
-                    onHitSelected = {
-                        model.onHitOpened(it)
-                        route = AtlasRoute.Detail(it.summary.id)
-                    },
-                    onRecentSelected = model::onRecentSelected,
-                )
-            }
-        }
+@Composable
+fun DetailRoute(
+    repository: AtlasRepository?,
+    id: StructureId,
+    locale: String,
+    onBack: () -> Unit,
+    onOpenDetail: (StructureId) -> Unit,
+) {
+    if (repository == null) {
+        Opening()
+        return
+    }
+    // Keyed on the locale too: the names are fetched once, so a language change needs a
+    // fresh model rather than the one already holding the old language's names.
+    val model: StructureDetailViewModel = viewModel(key = "detail-${id.value}-$locale") {
+        StructureDetailViewModel(repository, id, locale)
+    }
+    val state: StructureDetailUiState by model.state.collectAsState()
+    StructureDetailScreen(
+        state = state,
+        onBack = onBack,
+        onAncestorSelected = onOpenDetail,
+    )
+}
 
-        is AtlasRoute.Detail -> {
-            val model: StructureDetailViewModel = viewModel(key = "detail-${current.id.value}") {
-                StructureDetailViewModel(atlas.repository, current.id, locale)
-            }
-            val state: StructureDetailUiState by model.state.collectAsState()
-            StructureDetailScreen(
-                state = state,
-                onBack = { route = AtlasRoute.Browse },
-                onAncestorSelected = { route = AtlasRoute.Detail(it) },
-            )
-        }
+@Composable
+private fun Opening() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("Otwieranie atlasu…", style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
 private fun BrowseRoute(
     repository: AtlasRepository,
-    packKey: String,
     locale: String,
     latinOnly: Boolean,
     onSearch: () -> Unit,
     onOpenDetail: (StructureId) -> Unit,
 ) {
     var stats by remember { mutableStateOf(CanvasStats()) }
-    val model: AtlasViewModel = viewModel(key = "atlas-$packKey") {
+    // Keyed on the locale for the same reason as the detail page: the tree's names are
+    // loaded once per model.
+    val model: AtlasViewModel = viewModel(key = "atlas-$locale") {
         AtlasViewModel(repository, locale)
     }
     val state: AtlasUiState by model.state.collectAsState()

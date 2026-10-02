@@ -41,8 +41,8 @@ import com.ptk.anatomypro.core.designsystem.TextTertiary
  */
 @Composable
 fun AnatomyBottomBar(
-    selected: AnatomyDestination,
-    onSelect: (AnatomyDestination) -> Unit,
+    selected: TopLevel,
+    onSelect: (TopLevel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(color = NavSurface, modifier = modifier.fillMaxWidth()) {
@@ -54,7 +54,7 @@ fun AnatomyBottomBar(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 77.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                for (destination in AnatomyDestination.entries) {
+                for (destination in TopLevel.entries) {
                     val isSelected = destination == selected
                     val tint = if (isSelected) Accent else TextTertiary
                     Column(
@@ -91,7 +91,7 @@ private fun DrawScope.iconStroke(scale: Float) = Stroke(
     join = StrokeJoin.Round,
 )
 
-private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
+private fun DrawScope.drawIcon(destination: TopLevel, tint: Color) {
     val s = size.minDimension / 24f
     val stroke = iconStroke(s)
     fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
@@ -109,7 +109,7 @@ private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
 
     when (destination) {
         // A calendar with one day marked — today.
-        AnatomyDestination.Today -> {
+        TopLevel.Today -> {
             box(3.5f, 5.5f, 17f, 15f, 2.5f)
             line(3.5f, 10.5f, 20.5f, 10.5f)
             line(8f, 3f, 8f, 7f)
@@ -117,7 +117,7 @@ private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
             box(7f, 14f, 4f, 3.5f, 1f, fill = true)
         }
         // A standing figure: the atlas is a body.
-        AnatomyDestination.Atlas -> {
+        TopLevel.Atlas -> {
             ring(12f, 5f, 2.6f)
             box(8.6f, 9f, 6.8f, 8f, 3f)
             line(6f, 10.5f, 6f, 16f)
@@ -126,7 +126,7 @@ private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
             line(13.8f, 17f, 13.8f, 21f)
         }
         // A checklist: questions answered.
-        AnatomyDestination.Test -> {
+        TopLevel.Test -> {
             box(3.5f, 4.5f, 5f, 5f, 1.2f)
             box(3.5f, 14.5f, 5f, 5f, 1.2f)
             line(4.8f, 6.9f, 6f, 8.2f)
@@ -134,12 +134,12 @@ private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
             line(12f, 7f, 20.5f, 7f)
             line(12f, 17f, 20.5f, 17f)
         }
-        AnatomyDestination.Ranking -> {
+        TopLevel.Ranking -> {
             box(3.5f, 14f, 4.5f, 6.5f, 1f)
             box(9.8f, 8f, 4.5f, 12.5f, 1f)
             box(16.1f, 11f, 4.5f, 9.5f, 1f)
         }
-        AnatomyDestination.Profile -> {
+        TopLevel.Profile -> {
             ring(12f, 8f, 3.6f)
             // The shoulders arc, drawn as two lines and a curve's worth of segments would
             // be heavier than it needs to be at 21dp; an arc reads identically.
@@ -155,3 +155,16 @@ private fun DrawScope.drawIcon(destination: AnatomyDestination, tint: Color) {
         }
     }
 }
+
+/**
+ * The tab labels, kept as literals for one more task: plan Task 16 replaces this with string
+ * resources, so that this change moves navigation and nothing else.
+ */
+private val TopLevel.label: String
+    get() = when (this) {
+        TopLevel.Today -> "DZIŚ"
+        TopLevel.Atlas -> "ATLAS"
+        TopLevel.Test -> "TEST"
+        TopLevel.Ranking -> "RANKING"
+        TopLevel.Profile -> "PROFIL"
+    }
