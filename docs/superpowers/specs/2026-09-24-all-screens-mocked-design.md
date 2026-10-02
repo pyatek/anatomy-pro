@@ -73,6 +73,7 @@ interface QuizRepository {
         format: QuizFormat,
         questionCount: Int,
         seed: Long,
+        locale: String,          // examination locale; names in the session follow it (§13)
     ): QuizSession
 
     /** Scores one answer. The result carries what screens 11 and 12 need to explain it. */
@@ -171,7 +172,7 @@ user looks at while it runs.
 interface DailyRepository {
     suspend fun today(): DailyQuiz
     /** Fetches the day's questions; the server records this as the clock start (§9.1). */
-    suspend fun start(): DailyQuiz.InProgress
+    suspend fun start(locale: String): DailyQuiz.InProgress   // examination locale (§13)
     /** Server scores against its own key and returns rank (§9.1, §9.2). */
     suspend fun submit(answers: List<QuizAnswer>): DailyResult
 }
@@ -254,6 +255,7 @@ interface PackRepository {
 
 sealed interface PackStatus {
     data object Available : PackStatus
+    data object Queued : PackStatus     // requested, nothing transferring yet
     data class Downloading(val bytesDone: Long, val bytesTotal: Long) : PackStatus
     data object Installed : PackStatus
     /** §14: resumable, so a failure is a state the UI offers to resume from. */
