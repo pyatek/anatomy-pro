@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.renderer.filament
 
+import com.google.android.filament.Box
 import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
@@ -68,6 +69,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private var entityToStructure: Map<Int, StructureId> = emptyMap()
     private var pickingEnabled = true
     private var disposed = false
+    private var shot: CameraShot? = null
+    private var flight: CameraFlight? = null
 
     /** Swapped-out material instances, so highlighting is exactly reversible. */
     private val swapped = mutableListOf<Triple<Int, Int, MaterialInstance>>()
@@ -210,6 +213,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      */
     fun renderFrame(frameTimeNanos: Long = System.nanoTime()): Boolean {
         val chain = swapChain ?: return false
+        stepCamera(frameTimeNanos)
         if (!renderer.beginFrame(chain, frameTimeNanos)) return false
         renderer.render(view)
         renderer.endFrame()
@@ -421,8 +425,65 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         }
     }
 
-    override fun focusCamera(structure: StructureId, durationMs: Int): Unit =
-        TODO("Phase 1: camera animation; Phase 0 frames the whole asset on load")
+    override fun focusCamera(structure: StructureId, durationMs: Int) {
+        val nodes = nodesByStructure[structure] ?: return // a group draws nothing to frame
+        val box = nodeBounds(nodes) ?: return
+        val to = CameraFraming.frame(box)
+        val from = shot ?: assetBounds()?.let(CameraFraming::frame) ?: to
+        flight = CameraFlight(from, to, durationMs * 1_000_000L)
+        if (durationMs <= 0) stepCamera(0L)
+    }
+
+    private fun stepCamera(frameTimeNanos: Long) {
+        val current = flight ?: return
+        place(current.at(frameTimeNanos))
+        if (current.finished) flight = null
+    }
+
+    private fun place(next: CameraShot) {
+        camera.lookAt(
+            next.eye.x.toDouble(), next.eye.y.toDouble(), next.eye.z.toDouble(),
+            next.target.x.toDouble(), next.target.y.toDouble(), next.target.z.toDouble(),
+            0.0, 1.0, 0.0,
+        )
+        val aspect = if (height == 0) 1.0 else width.toDouble() / height.toDouble()
+        camera.setProjection(CameraFraming.FOV_DEGREES, aspect, next.near, next.far, Camera.Fov.VERTICAL)
+        shot = next
+    }
+
+    private fun assetBounds(): WorldBox? {
+        val box = asset?.boundingBox ?: return null
+        return WorldBox(
+            Vec3(box.center[0], box.center[1], box.center[2]),
+            Vec3(box.halfExtent[0], box.halfExtent[1], box.halfExtent[2]),
+        )
+    }
+
+    /** World bounds of every renderable under [nodes], or null when none drew anything. */
+    private fun nodeBounds(nodes: List<String>): WorldBox? {
+        val current = asset ?: return null
+        val renderables = engine.renderableManager
+        val transforms = engine.transformManager
+        val box = Box()
+        val world = FloatArray(16)
+        var total: WorldBox? = null
+        for (node in nodes) {
+            for (entity in current.getEntitiesByName(node)) {
+                val renderable = renderables.getInstance(entity)
+                val transform = transforms.getInstance(entity)
+                if (renderable == 0 || transform == 0) continue
+                renderables.getAxisAlignedBoundingBox(renderable, box)
+                transforms.getWorldTransform(transform, world)
+                val local = WorldBox(
+                    Vec3(box.center[0], box.center[1], box.center[2]),
+                    Vec3(box.halfExtent[0], box.halfExtent[1], box.halfExtent[2]),
+                )
+                val placed = WorldBox.transformed(local, world)
+                total = total?.union(placed) ?: placed
+            }
+        }
+        return total
+    }
 
     override fun setCameraPose(pose: CameraPose): Unit =
         TODO("Phase 1: camera control; Phase 0 frames the whole asset on load")
@@ -468,10 +529,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             0.0, 1.0, 0.0,
         )
         camera.setProjection(45.0, aspect, distance * 0.01, distance * 10.0, Camera.Fov.VERTICAL)
+        shot = null
+        flight = null
     }
 
     private fun releaseAsset() {
         val current = asset ?: return
+        shot = null
+        flight = null
         hidden.clear()
         ghosted.clear()
         highlighted.clear()
