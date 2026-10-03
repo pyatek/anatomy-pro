@@ -3,7 +3,11 @@ package com.ptk.anatomypro.feature.atlas.scene
 import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.SystemId
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.data.model.StructureDetail
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -17,6 +21,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AtlasSceneViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -163,5 +168,31 @@ class AtlasSceneViewModelTest {
         advanceUntilIdle()
 
         assertNull(model.cameraFocus.value)
+    }
+
+    @Test
+    fun a_slower_earlier_resolve_never_overwrites_the_latest_state() = runTest(dispatcher) {
+        val gated = GatedRepository(FakeAtlasRepository())
+        val model = AtlasSceneViewModel(gated)
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        advanceUntilIdle()
+
+        model.setIsolation(true) // its resolve blocks on the repository
+        advanceUntilIdle()
+        model.setIsolation(false) // a later, quick resolve
+        advanceUntilIdle()
+        gated.gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(RenderState.None, model.render.value)
+    }
+
+    private class GatedRepository(private val delegate: AtlasRepository) : AtlasRepository by delegate {
+        val gate = CompletableDeferred<Unit>()
+        override suspend fun detail(id: StructureId, locale: String): StructureDetail? {
+            gate.await()
+            return delegate.detail(id, locale)
+        }
     }
 }

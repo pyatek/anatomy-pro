@@ -6,6 +6,7 @@ import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.SystemId
 import com.ptk.anatomypro.feature.atlas.IsolationPolicy
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +57,7 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
     private var membership: Map<SystemId, Set<StructureId>> = emptyMap()
     private var everything: Set<StructureId> = emptySet()
     private var serial = 0
+    private var resolveJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -112,7 +114,9 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
     }
 
     private fun launchResolve() {
-        viewModelScope.launch { resolve() }
+        // The newest panel state always wins: a slower, older resolve must not land after it.
+        resolveJob?.cancel()
+        resolveJob = viewModelScope.launch { resolve() }
     }
 
     private suspend fun resolve() {
