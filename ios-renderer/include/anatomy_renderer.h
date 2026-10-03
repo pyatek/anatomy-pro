@@ -102,6 +102,17 @@ void ar_set_opacity(ar_renderer_ref renderer, const char* const* node_names, siz
                     float alpha);
 void ar_clear_opacity(ar_renderer_ref renderer);
 
+/**
+ * World-space bounds of the named nodes, as a centre and a half-extent. With count == 0,
+ * the bounds of the whole asset. Returns false when nothing matched.
+ */
+bool ar_nodes_bounds(ar_renderer_ref renderer, const char* const* node_names, size_t count,
+                     float out_center[3], float out_half_extent[3]);
+
+/** Places the camera, with a 45° vertical field of view and the viewport's aspect. */
+void ar_set_camera(ar_renderer_ref renderer, const float eye[3], const float target[3],
+                   double near_plane, double far_plane);
+
 void ar_set_picking_enabled(ar_renderer_ref renderer, bool enabled);
 /* Asynchronous: the result arrives as AR_EVENT_PICKED after subsequent frames render. */
 void ar_pick_at(ar_renderer_ref renderer, float x_px, float y_px);

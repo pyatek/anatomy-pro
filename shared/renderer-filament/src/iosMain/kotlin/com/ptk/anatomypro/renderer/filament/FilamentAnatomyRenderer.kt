@@ -26,11 +26,13 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_gpu_frame_nanos
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_load_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_count
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_nodes_bounds
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_name_at
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_pick_at
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_poll_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_renderer_ref
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_camera
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_hidden
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_opacity
@@ -42,6 +44,8 @@ import kotlinx.cinterop.CArrayPointer
 import kotlinx.cinterop.CPointed
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.FloatVar
+import kotlinx.cinterop.get
 import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.alloc
@@ -103,10 +107,16 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      */
     private var ghostAlpha = 1f
 
+    /** The shot last placed, so a flight starts where the camera is. Null after any reframe. */
+    private var shot: CameraShot? = null
+    private var flight: CameraFlight? = null
+
     /** Draws offscreen. Used by contract tests, which have no window. */
     fun attachHeadless(width: Int, height: Int) {
         ar_attach_headless(handle, width.toUInt(), height.toUInt())
         drain()
+        shot = null
+        flight = null
     }
 
     /** Draws into a `CAMetalLayer` owned by the host app. */
@@ -119,6 +129,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             refreshHz,
         )
         drain()
+        shot = null
+        flight = null
     }
 
     /**
@@ -131,6 +143,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * flight, which a caller that needs frames to land can use to pace itself.
      */
     fun renderFrame(frameTimeNanos: Long = 0L): Boolean {
+        stepCamera(frameTimeNanos)
         val rendered = ar_render_frame(handle, frameTimeNanos.toULong())
         drain()
         return rendered
@@ -193,6 +206,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         hidden.clear()
         ghosted.clear()
         ghostAlpha = 1f
+        shot = null
+        flight = null
     }
 
     override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
@@ -243,8 +258,43 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         block(names, nodes.size.toULong())
     }
 
-    override fun focusCamera(structure: StructureId, durationMs: Int): Unit =
-        TODO("Phase 1: camera animation; Phase 0 frames the whole asset on load")
+    override fun focusCamera(structure: StructureId, durationMs: Int) {
+        val nodes = nodesByStructure[structure] ?: return // a group draws nothing to frame
+        val box = bounds(nodes) ?: return
+        val to = CameraFraming.frame(box)
+        val from = shot ?: bounds(emptyList())?.let(CameraFraming::frame) ?: to
+        flight = CameraFlight(from, to, durationMs * 1_000_000L)
+        if (durationMs <= 0) stepCamera(0L)
+    }
+
+    private fun stepCamera(frameTimeNanos: Long) {
+        val current = flight ?: return
+        place(current.at(frameTimeNanos))
+        if (current.finished) flight = null
+    }
+
+    private fun place(next: CameraShot) = memScoped {
+        val eye = allocArray<FloatVar>(3)
+        val target = allocArray<FloatVar>(3)
+        eye[0] = next.eye.x; eye[1] = next.eye.y; eye[2] = next.eye.z
+        target[0] = next.target.x; target[1] = next.target.y; target[2] = next.target.z
+        ar_set_camera(handle, eye, target, next.near, next.far)
+        shot = next
+    }
+
+    /** World bounds of [nodes], or of the whole asset when empty. */
+    private fun bounds(nodes: List<String>): WorldBox? = memScoped {
+        val center = allocArray<FloatVar>(3)
+        val half = allocArray<FloatVar>(3)
+        val found = if (nodes.isEmpty()) {
+            ar_nodes_bounds(handle, null, 0u, center, half)
+        } else {
+            val names = allocArray<CPointerVar<ByteVar>>(nodes.size)
+            nodes.forEachIndexed { index, name -> names[index] = name.cstr.getPointer(this) }
+            ar_nodes_bounds(handle, names, nodes.size.toULong(), center, half)
+        }
+        if (!found) null else WorldBox(Vec3(center[0], center[1], center[2]), Vec3(half[0], half[1], half[2]))
+    }
 
     override fun setCameraPose(pose: CameraPose): Unit =
         TODO("Phase 1: camera control; Phase 0 frames the whole asset on load")

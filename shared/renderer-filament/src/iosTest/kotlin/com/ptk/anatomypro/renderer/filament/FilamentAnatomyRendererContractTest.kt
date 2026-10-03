@@ -39,6 +39,13 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         (renderer as FilamentAnatomyRenderer).pickAt(4f, 4f)
     }
 
+    /** The left cube of the toy row, 1.5 units left of centre. */
+    override val offCentreStructure = StructureId("a02-4-01-001-scapula-left")
+
+    override suspend fun pickCentre(renderer: AnatomyRenderer) {
+        (renderer as FilamentAnatomyRenderer).pickAt(VIEWPORT / 2f, VIEWPORT / 2f)
+    }
+
     /**
      * Picking results are produced by the GPU some frames after the query, so the contract
      * cannot assert on them until frames have actually been drawn and completed.
@@ -53,6 +60,7 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    @Test fun centres_a_focused_structure() = runBlocking { verifyFocusingTheCameraCentresAStructure() }
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runBlocking { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runBlocking { verifyPickingEmptySpaceReportsNothing() }

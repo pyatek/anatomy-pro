@@ -30,6 +30,15 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
         (renderer as FakeAnatomyRenderer).emitPick(null)
     }
 
+    override val offCentreStructure = StructureId("a02-2-00-000-columna-vertebralis-median")
+
+    /** The fake's centre is whatever it was last asked to frame, or the hit structure. */
+    override suspend fun pickCentre(renderer: AnatomyRenderer) {
+        val fake = renderer as FakeAnatomyRenderer
+        fake.emitPick(fake.focused ?: hitStructure)
+    }
+
+    @Test fun centres_a_focused_structure() = runTest { verifyFocusingTheCameraCentresAStructure() }
     @Test fun signals_ready_then_pack_loaded() = runTest { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runTest { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runTest { verifyPickingEmptySpaceReportsNothing() }

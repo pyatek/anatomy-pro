@@ -29,6 +29,10 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         private set
     var cameraPose: CameraPose? = null
         private set
+
+    /** The structure the camera was last asked to frame. */
+    var focused: StructureId? = null
+        private set
     var pickingEnabled: Boolean = true
         private set
     var hidden: Set<StructureId> = emptySet()
@@ -64,7 +68,9 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         highlightStyle = style
     }
 
-    override fun focusCamera(structure: StructureId, durationMs: Int) = Unit
+    override fun focusCamera(structure: StructureId, durationMs: Int) {
+        focused = structure
+    }
 
     override fun setCameraPose(pose: CameraPose) {
         cameraPose = pose

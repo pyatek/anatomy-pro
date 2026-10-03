@@ -41,6 +41,12 @@ abstract class AnatomyRendererContract {
     /** Drives the implementation to pick empty space. */
     protected abstract suspend fun pickMiss(renderer: AnatomyRenderer)
 
+    /** A structure the fixture contains that is **not** under the viewport centre at first. */
+    protected abstract val offCentreStructure: StructureId
+
+    /** Drives the implementation to pick the exact centre of the viewport. */
+    protected abstract suspend fun pickCentre(renderer: AnatomyRenderer)
+
     /**
      * Called between an action and the assertion that follows it.
      *
@@ -205,6 +211,24 @@ abstract class AnatomyRendererContract {
 
         val unloaded = awaitEvent(renderer) { it is RendererEvent.PackUnloaded }
         assertEquals(pack, (unloaded as RendererEvent.PackUnloaded).pack, "unloaded pack")
+    }
+
+    /**
+     * Focusing frames a structure in the middle of the view. Proven by picking: the centre
+     * of the viewport starts on [hitStructure] and must report [offCentreStructure] once
+     * the camera has moved to it. Zero duration, so no frame clock is involved.
+     */
+    suspend fun verifyFocusingTheCameraCentresAStructure() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.focusCamera(offCentreStructure, durationMs = 0)
+        settle(renderer)
+        pickCentre(renderer)
+        settle(renderer)
+
+        val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
+        assertEquals(offCentreStructure, (picked as RendererEvent.Picked).structure, "structure at the centre after focusing")
     }
 
     private suspend fun withRenderer(block: suspend (AnatomyRenderer) -> Unit) {

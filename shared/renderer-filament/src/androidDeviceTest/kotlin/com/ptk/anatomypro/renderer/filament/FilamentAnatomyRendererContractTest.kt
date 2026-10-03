@@ -41,6 +41,13 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         (renderer as FilamentAnatomyRenderer).pickAt(4f, 4f)
     }
 
+    /** The left cube of the toy row, 1.5 units left of centre. */
+    override val offCentreStructure = StructureId("a02-4-01-001-scapula-left")
+
+    override suspend fun pickCentre(renderer: AnatomyRenderer) {
+        (renderer as FilamentAnatomyRenderer).pickAt(VIEWPORT / 2f, VIEWPORT / 2f)
+    }
+
     /**
      * Filament refuses a frame while too many are in flight, so a tight loop would skip
      * most of them and the picking readback would never complete. Learned on iOS; the

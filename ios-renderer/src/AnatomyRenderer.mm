@@ -1,6 +1,7 @@
 #include "anatomy_renderer.h"
 
 #include <backend/CallbackHandler.h>
+#include <filament/Box.h>
 #include <filament/Camera.h>
 #include <filament/Engine.h>
 #include <filament/IndirectLight.h>
@@ -572,6 +573,55 @@ void ar_clear_opacity(ar_renderer_ref r) {
     if (!r || !r->engine) return;
     r->ghostedNodes.clear();
     applyAppearance(r);
+}
+
+bool ar_nodes_bounds(ar_renderer_ref r, const char* const* node_names, size_t count,
+                     float out_center[3], float out_half_extent[3]) {
+    if (!r || !r->asset) return false;
+
+    Aabb total;
+    bool any = false;
+    auto add = [&](float3 lower, float3 upper) {
+        if (!any) { total.min = lower; total.max = upper; any = true; return; }
+        total.min = min(total.min, lower);
+        total.max = max(total.max, upper);
+    };
+
+    if (count == 0) {
+        const Aabb whole = r->asset->getBoundingBox();
+        add(whole.min, whole.max);
+    } else {
+        auto& renderables = r->engine->getRenderableManager();
+        auto& transforms = r->engine->getTransformManager();
+        for (size_t i = 0; i < count; ++i) {
+            const size_t matches = r->asset->getEntitiesByName(node_names[i], nullptr, 0);
+            std::vector<Entity> found(matches);
+            r->asset->getEntitiesByName(node_names[i], found.data(), matches);
+            for (Entity entity : found) {
+                const auto ri = renderables.getInstance(entity);
+                const auto ti = transforms.getInstance(entity);
+                if (!ri || !ti) continue;
+                const Box world = rigidTransform(renderables.getAxisAlignedBoundingBox(ri),
+                                                 transforms.getWorldTransform(ti));
+                add(world.center - world.halfExtent, world.center + world.halfExtent);
+            }
+        }
+    }
+    if (!any) return false;
+
+    const float3 center = (total.min + total.max) * 0.5f;
+    const float3 half = (total.max - total.min) * 0.5f;
+    out_center[0] = center.x; out_center[1] = center.y; out_center[2] = center.z;
+    out_half_extent[0] = half.x; out_half_extent[1] = half.y; out_half_extent[2] = half.z;
+    return true;
+}
+
+void ar_set_camera(ar_renderer_ref r, const float eye[3], const float target[3],
+                   double near_plane, double far_plane) {
+    if (!r || !r->camera) return;
+    r->camera->lookAt({eye[0], eye[1], eye[2]}, {target[0], target[1], target[2]}, {0.0f, 1.0f, 0.0f});
+    const double aspect = r->height == 0 ? 1.0 : double(r->width) / double(r->height);
+    r->camera->setProjection(45.0, aspect, near_plane, far_plane, Camera::Fov::VERTICAL);
 }
 
 void ar_set_picking_enabled(ar_renderer_ref r, bool enabled) {
