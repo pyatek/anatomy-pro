@@ -7,6 +7,7 @@ import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -150,5 +151,35 @@ class FakeCommerceTest {
         assertIs<PackStatus.Failed>(status)
         assertEquals(PackFailure.NETWORK, status.reason)
         assertTrue(status.resumable)
+    }
+
+    @Test
+    fun cancelling_a_running_download_leaves_the_pack_available() = runTest {
+        assertStopsMidDownload { repository, id -> repository.cancel(id) }
+    }
+
+    @Test
+    fun deleting_a_pack_mid_download_leaves_it_available() = runTest {
+        assertStopsMidDownload { repository, id -> repository.delete(id) }
+    }
+
+    /** Interrupts a download the moment its first progress step is observed. */
+    private suspend fun TestScope.assertStopsMidDownload(interrupt: suspend (FakePackRepository, PackId) -> Unit) {
+        val repository = FakePackRepository()
+        val muscular = PackId("muscular-body")
+        var interrupted = false
+        backgroundScope.launch {
+            repository.packs.collect { packs ->
+                if (!interrupted && packs.first { it.id == muscular }.status is PackStatus.Downloading) {
+                    interrupted = true
+                    interrupt(repository, muscular)
+                }
+            }
+        }
+        backgroundScope.launch { repository.download(muscular) }
+        runCurrent()
+
+        assertTrue(interrupted, "the download was never observed in progress")
+        assertIs<PackStatus.Available>(repository.packs.first().first { it.id == muscular }.status)
     }
 }

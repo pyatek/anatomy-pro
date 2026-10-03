@@ -175,4 +175,12 @@ class FakeQuizRepositoryTest {
 
     private suspend fun runTestSession(locale: String) =
         repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = 1L, locale = locale)
+
+    @Test
+    fun a_negative_seed_starts_a_session_because_random_seeds_are_half_negative() = runTest {
+        val session = repository.startSession(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, 4, seed = -123L, locale = "la")
+
+        assertEquals(4, session.questions.size)
+        assertEquals(-123L, session.seed)
+    }
 }

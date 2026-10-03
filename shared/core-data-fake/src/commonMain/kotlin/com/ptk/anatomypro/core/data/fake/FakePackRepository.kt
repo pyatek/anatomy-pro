@@ -78,6 +78,9 @@ class FakePackRepository(
                 }
                 setStatus(id, PackStatus.Downloading(pack.byteSize * step / DOWNLOAD_STEPS, pack.byteSize))
                 yield()
+                // cancel() and delete() run while this loop is suspended; without this check
+                // the next step would overwrite them and the download would finish anyway.
+                if (_packs.value.first { it.id == id }.status !is PackStatus.Downloading) return@respond
             }
             setStatus(id, PackStatus.Installed)
         }

@@ -76,7 +76,8 @@ class FakeQuizRepository(
         val questions = targets.mapIndexed { index, target ->
             val distractors = pool.filter { it.id != target.id }.shuffled(random).take(OPTION_COUNT - 1)
             val options = (distractors + target).shuffled(random).map { AtlasFixture.toSummary(it, locale) }
-            val id = QuizQuestionId("q-${seed}-$index")
+            // The seed is printed unsigned: ids are slugs, and a negative seed would put "--" in one.
+            val id = QuizQuestionId("q-${seed.toULong()}-$index")
 
             when (format) {
                 QuizFormat.NAME_THE_HIGHLIGHTED -> QuizQuestion.NameTheHighlighted(
