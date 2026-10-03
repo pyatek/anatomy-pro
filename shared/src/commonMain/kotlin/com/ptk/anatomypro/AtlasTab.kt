@@ -36,9 +36,13 @@ import com.ptk.anatomypro.feature.atlas.AtlasViewModel
 import com.ptk.anatomypro.feature.atlas.StructureDetailScreen
 import com.ptk.anatomypro.feature.atlas.StructureDetailUiState
 import com.ptk.anatomypro.feature.atlas.StructureDetailViewModel
+import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
+import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
+import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.search.SearchScreen
 import com.ptk.anatomypro.feature.search.SearchUiState
 import com.ptk.anatomypro.feature.search.SearchViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -52,6 +56,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun AtlasTab(
     repository: AtlasRepository?,
+    scene: AtlasSceneViewModel?,
     locale: String,
     latinOnly: Boolean,
     onOpenDetail: (StructureId) -> Unit,
@@ -63,6 +68,7 @@ fun AtlasTab(
     }
     BrowseRoute(
         repository = repository,
+        scene = scene,
         locale = locale,
         latinOnly = latinOnly,
         onSearch = onSearch,
@@ -127,11 +133,18 @@ private fun Opening() {
 @Composable
 private fun BrowseRoute(
     repository: AtlasRepository,
+    scene: AtlasSceneViewModel?,
     locale: String,
     latinOnly: Boolean,
     onSearch: () -> Unit,
     onOpenDetail: (StructureId) -> Unit,
 ) {
+    // The stand-in flows are remembered, or a null scene would create a new flow on every
+    // recomposition.
+    val noRender = remember { MutableStateFlow(RenderState.None) }
+    val noFocus = remember { MutableStateFlow<FocusRequest?>(null) }
+    val render by (scene?.render ?: noRender).collectAsState()
+    val focus by (scene?.cameraFocus ?: noFocus).collectAsState()
     var stats by remember { mutableStateOf(CanvasStats()) }
     // Keyed on the locale for the same reason as the detail page: the tree's names are
     // loaded once per model.
@@ -162,7 +175,12 @@ private fun BrowseRoute(
                 AnatomyCanvas(
                     modifier = canvasModifier,
                     highlighted = state.selected,
-                    onPicked = model::onPickedInModel,
+                    render = render,
+                    focus = focus,
+                    onPicked = { picked ->
+                        model.onPickedInModel(picked)
+                        scene?.onStructureSelected(picked)
+                    },
                     onStats = { stats = it },
                 )
             },
@@ -170,6 +188,7 @@ private fun BrowseRoute(
             onRowToggled = model::onRowToggled,
             onRowSelected = { summary ->
                 model.onRowSelected(summary)
+                scene?.onStructureSelected(summary.id.takeUnless { summary.isGroup })
                 onOpenDetail(summary.id)
             },
         )

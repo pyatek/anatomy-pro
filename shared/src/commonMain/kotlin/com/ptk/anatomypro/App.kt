@@ -39,6 +39,7 @@ import com.ptk.anatomypro.feature.settings.SettingsUiState
 import com.ptk.anatomypro.feature.settings.SettingsViewModel
 import com.ptk.anatomypro.navigation.AnatomyBottomBar
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
 import com.ptk.anatomypro.navigation.AtlasRoute
 import com.ptk.anatomypro.navigation.DailyRoute
 import com.ptk.anatomypro.navigation.ProfileRoute
@@ -119,12 +120,19 @@ private fun MainScaffold(
     val locale = state.settings.interfaceLocale
     val openDetail: (StructureId) -> Unit = { navController.navigate(AtlasRoute.Detail(it.value)) }
 
+    // App-scoped: a system hidden on screen 07 stays hidden on the atlas, and a structure
+    // focused in tree mode is framed when the model is next on screen.
+    val scene: AtlasSceneViewModel? = dependencies.atlas?.let { atlas ->
+        viewModel(key = "atlas-scene") { AtlasSceneViewModel(atlas) }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
                 composable<AtlasRoute.Browse> {
                     AtlasTab(
                         repository = dependencies.atlas,
+                        scene = scene,
                         locale = locale,
                         latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
                         onOpenDetail = openDetail,

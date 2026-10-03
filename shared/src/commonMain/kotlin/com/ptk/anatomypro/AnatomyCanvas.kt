@@ -3,6 +3,8 @@ package com.ptk.anatomypro
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
+import com.ptk.anatomypro.feature.atlas.scene.RenderState
 
 /**
  * What the Phase 0 harness needs to show to be worth running.
@@ -31,6 +33,8 @@ data class CanvasStats(
 expect fun AnatomyCanvas(
     modifier: Modifier,
     highlighted: StructureId?,
+    render: RenderState,
+    focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
 )

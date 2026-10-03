@@ -9,8 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -18,6 +20,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
+import com.ptk.anatomypro.feature.atlas.scene.RenderState
+import com.ptk.anatomypro.feature.atlas.scene.applyRenderState
 import com.ptk.anatomypro.renderer.api.MeshSource
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
@@ -42,6 +47,8 @@ private const val BUNDLED_PACK_ID = "packs/phase0-pack.id"
 actual fun AnatomyCanvas(
     modifier: Modifier,
     highlighted: StructureId?,
+    render: RenderState,
+    focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
 ) {
@@ -143,6 +150,29 @@ actual fun AnatomyCanvas(
         renderer.events.filterIsInstance<RendererEvent.Picked>().collect {
             currentOnPicked(it.structure)
         }
+    }
+
+    // The renderer resolves structures to nodes from the loaded pack, so nothing can be
+    // hidden, ghosted or framed before it arrives; a state sent early would be dropped.
+    var packLoaded by remember(renderer) { mutableStateOf(false) }
+    val applied = remember(renderer) { arrayOf(RenderState.None) }
+
+    LaunchedEffect(renderer) {
+        renderer.events.filterIsInstance<RendererEvent.PackLoaded>().collect {
+            applied[0] = RenderState.None
+            packLoaded = true
+        }
+    }
+
+    LaunchedEffect(renderer, render, packLoaded) {
+        if (!packLoaded) return@LaunchedEffect
+        applyRenderState(renderer, applied[0], render)
+        applied[0] = render
+    }
+
+    LaunchedEffect(renderer, focus, packLoaded) {
+        if (!packLoaded) return@LaunchedEffect
+        focus?.let { renderer.focusCamera(it.structure, it.durationMs) }
     }
 
     LaunchedEffect(renderer, highlighted) {
