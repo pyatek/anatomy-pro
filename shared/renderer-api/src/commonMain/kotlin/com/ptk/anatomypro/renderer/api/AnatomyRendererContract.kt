@@ -231,6 +231,26 @@ abstract class AnatomyRendererContract {
         assertEquals(offCentreStructure, (picked as RendererEvent.Picked).structure, "structure at the centre after focusing")
     }
 
+    /**
+     * Framing all returns the camera to the whole model, as on load. Proven by picking: the
+     * camera first moves to [offCentreStructure], and the centre must report [hitStructure]
+     * again once the whole model is framed. Zero durations, so no frame clock is involved.
+     */
+    suspend fun verifyFramingAllReturnsTheCentreToTheWholeModel() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.focusCamera(offCentreStructure, durationMs = 0)
+        settle(renderer)
+        renderer.frameAll(durationMs = 0)
+        settle(renderer)
+        pickCentre(renderer)
+        settle(renderer)
+
+        val picked = awaitEvent(renderer) { it is RendererEvent.Picked }
+        assertEquals(hitStructure, (picked as RendererEvent.Picked).structure, "structure at the centre after framing all")
+    }
+
     private suspend fun withRenderer(block: suspend (AnatomyRenderer) -> Unit) {
         val renderer = createRenderer()
         try {

@@ -155,7 +155,10 @@ actual fun AnatomyCanvas(
 
     LaunchedEffect(renderer, focus, packLoaded) {
         if (!packLoaded) return@LaunchedEffect
-        focus?.let { renderer.focusCamera(it.structure, it.durationMs) }
+        focus?.let { request ->
+            val structure = request.structure
+            if (structure == null) renderer.frameAll(request.durationMs) else renderer.focusCamera(structure, request.durationMs)
+        }
     }
 
     LaunchedEffect(renderer, highlighted) {

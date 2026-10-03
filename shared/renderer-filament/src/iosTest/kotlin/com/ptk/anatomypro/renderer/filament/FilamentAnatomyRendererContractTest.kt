@@ -61,6 +61,7 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
     }
 
     @Test fun centres_a_focused_structure() = runBlocking { verifyFocusingTheCameraCentresAStructure() }
+    @Test fun returns_to_the_whole_model() = runBlocking { verifyFramingAllReturnsTheCentreToTheWholeModel() }
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runBlocking { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runBlocking { verifyPickingEmptySpaceReportsNothing() }

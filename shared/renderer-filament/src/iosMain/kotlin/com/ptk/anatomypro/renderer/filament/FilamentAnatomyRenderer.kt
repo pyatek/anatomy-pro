@@ -267,6 +267,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         if (durationMs <= 0) stepCamera(0L)
     }
 
+    override fun frameAll(durationMs: Int) {
+        val to = bounds(emptyList())?.let(CameraFraming::frame) ?: return // nothing loaded to frame
+        flight = CameraFlight(shot ?: to, to, durationMs * 1_000_000L)
+        if (durationMs <= 0) stepCamera(0L)
+    }
+
     private fun stepCamera(frameTimeNanos: Long) {
         val current = flight ?: return
         place(current.at(frameTimeNanos))

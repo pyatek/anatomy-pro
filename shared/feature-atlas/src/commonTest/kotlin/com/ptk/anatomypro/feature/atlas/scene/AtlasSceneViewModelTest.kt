@@ -18,6 +18,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -144,6 +145,80 @@ class AtlasSceneViewModelTest {
 
         assertEquals(RenderState.None, model.render.value)
         assertEquals(false, model.panel.value.isolate)
+    }
+
+    @Test
+    fun reset_returns_the_camera_to_the_whole_model() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+        val isolated = model.cameraFocus.value
+
+        model.resetLayers()
+        advanceUntilIdle()
+
+        val request = assertNotNull(model.cameraFocus.value)
+        assertNull(request.structure)
+        assertEquals(FOCUS_DURATION_MS, request.durationMs)
+        assertNotEquals(isolated?.serial, request.serial)
+    }
+
+    @Test
+    fun turning_isolation_off_returns_the_camera_to_the_whole_model() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        model.setIsolation(false)
+        advanceUntilIdle()
+
+        val request = assertNotNull(model.cameraFocus.value)
+        assertNull(request.structure)
+        assertEquals(FOCUS_DURATION_MS, request.durationMs)
+    }
+
+    @Test
+    fun turning_isolation_off_when_it_was_not_on_leaves_the_camera_alone() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+
+        model.setIsolation(false)
+        advanceUntilIdle()
+
+        assertNull(model.cameraFocus.value)
+    }
+
+    @Test
+    fun deselecting_while_isolated_returns_the_camera_to_the_whole_model() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        model.onStructureSelected(null)
+        advanceUntilIdle()
+
+        val request = assertNotNull(model.cameraFocus.value)
+        assertNull(request.structure)
+        assertEquals(FOCUS_DURATION_MS, request.durationMs)
+    }
+
+    @Test
+    fun deselecting_without_isolation_leaves_the_camera_alone() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        advanceUntilIdle()
+
+        model.onStructureSelected(null)
+        advanceUntilIdle()
+
+        assertNull(model.cameraFocus.value)
     }
 
     @Test

@@ -39,6 +39,7 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     }
 
     @Test fun centres_a_focused_structure() = runTest { verifyFocusingTheCameraCentresAStructure() }
+    @Test fun returns_to_the_whole_model() = runTest { verifyFramingAllReturnsTheCentreToTheWholeModel() }
     @Test fun signals_ready_then_pack_loaded() = runTest { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runTest { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runTest { verifyPickingEmptySpaceReportsNothing() }

@@ -30,7 +30,7 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
     var cameraPose: CameraPose? = null
         private set
 
-    /** The structure the camera was last asked to frame. */
+    /** The structure the camera was last asked to frame, or null once it frames the whole model. */
     var focused: StructureId? = null
         private set
     var pickingEnabled: Boolean = true
@@ -70,6 +70,10 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
 
     override fun focusCamera(structure: StructureId, durationMs: Int) {
         focused = structure
+    }
+
+    override fun frameAll(durationMs: Int) {
+        focused = null
     }
 
     override fun setCameraPose(pose: CameraPose) {

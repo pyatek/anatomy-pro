@@ -52,6 +52,15 @@ interface AnatomyRenderer {
     fun highlight(structures: Set<StructureId>, style: HighlightStyle)
 
     fun focusCamera(structure: StructureId, durationMs: Int)
+
+    /**
+     * Frames the whole loaded model, as on load, moving there over [durationMs].
+     *
+     * The way back from [focusCamera]: without it, a camera that framed one structure stays
+     * there after the app has stopped being about that structure — a reset, isolation
+     * turning off. Zero or less lands at once.
+     */
+    fun frameAll(durationMs: Int)
     fun setCameraPose(pose: CameraPose)
 
     fun setPickingEnabled(enabled: Boolean)

@@ -87,13 +87,17 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
             rows = _panel.value.rows.map { it.copy(mode = LayerMode.Visible) },
             isolate = false,
         )
+        frameWholeModel()
         launchResolve()
     }
 
     fun setIsolation(enabled: Boolean) {
+        val wasIsolating = _panel.value.isolate
         _panel.value = _panel.value.copy(isolate = enabled)
         val focus = _panel.value.focus
         if (enabled && focus != null) focusCamera(focus)
+        // Isolation framed one structure; with it gone the camera has nothing left to be near.
+        if (!enabled && wasIsolating) frameWholeModel()
         launchResolve()
     }
 
@@ -102,15 +106,26 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
         launchResolve()
     }
 
-    /** A structure was chosen anywhere — model, tree, list. The camera stays where it is. */
+    /**
+     * A structure was chosen anywhere — model, tree, list. The camera stays where it is,
+     * except when the selection is dropped while isolating: the isolated structure comes
+     * back among everything else, and a camera left on it would show a close-up of nothing
+     * in particular.
+     */
     fun onStructureSelected(id: StructureId?) {
         _panel.value = _panel.value.copy(focus = id)
+        if (id == null && _panel.value.isolate) frameWholeModel()
         launchResolve()
     }
 
     /** An explicit request to frame [id]: tree mode, or isolation turning on. */
     fun focusCamera(id: StructureId) {
         _cameraFocus.value = FocusRequest(id, FOCUS_DURATION_MS, ++serial)
+    }
+
+    /** Sends the camera back to the whole model, as it was on load. */
+    private fun frameWholeModel() {
+        _cameraFocus.value = FocusRequest(null, FOCUS_DURATION_MS, ++serial)
     }
 
     private fun launchResolve() {
