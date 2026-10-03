@@ -45,7 +45,7 @@ class FakeQuizRepository(
             QuizTopic(
                 id = QuizTopicId(group.id.value),
                 title = AtlasFixture.nameOf(group, locale),
-                system = SystemId("skeletal"),
+                system = SystemId(group.system),
                 structureCount = AtlasFixture.childrenOf(group.id).size,
                 // A fixed spread so screen 08 shows untouched, partial and near-complete
                 // cells without a progress store existing yet.

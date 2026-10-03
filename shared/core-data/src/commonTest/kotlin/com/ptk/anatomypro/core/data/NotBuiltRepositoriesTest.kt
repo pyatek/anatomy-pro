@@ -22,6 +22,9 @@ private class StandInAtlasRepository : AtlasRepository {
     override suspend fun summary(id: StructureId, locale: String): StructureSummary? = null
     override suspend fun detail(id: StructureId, locale: String): StructureDetail? = null
     override suspend fun search(query: String, limit: Int) = emptyList<SearchHit>()
+    override suspend fun systems() = emptyList<com.ptk.anatomypro.core.model.SystemId>()
+    override suspend fun structuresIn(system: com.ptk.anatomypro.core.model.SystemId) = emptySet<StructureId>()
+    override suspend fun allStructures() = emptySet<StructureId>()
 }
 
 private class StandInSettingsRepository : SettingsRepository {

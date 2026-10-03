@@ -13,7 +13,26 @@ class FakeAtlasRepositoryTest {
 
     @Test
     fun roots_are_the_structures_with_no_parent() = runTest {
-        assertEquals(listOf("skeletal"), repository.roots("pl").map { it.id.value })
+        assertEquals(listOf("skeletal", "muscular"), repository.roots("pl").map { it.id.value })
+    }
+
+    @Test
+    fun the_fixture_has_two_systems_so_a_toggle_can_be_exercised() = runTest {
+        assertEquals(listOf("skeletal-system", "muscular-system"), repository.systems().map { it.value })
+    }
+
+    @Test
+    fun a_system_contains_its_groups_and_its_leaves() = runTest {
+        val muscles = repository.structuresIn(com.ptk.anatomypro.core.model.SystemId("muscular-system"))
+
+        assertTrue(StructureId("musculi-thoracis") in muscles)
+        assertTrue(StructureId("musculus-pectoralis-major") in muscles)
+        assertTrue(StructureId("costa-vii") !in muscles)
+    }
+
+    @Test
+    fun every_structure_is_in_the_atlas_wide_set() = runTest {
+        assertEquals(AtlasFixture.all.size, repository.allStructures().size)
     }
 
     @Test

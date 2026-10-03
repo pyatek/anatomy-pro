@@ -18,6 +18,8 @@ data class FixtureStructure(
     val names: Map<String, String>,
     val definition: String?,
     val isGroup: Boolean,
+    /** The system id, in the form real packs use. */
+    val system: String = "skeletal-system",
     val laterality: Laterality = Laterality.MEDIAN,
     val verification: Map<String, VerificationState> =
         mapOf("la" to VerificationState.VERIFIED, "pl" to VerificationState.VERIFIED, "en" to VerificationState.VERIFIED),
@@ -97,8 +99,44 @@ object AtlasFixture {
         )
     }
 
+    private val muscular = FixtureStructure(
+        id = StructureId("muscular"),
+        parent = null,
+        names = mapOf("la" to "Systema musculare", "pl" to "Układ mięśniowy", "en" to "Muscular system"),
+        definition = "The muscles of the body.",
+        isGroup = true,
+        system = "muscular-system",
+    )
+
+    private val thoracicMuscles = FixtureStructure(
+        id = StructureId("musculi-thoracis"),
+        parent = StructureId("muscular"),
+        names = mapOf("la" to "Musculi thoracis", "pl" to "Mięśnie klatki piersiowej", "en" to "Thoracic muscles"),
+        definition = "The muscles of the chest wall.",
+        isGroup = true,
+        system = "muscular-system",
+    )
+
+    /** Four, so the group can make a four-option quiz question like the others. */
+    private val muscles: List<FixtureStructure> = listOf(
+        Triple("musculus-pectoralis-major", "Musculus pectoralis major", "Mięsień piersiowy większy" to "Pectoralis major"),
+        Triple("musculus-pectoralis-minor", "Musculus pectoralis minor", "Mięsień piersiowy mniejszy" to "Pectoralis minor"),
+        Triple("musculus-serratus-anterior", "Musculus serratus anterior", "Mięsień zębaty przedni" to "Serratus anterior"),
+        Triple("musculus-subclavius", "Musculus subclavius", "Mięsień podobojczykowy" to "Subclavius"),
+    ).map { (id, latin, local) ->
+        FixtureStructure(
+            id = StructureId(id),
+            parent = thoracicMuscles.id,
+            names = mapOf("la" to latin, "pl" to local.first, "en" to local.second),
+            definition = "$latin.",
+            isGroup = false,
+            system = "muscular-system",
+        )
+    }
+
     val all: List<FixtureStructure> =
-        listOf(skeletal, costae, cervicales) + ribs + cervicalVertebrae
+        listOf(skeletal, costae, cervicales) + ribs + cervicalVertebrae +
+            listOf(muscular, thoracicMuscles) + muscles
 
     private val index: Map<StructureId, FixtureStructure> = all.associateBy { it.id }
 
@@ -143,7 +181,7 @@ object AtlasFixture {
             names = structure.names,
             definition = structure.definition,
             definitionLocale = structure.definition?.let { "en" },
-            systemId = "skeletal",
+            systemId = structure.system,
             regionId = null,
             laterality = structure.laterality,
             isGroup = structure.isGroup,

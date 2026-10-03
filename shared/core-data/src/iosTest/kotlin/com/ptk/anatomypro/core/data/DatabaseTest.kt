@@ -121,4 +121,45 @@ class DatabaseTest {
         assertEquals(3, dao.structuresInPack("skeletal-trunk").size)
         assertEquals(1, dao.meshRefs("1168-clavicula-left").size)
     }
+
+    @Test
+    fun lists_the_systems_and_what_belongs_to_each() = runTest {
+        PackInstaller(database).install(TWO_SYSTEMS, version = 1, meshUri = "file:///m.glb")
+        val repository = com.ptk.anatomypro.core.data.repository.RoomAtlasRepository(database)
+
+        assertEquals(
+            listOf("muscular-system", "skeletal-system"),
+            repository.systems().map { it.value },
+        )
+        assertEquals(
+            setOf("1168-clavicula-left"),
+            repository.structuresIn(com.ptk.anatomypro.core.model.SystemId("skeletal-system")).map { it.value }.toSet(),
+        )
+        assertEquals(
+            setOf("1168-clavicula-left", "2001-musculus-subclavius-left"),
+            repository.allStructures().map { it.value }.toSet(),
+        )
+    }
 }
+
+private const val TWO_SYSTEMS = """
+{
+  "pack_id": "two-systems",
+  "structures": [
+    {
+      "structure_id": "1168-clavicula-left", "ta2_id": "1168",
+      "english": "Clavicle", "latin": "Clavicula", "definition": null,
+      "system": "skeletal-system", "region": "trunk",
+      "parent_id": null, "laterality": "L",
+      "is_group": false, "nodes": ["1168__clavicula__L"], "triangles": 900
+    },
+    {
+      "structure_id": "2001-musculus-subclavius-left", "ta2_id": "2001",
+      "english": "Subclavius", "latin": "Musculus subclavius", "definition": null,
+      "system": "muscular-system", "region": "trunk",
+      "parent_id": null, "laterality": "L",
+      "is_group": false, "nodes": ["2001__musculus_subclavius__L"], "triangles": 600
+    }
+  ]
+}
+"""

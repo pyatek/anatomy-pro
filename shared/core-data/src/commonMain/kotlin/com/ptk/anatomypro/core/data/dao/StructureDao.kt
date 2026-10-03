@@ -137,6 +137,16 @@ interface StructureDao {
     @Query("SELECT * FROM structure_text WHERE structureId = :id")
     suspend fun texts(id: String): List<StructureTextEntity>
 
+    /** Every system the installed atlas has structures in (screen 07). */
+    @Query("SELECT DISTINCT systemId FROM structure WHERE systemId IS NOT NULL ORDER BY systemId")
+    suspend fun systems(): List<String>
+
+    @Query("SELECT id FROM structure WHERE systemId = :systemId")
+    suspend fun idsInSystem(systemId: String): List<String>
+
+    @Query("SELECT id FROM structure")
+    suspend fun allIds(): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSearchRows(rows: List<com.ptk.anatomypro.core.data.entity.StructureSearchEntity>)
 

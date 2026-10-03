@@ -6,6 +6,7 @@ import com.ptk.anatomypro.core.data.model.StructureDetail
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.model.SystemId
 
 /**
  * The atlas, in memory, over [AtlasFixture].
@@ -71,5 +72,17 @@ class FakeAtlasRepository(
 
     private companion object {
         const val LATIN = "la"
+    }
+
+    override suspend fun systems(): List<SystemId> = behaviour.respond {
+        AtlasFixture.all.map { it.system }.distinct().map(::SystemId)
+    }
+
+    override suspend fun structuresIn(system: SystemId): Set<StructureId> = behaviour.respond {
+        AtlasFixture.all.filter { it.system == system.value }.mapTo(mutableSetOf()) { it.id }
+    }
+
+    override suspend fun allStructures(): Set<StructureId> = behaviour.respond {
+        AtlasFixture.all.mapTo(mutableSetOf()) { it.id }
     }
 }

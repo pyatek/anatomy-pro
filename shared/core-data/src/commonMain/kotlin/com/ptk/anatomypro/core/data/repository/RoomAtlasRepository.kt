@@ -8,6 +8,7 @@ import com.ptk.anatomypro.core.data.model.StructureDetail
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.model.Laterality
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.model.SystemId
 
 class RoomAtlasRepository(private val database: AnatomyDatabase) : AtlasRepository {
 
@@ -111,4 +112,12 @@ class RoomAtlasRepository(private val database: AnatomyDatabase) : AtlasReposito
             )
         }
     }
+
+    override suspend fun systems(): List<SystemId> = dao.systems().map(::SystemId)
+
+    override suspend fun structuresIn(system: SystemId): Set<StructureId> =
+        dao.idsInSystem(system.value).mapTo(mutableSetOf(), ::StructureId)
+
+    override suspend fun allStructures(): Set<StructureId> =
+        dao.allIds().mapTo(mutableSetOf(), ::StructureId)
 }

@@ -4,6 +4,7 @@ import com.ptk.anatomypro.core.data.model.SearchHit
 import com.ptk.anatomypro.core.data.model.StructureDetail
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.model.SystemId
 
 /**
  * Reading the atlas: the taxonomy, and the structures in it.
@@ -25,4 +26,13 @@ interface AtlasRepository {
 
     /** Searches every language at once; each hit reports which one matched. */
     suspend fun search(query: String, limit: Int = 50): List<SearchHit>
+
+    /** The systems the installed atlas has structures in, by id (screen 07). */
+    suspend fun systems(): List<SystemId>
+
+    /** Every structure in [system], groups included: hiding a group hides nothing extra. */
+    suspend fun structuresIn(system: SystemId): Set<StructureId>
+
+    /** Every structure in the atlas: what isolation hides everything else of. */
+    suspend fun allStructures(): Set<StructureId>
 }

@@ -42,4 +42,14 @@ class FixtureTest {
 
         assertEquals(listOf("skeletal", "costae"), detail?.ancestors?.map { it.id.value })
     }
+
+    @Test
+    fun the_muscle_group_has_four_so_it_can_make_a_quiz_question() {
+        assertEquals(4, AtlasFixture.childrenOf(StructureId("musculi-thoracis")).size)
+    }
+
+    @Test
+    fun a_detail_reports_the_structures_own_system() {
+        assertEquals("muscular-system", AtlasFixture.detail(StructureId("musculus-subclavius"), "en")?.systemId)
+    }
 }

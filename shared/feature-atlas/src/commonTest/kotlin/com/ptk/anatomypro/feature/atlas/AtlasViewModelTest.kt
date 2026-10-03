@@ -34,7 +34,7 @@ class AtlasViewModelTest {
         val model = viewModel()
         advanceUntilIdle()
 
-        assertEquals(listOf("Skeletal system"), model.state.value.rows.map { it.summary.name })
+        assertEquals(listOf("Skeletal system", "Muscular system"), model.state.value.rows.map { it.summary.name })
         assertEquals(false, model.state.value.isLoading)
     }
 
@@ -47,10 +47,10 @@ class AtlasViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf("Skeletal system", "Ribs", "Cervical vertebrae"),
+            listOf("Skeletal system", "Ribs", "Cervical vertebrae", "Muscular system"),
             model.state.value.rows.map { it.summary.name },
         )
-        assertEquals(listOf(0, 1, 1), model.state.value.rows.map { it.depth })
+        assertEquals(listOf(0, 1, 1, 0), model.state.value.rows.map { it.depth })
     }
 
     @Test
