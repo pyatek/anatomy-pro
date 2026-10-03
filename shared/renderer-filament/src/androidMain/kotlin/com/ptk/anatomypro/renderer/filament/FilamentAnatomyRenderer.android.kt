@@ -14,6 +14,7 @@ import com.google.android.filament.Viewport
 import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.FilamentAsset
 import com.google.android.filament.gltfio.Gltfio
+import com.google.android.filament.gltfio.MaterialProvider
 import com.google.android.filament.gltfio.ResourceLoader
 import com.google.android.filament.gltfio.UbershaderProvider
 import com.ptk.anatomypro.core.model.PackId
@@ -72,8 +73,56 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private val swapped = mutableListOf<Triple<Int, Int, MaterialInstance>>()
     private val highlightInstances = mutableListOf<MaterialInstance>()
 
+    private val hidden = mutableSetOf<StructureId>()
+    private val ghosted = mutableSetOf<StructureId>()
+    private val highlighted = mutableSetOf<StructureId>()
+    private var ghostAlpha = 1f
+    private var highlightStyle: HighlightStyle? = null
+    private var entitiesByStructure: Map<StructureId, IntArray> = emptyMap()
+
     private val _events = MutableSharedFlow<RendererEvent>(replay = 64, extraBufferCapacity = 64)
     override val events: Flow<RendererEvent> = _events.asSharedFlow()
+
+    private var ghostMaterial: MaterialInstance? = null
+
+    /**
+     * The one blended instance every ghosted primitive shares.
+     *
+     * Filament's `MaterialInstance` has setters and no getters, so a per-structure ghost
+     * could not read the colour it was meant to fade. A uniform shell needs no such read,
+     * costs one instance however large the ghosted set is, and reads better (§26.3).
+     */
+    private fun ghostMaterial(): MaterialInstance? {
+        ghostMaterial?.let { return it }
+        val key = MaterialProvider.MaterialKey().apply {
+            alphaMode = 2 // BLEND
+            doubleSided = false
+            unlit = false
+        }
+        val uvmap = IntArray(8)
+        key.constrainMaterial(uvmap)
+        val created = materialProvider.createMaterialInstance(key, uvmap, "ghost", null) ?: return null
+        // The ubershader defaults to fully metallic, which renders a translucent shell as
+        // a dark smear. Both must be set explicitly.
+        if (created.material.hasParameter("metallicFactor")) created.setParameter("metallicFactor", 0f)
+        if (created.material.hasParameter("roughnessFactor")) created.setParameter("roughnessFactor", 0.8f)
+        ghostMaterial = created
+        return created
+    }
+
+    private companion object {
+        /** Layer 0 is drawn and picked; layer 1 is neither. */
+        const val LAYER_VISIBLE = 0x1
+        const val LAYER_HIDDEN = 0x2
+        const val LAYER_MASK = LAYER_VISIBLE or LAYER_HIDDEN
+
+        val NO_ENTITIES = IntArray(0)
+
+        /** A neutral bone-pale shell — deliberately not the structure's own colour (§26.3). */
+        const val GHOST_RED = 0.82f
+        const val GHOST_GREEN = 0.80f
+        const val GHOST_BLUE = 0.78f
+    }
 
     /** Picking results are delivered straight onto the caller's thread, as on iOS. */
     private val inlineExecutor = Executor { it.run() }
@@ -95,6 +144,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         // HDR values a physically-lit scene produces blow out to white. Picking uses its
         // own pass and is unaffected — the contract tests cover that.
         view.isPostProcessingEnabled = true
+        view.setVisibleLayers(LAYER_MASK, LAYER_VISIBLE)
+        // A ghost is context the learner can still tap, and Filament disables transparent
+        // picking by default — without this, swapping a primitive to the blended material
+        // silently removes it from `pick`, making ghosted and hidden indistinguishable to a
+        // tap (§26.3). The cost is one extra depth pass.
+        view.setTransparentPickingEnabled(true)
 
         sunEntity = EntityManager.get().create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
@@ -251,50 +306,120 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         _events.tryEmit(RendererEvent.PackUnloaded(pack))
     }
 
-    override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
-        clearHighlightInternal()
-        val current = asset ?: return
-        val nodes = structures.flatMap { nodesByStructure[it].orEmpty() }
-        if (nodes.isEmpty()) return
-
-        val alpha = ((style.outlineArgb ushr 24) and 0xFF) / 255f
-        val red = ((style.outlineArgb shr 16) and 0xFF) / 255f
-        val green = ((style.outlineArgb shr 8) and 0xFF) / 255f
-        val blue = (style.outlineArgb and 0xFF) / 255f
-        val lift = style.fillLuminanceShift.coerceAtLeast(0f)
-
-        val renderables = engine.renderableManager
-        for (node in nodes) {
-            for (entity in current.getEntitiesByName(node)) {
-                val instance = renderables.getInstance(entity)
-                if (instance == 0) continue
-                for (primitive in 0 until renderables.getPrimitiveCount(instance)) {
-                    val original = renderables.getMaterialInstanceAt(instance, primitive) ?: continue
-                    val replacement = MaterialInstance.duplicate(original, null)
-                    val material = original.material
-                    if (material.hasParameter("baseColorFactor")) {
-                        replacement.setParameter("baseColorFactor", red, green, blue, alpha)
-                    }
-                    if (material.hasParameter("emissiveFactor")) {
-                        replacement.setParameter("emissiveFactor", red * lift, green * lift, blue * lift)
-                    }
-                    swapped += Triple(entity, primitive, original)
-                    highlightInstances += replacement
-                    renderables.setMaterialInstanceAt(instance, primitive, replacement)
-                }
-            }
-        }
-    }
-
     override fun setPickingEnabled(enabled: Boolean) {
         pickingEnabled = enabled
     }
 
-    override fun setVisibility(structures: Set<StructureId>, visible: Boolean): Unit =
-        TODO("Task 2-4: appearance resolver")
+    override fun setVisibility(structures: Set<StructureId>, visible: Boolean) {
+        if (visible) hidden -= structures else hidden += structures
+        applyAppearance()
+    }
 
-    override fun setOpacity(structures: Set<StructureId>, alpha: Float): Unit =
-        TODO("Phase 1: needs transparent material variants")
+    override fun setOpacity(structures: Set<StructureId>, alpha: Float) {
+        // Hold the alpha rather than taking the incoming one on every call. A caller that
+        // un-ghosts one structure of several passes alpha = 1f, and the survivors must keep
+        // the alpha they were ghosted at — on iOS, taking it unconditionally re-sent 1.0 for
+        // structures the caller never named, leaving them opaque in the neutral ghost tint
+        // with their own colour gone. Same hazard here; the fix is the same.
+        if (alpha >= 1f) {
+            ghosted -= structures
+        } else {
+            ghosted += structures
+            ghostAlpha = alpha
+        }
+        applyAppearance()
+    }
+
+    override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
+        highlighted.clear()
+        highlighted += structures
+        highlightStyle = style
+        applyAppearance()
+    }
+
+    /**
+     * Resolves the three declared sets to one state per primitive, and applies it.
+     *
+     * Clear-and-reapply rather than a diff: the ghosted set is bounded by design (§26.2),
+     * so a diff would be machinery bought before anything needs it. Highlight beats ghost —
+     * a structure the app is pointing at is not also faded out.
+     *
+     * Both loops read a primitive's original material before this pass installs anything.
+     * That ordering is load-bearing: on iOS the same loops recorded an already-installed
+     * override as the "original" when a set contained the same node twice, which left the
+     * ghost permanently installed and, in the highlight path, a freed material instance on a
+     * renderable. Kotlin's `Set<StructureId>` de-duplicates structures for free, so the
+     * iOS de-duplication has no analogue here — but if this ever iterates node names or a
+     * list instead, the hazard returns.
+     */
+    private fun applyAppearance() {
+        val current = asset ?: return
+        val renderables = engine.renderableManager
+
+        for ((entity, primitive, original) in swapped) {
+            val instance = renderables.getInstance(entity)
+            if (instance != 0) renderables.setMaterialInstanceAt(instance, primitive, original)
+        }
+        swapped.clear()
+        highlightInstances.forEach(engine::destroyMaterialInstance)
+        highlightInstances.clear()
+
+        for (entity in current.entities) {
+            val instance = renderables.getInstance(entity)
+            if (instance != 0) renderables.setLayerMask(instance, LAYER_MASK, LAYER_VISIBLE)
+        }
+        for (structure in hidden) {
+            for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
+                val instance = renderables.getInstance(entity)
+                if (instance != 0) renderables.setLayerMask(instance, LAYER_MASK, LAYER_HIDDEN)
+            }
+        }
+
+        val ghost = if (ghosted.isEmpty()) null else ghostMaterial()
+        if (ghost != null) {
+            ghost.setParameter("baseColorFactor", GHOST_RED, GHOST_GREEN, GHOST_BLUE, ghostAlpha)
+            for (structure in ghosted - highlighted) {
+                for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
+                    val instance = renderables.getInstance(entity)
+                    if (instance == 0) continue
+                    for (primitive in 0 until renderables.getPrimitiveCount(instance)) {
+                        val original = renderables.getMaterialInstanceAt(instance, primitive) ?: continue
+                        swapped += Triple(entity, primitive, original)
+                        renderables.setMaterialInstanceAt(instance, primitive, ghost)
+                    }
+                }
+            }
+        }
+
+        val style = highlightStyle
+        if (style != null && highlighted.isNotEmpty()) {
+            val alpha = ((style.outlineArgb ushr 24) and 0xFF) / 255f
+            val red = ((style.outlineArgb shr 16) and 0xFF) / 255f
+            val green = ((style.outlineArgb shr 8) and 0xFF) / 255f
+            val blue = (style.outlineArgb and 0xFF) / 255f
+            val lift = style.fillLuminanceShift.coerceAtLeast(0f)
+            for (structure in highlighted) {
+                for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
+                    val instance = renderables.getInstance(entity)
+                    if (instance == 0) continue
+                    for (primitive in 0 until renderables.getPrimitiveCount(instance)) {
+                        val original = renderables.getMaterialInstanceAt(instance, primitive) ?: continue
+                        val replacement = MaterialInstance.duplicate(original, null)
+                        val material = original.material
+                        if (material.hasParameter("baseColorFactor")) {
+                            replacement.setParameter("baseColorFactor", red, green, blue, alpha)
+                        }
+                        if (material.hasParameter("emissiveFactor")) {
+                            replacement.setParameter("emissiveFactor", red * lift, green * lift, blue * lift)
+                        }
+                        swapped += Triple(entity, primitive, original)
+                        highlightInstances += replacement
+                        renderables.setMaterialInstanceAt(instance, primitive, replacement)
+                    }
+                }
+            }
+        }
+    }
 
     override fun focusCamera(structure: StructureId, durationMs: Int): Unit =
         TODO("Phase 1: camera animation; Phase 0 frames the whole asset on load")
@@ -312,14 +437,17 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private fun indexNodes(loaded: FilamentAsset) {
         val byStructure = mutableMapOf<StructureId, MutableList<String>>()
         val byEntity = mutableMapOf<Int, StructureId>()
+        val entitiesByStructureId = mutableMapOf<StructureId, MutableList<Int>>()
         for (entity in loaded.entities) {
             val name = loaded.getName(entity) ?: continue
             val node = StructureNode.parse(name) ?: continue
             byStructure.getOrPut(node.structure) { mutableListOf() }.add(name)
             byEntity[entity] = node.structure
+            entitiesByStructureId.getOrPut(node.structure) { mutableListOf() }.add(entity)
         }
         nodesByStructure = byStructure
         entityToStructure = byEntity
+        entitiesByStructure = entitiesByStructureId.mapValues { it.value.toIntArray() }
     }
 
     /** Frames the whole asset, so a caller that never sets a camera still sees the model. */
@@ -342,20 +470,15 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         camera.setProjection(45.0, aspect, distance * 0.01, distance * 10.0, Camera.Fov.VERTICAL)
     }
 
-    private fun clearHighlightInternal() {
-        val renderables = engine.renderableManager
-        for ((entity, primitive, original) in swapped) {
-            val instance = renderables.getInstance(entity)
-            if (instance != 0) renderables.setMaterialInstanceAt(instance, primitive, original)
-        }
-        swapped.clear()
-        highlightInstances.forEach(engine::destroyMaterialInstance)
-        highlightInstances.clear()
-    }
-
     private fun releaseAsset() {
         val current = asset ?: return
-        clearHighlightInternal()
+        hidden.clear()
+        ghosted.clear()
+        highlighted.clear()
+        applyAppearance()
+        ghostMaterial?.let(engine::destroyMaterialInstance)
+        ghostMaterial = null
+        entitiesByStructure = emptyMap()
         scene.removeEntities(current.entities)
         assetLoader.destroyAsset(current)
         asset = null
