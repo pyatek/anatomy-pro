@@ -2,6 +2,7 @@ package com.ptk.anatomypro.feature.atlas.layers
 
 import anatomypro.shared.feature_atlas.generated.resources.Res
 import anatomypro.shared.feature_atlas.generated.resources.atlas_loading
+import anatomypro.shared.feature_atlas.generated.resources.layers_back
 import anatomypro.shared.feature_atlas.generated.resources.layers_canvas_isolated
 import anatomypro.shared.feature_atlas.generated.resources.layers_ghost_less
 import anatomypro.shared.feature_atlas.generated.resources.layers_ghost_more
@@ -64,6 +65,7 @@ fun LayersScreen(
     onReset: () -> Unit,
     onIsolate: (Boolean) -> Unit,
     onGhostPercent: (Int) -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -84,7 +86,16 @@ fun LayersScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(Res.string.layers_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val backLabel = stringResource(Res.string.layers_back)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp)
+                            .semantics { role = Role.Button; contentDescription = backLabel }
+                            .clickable(onClick = onBack),
+                    ) { Text("‹", style = MaterialTheme.typography.titleLarge, color = Accent) }
+                    Text(stringResource(Res.string.layers_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                }
                 // The panel's mutators do nothing until the systems have loaded, so no
                 // control is offered before then.
                 if (!state.isLoading) {
@@ -115,7 +126,7 @@ fun LayersScreen(
                         color = TextTertiary,
                     )
                 }
-                Switch(checked = state.isolate, onCheckedChange = onIsolate, enabled = state.focus != null)
+                Switch(checked = state.isolate, onCheckedChange = onIsolate, enabled = state.focus != null || state.isolate)
             }
 
             Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {

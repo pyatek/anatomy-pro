@@ -9,14 +9,15 @@
     <string name="detail_section_hierarchy">POZYCJA W HIERARCHII</string>
     <string name="detail_not_found">Nie znaleziono struktury</string>
     <string name="detail_load_failed">Nie udało się wczytać</string>
+    <string name="layers_back">Wstecz</string>
     <string name="layers_title">Warstwy</string>
     <string name="layers_reset">RESETUJ</string>
     <string name="layers_mode_visible">WŁ.</string>
     <string name="layers_mode_ghosted">CIEŃ</string>
     <string name="layers_mode_hidden">WYŁ.</string>
-    <string name="layers_state_visible">W pełni widoczny</string>
-    <string name="layers_state_ghosted">Półprzezroczysty, %1$d %</string>
-    <string name="layers_state_hidden">%1$s · ukryty</string>
+    <string name="layers_state_visible">Warstwa w pełni widoczna</string>
+    <string name="layers_state_ghosted">Warstwa półprzezroczysta, %1$d %</string>
+    <string name="layers_state_hidden">%1$s · warstwa ukryta</string>
     <string name="layers_isolation_heading">IZOLACJA</string>
     <string name="layers_isolate">Izoluj wybraną strukturę</string>
     <string name="layers_isolate_target">%1$s · sąsiedzi półprzezroczyści</string>
@@ -25,7 +26,7 @@
     <string name="layers_ghost_value">%1$d %</string>
     <string name="layers_ghost_less">Mniej kryjący</string>
     <string name="layers_ghost_more">Bardziej kryjący</string>
-    <string name="layers_canvas_isolated">%1$s IZOLOWANA · SĄSIEDZI %2$d %</string>
+    <string name="layers_canvas_isolated">IZOLACJA: %1$s · SĄSIEDZI %2$d %</string>
     <string name="system_regions_of_human_body">Okolice ciała</string>
     <string name="system_muscular_system">Układ mięśniowy</string>
     <string name="system_visceral_systems">Narządy wewnętrzne</string>

@@ -141,7 +141,7 @@ private fun MainScaffold(
                     )
                 }
                 composable<AtlasRoute.Layers> {
-                    LayersRoute(repository = dependencies.atlas, scene = scene, locale = locale)
+                    LayersRoute(repository = dependencies.atlas, scene = scene, locale = locale, onBack = { navController.popBackStack() })
                 }
                 composable<AtlasRoute.Search> {
                     SearchRoute(

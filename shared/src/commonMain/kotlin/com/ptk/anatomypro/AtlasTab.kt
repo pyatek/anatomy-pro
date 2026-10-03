@@ -133,6 +133,7 @@ fun LayersRoute(
     repository: AtlasRepository?,
     scene: AtlasSceneViewModel?,
     locale: String,
+    onBack: () -> Unit,
 ) {
     if (repository == null || scene == null) {
         Opening()
@@ -143,7 +144,8 @@ fun LayersRoute(
     val focus by scene.cameraFocus.collectAsState()
     var focusName by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(panel.focus, locale) {
-        focusName = panel.focus?.let { repository.summary(it, locale)?.name }
+        focusName = null
+        focusName = panel.focus?.let { runCatching { repository.summary(it, locale)?.name }.getOrNull() }
     }
     LayersScreen(
         state = panel,
@@ -162,6 +164,7 @@ fun LayersRoute(
         onReset = scene::resetLayers,
         onIsolate = scene::setIsolation,
         onGhostPercent = scene::setGhostPercent,
+        onBack = onBack,
     )
 }
 

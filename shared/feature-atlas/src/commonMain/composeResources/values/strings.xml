@@ -9,6 +9,7 @@
     <string name="detail_section_hierarchy">PLACE IN THE HIERARCHY</string>
     <string name="detail_not_found">Structure not found</string>
     <string name="detail_load_failed">Could not be loaded</string>
+    <string name="layers_back">Back</string>
     <string name="layers_title">Layers</string>
     <string name="layers_reset">RESET ALL</string>
     <string name="layers_mode_visible">ON</string>
@@ -25,7 +26,7 @@
     <string name="layers_ghost_value">%1$d %</string>
     <string name="layers_ghost_less">Less opaque</string>
     <string name="layers_ghost_more">More opaque</string>
-    <string name="layers_canvas_isolated">%1$s ISOLATED · NEIGHBOURS AT %2$d %</string>
+    <string name="layers_canvas_isolated">ISOLATED: %1$s · NEIGHBOURS AT %2$d %</string>
     <string name="system_regions_of_human_body">Regions of the body</string>
     <string name="system_muscular_system">Muscular system</string>
     <string name="system_visceral_systems">Visceral systems</string>
