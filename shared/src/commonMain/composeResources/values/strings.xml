@@ -9,4 +9,5 @@
     <string name="atlas_opening">Opening the atlas…</string>
     <string name="atlas_stats">%1$s · %2$d structures · %3$d/%4$d fps · GPU %5$s ms</string>
     <string name="not_built_yet">%1$s — not built yet</string>
+    <string name="atlas_layers">LAYERS</string>
 </resources>

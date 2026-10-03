@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import anatomypro.shared.generated.resources.Res
+import anatomypro.shared.generated.resources.atlas_layers
 import anatomypro.shared.generated.resources.atlas_opening
 import anatomypro.shared.generated.resources.atlas_search
 import anatomypro.shared.generated.resources.atlas_stats
@@ -36,6 +38,7 @@ import com.ptk.anatomypro.feature.atlas.AtlasViewModel
 import com.ptk.anatomypro.feature.atlas.StructureDetailScreen
 import com.ptk.anatomypro.feature.atlas.StructureDetailUiState
 import com.ptk.anatomypro.feature.atlas.StructureDetailViewModel
+import com.ptk.anatomypro.feature.atlas.layers.LayersScreen
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
@@ -61,6 +64,7 @@ fun AtlasTab(
     latinOnly: Boolean,
     onOpenDetail: (StructureId) -> Unit,
     onSearch: () -> Unit,
+    onLayers: () -> Unit,
 ) {
     if (repository == null) {
         Opening()
@@ -72,6 +76,7 @@ fun AtlasTab(
         locale = locale,
         latinOnly = latinOnly,
         onSearch = onSearch,
+        onLayers = onLayers,
         onOpenDetail = onOpenDetail,
     )
 }
@@ -124,6 +129,43 @@ fun DetailRoute(
 }
 
 @Composable
+fun LayersRoute(
+    repository: AtlasRepository?,
+    scene: AtlasSceneViewModel?,
+    locale: String,
+) {
+    if (repository == null || scene == null) {
+        Opening()
+        return
+    }
+    val panel by scene.panel.collectAsState()
+    val render by scene.render.collectAsState()
+    val focus by scene.cameraFocus.collectAsState()
+    var focusName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(panel.focus, locale) {
+        focusName = panel.focus?.let { repository.summary(it, locale)?.name }
+    }
+    LayersScreen(
+        state = panel,
+        focusName = focusName,
+        canvas = { modifier ->
+            AnatomyCanvas(
+                modifier = modifier,
+                highlighted = panel.focus,
+                render = render,
+                focus = focus,
+                onPicked = scene::onStructureSelected,
+                onStats = {},
+            )
+        },
+        onMode = scene::setLayer,
+        onReset = scene::resetLayers,
+        onIsolate = scene::setIsolation,
+        onGhostPercent = scene::setGhostPercent,
+    )
+}
+
+@Composable
 private fun Opening() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(stringResource(Res.string.atlas_opening), style = MaterialTheme.typography.bodyMedium)
@@ -137,6 +179,7 @@ private fun BrowseRoute(
     locale: String,
     latinOnly: Boolean,
     onSearch: () -> Unit,
+    onLayers: () -> Unit,
     onOpenDetail: (StructureId) -> Unit,
 ) {
     // The stand-in flows are remembered, or a null scene would create a new flow on every
@@ -160,6 +203,12 @@ private fun BrowseRoute(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(stringResource(Res.string.atlas_title), style = MaterialTheme.typography.labelSmall)
+            Text(
+                text = stringResource(Res.string.atlas_layers),
+                style = MaterialTheme.typography.labelSmall,
+                color = Accent,
+                modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onLayers).padding(top = 14.dp),
+            )
             Text(
                 text = stringResource(Res.string.atlas_search),
                 style = MaterialTheme.typography.labelSmall,

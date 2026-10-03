@@ -137,7 +137,11 @@ private fun MainScaffold(
                         latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
                         onOpenDetail = openDetail,
                         onSearch = { navController.navigate(AtlasRoute.Search) },
+                        onLayers = { navController.navigate(AtlasRoute.Layers) },
                     )
+                }
+                composable<AtlasRoute.Layers> {
+                    LayersRoute(repository = dependencies.atlas, scene = scene, locale = locale)
                 }
                 composable<AtlasRoute.Search> {
                     SearchRoute(
