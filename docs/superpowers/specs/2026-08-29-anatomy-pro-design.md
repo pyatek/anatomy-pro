@@ -1370,25 +1370,115 @@ guarantee is unmet, and the quiz must not be built on highlight styling alone.
 
 ### 26.8 Status
 
-`setVisibility` and `setOpacity` are implemented on iOS and verified against real Filament
-on the simulator: ten contract tests, including that a hidden structure is not pickable and
-that a **ghosted** structure stays pickable. `isolate` and `setSystemVisibility` are gone
-from the interface; `IsolationPolicy` in `feature-atlas` replaces them.
+`setVisibility` and `setOpacity` are implemented on both platforms. On iOS they are verified
+against real Filament on the simulator, including that a hidden structure is not pickable and
+that a **ghosted** structure stays pickable. On Android (commit 017761a: hide by layer mask,
+one shared ghost material, a held `ghostAlpha`) they pass the same instrumented contract on
+the API 36 emulator; they have not been measured on hardware. `isolate` and
+`setSystemVisibility` are gone from the interface; `IsolationPolicy` in `feature-atlas`
+replaces them.
 
-Android still throws `TODO()` on both verbs. That is deferred, not missing — it needs a
-physical device, and the `TODO()`s are the honest state until one is available.
+Nothing has been measured against the budget. §25.4's method — interleaving the variants
+inside one session and repeating the pair — is how it will be.
 
-Nothing has been measured. §25.4's method — interleaving the variants inside one session and
-repeating the pair — is how it will be.
+Two gaps recorded here earlier are now closed, with the limits stated:
 
-Two gaps are worth recording rather than glossing over:
+- `IsolationPolicy` now has its production caller: screen 07, through `AtlasSceneViewModel`
+  (§27). The chain taxonomy → `Isolation` → renderer → shim runs end to end on Android on the
+  emulator, and under the contract on the iOS simulator.
+- The ghost reads as a pale shell, not a dark smear. That was checked by eye on the emulator
+  with the real pack. It is still unconfirmed on hardware.
 
-- `IsolationPolicy` has no production caller yet, so the full chain — taxonomy →
-  `Isolation` → renderer → shim — has never run end to end. The policy is tested in
-  isolation (so to speak); nothing yet drives it from a screen.
-- Whether the ghost actually reads as a pale shell rather than a dark smear is still
-  unconfirmed. §26.6's contract cannot see colour, so this has never been checked against a
-  device, only reasoned about in §26.3.
+`SystemId` in `core-model` has a caller again: the layer panel.
 
-`SystemId` in `core-model` now has zero references. It is expected to return with the layer
-panel, which is the first caller that will need it again.
+---
+
+## 27. Addendum — 2026-10-05: camera focus, the scene, and what the first real run found
+
+§26 designed transparency and removed two verbs from the renderer interface. This section
+records what was built on top of it: camera focus, a single owner for what the renderer
+shows, screens 07 and 21, and three renderer defects that only appeared once real meshes went
+through the whole path. §27.5 says what is verified and what is not.
+
+### 27.1 Camera verbs and shared framing
+
+The renderer interface gained `focusCamera`, which frames one structure, and `frameAll`,
+which returns the camera to the whole model. The framing maths lives once, in common code
+(`CameraFraming.kt`), and is used by the fake, iOS and Android. Each real renderer only
+supplies the bounds of a set of nodes and applies a camera pose. On iOS that is two new
+functions in the C seam, `ar_nodes_bounds` and `ar_set_camera`. A `FocusRequest` with a null
+structure means the whole model: the camera returns to the body on reset, when isolation is
+turned off, and when the selection is cleared while isolated.
+
+### 27.2 The scene owns what the renderer shows
+
+`AtlasSceneViewModel` is the single owner of layer state, isolation, selection and focus.
+It produces a `RenderState`; a `SceneResolver` turns the taxonomy and the layer state into
+concrete per-structure visibility and opacity, and `applyRenderState` applies that to the
+renderer as a diff against what was last applied, so unchanged structures are not touched. If
+a newer state arrives while a slower resolve is running, the latest state wins. The
+`AtlasRepository` gained `systems()`, `structuresIn()` and `allStructures()` to feed it.
+`AnatomyCanvas` takes a `RenderState` and a `FocusRequest` and applies them after
+`PackLoaded`.
+
+### 27.3 Three renderer defects the first end-to-end run exposed
+
+The first run of real meshes through the full path found three defects that the contract and
+the toy pack could not.
+
+- **Stale pixels.** The canvas was never cleared between frames. Hiding structures left old
+  frames on screen, so an isolated structure was drawn over what had been hidden. Fixed by
+  clearing before every frame in both renderers (7a2d93f). The iOS change has never been
+  seen on screen.
+- **A late surface reset the camera.** When the surface attached after a focus request, it
+  reset the camera and discarded the pose; the pending focus had survived only by accident.
+  A late-attaching surface no longer resets the camera (9e1803c).
+- **Swap-chain re-creation failed on Android.** A cold-start resize created the new swap
+  chain before the old one was gone and failed with `EGL_BAD_ALLOC`, leaving the atlas
+  off-centre. Android now releases the old swap chain before replacing it (4a549ee). The iOS
+  C shim still creates the new swap chain before destroying the old one, which is the order
+  that failed on Android; it has not been changed or tested.
+
+### 27.4 Screens 07 and 21
+
+Screen 07, the layer panel, sets each system to on, ghost or off, isolates the selection,
+sets ghost opacity from 10 to 60 percent (default 30) and resets. Screen 21, structure tree
+mode, walks the hierarchy one level at a time, announces focus and level through a polite
+live region, and offers a custom "go deeper" accessibility action. It is shown instead of the
+canvas when the `structureTreeMode` setting is on. Its path survives a language change, and
+the last navigation wins. Two things are out of scope: the spatial-relations row and per-row
+descriptor on screen 21 have no data source, and focusing a **group** moves no camera,
+because groups draw nothing.
+
+### 27.5 Status
+
+Verified:
+
+- The renderer contract: 12 cases on the fake, the iOS simulator and the Android emulator,
+  including that focus centres a structure and `frameAll` returns to the whole model, plus
+  four surface tests per real renderer. The Android instrumented total is 24, all passing.
+- Screen 07 was checked by hand on the emulator with the real pack (seven checks).
+- Screen 21 was checked by hand on the emulator with the `skeletal-trunk` pack: levels, focus
+  badge, opening a structure, leaving tree mode (the canvas is framed on the last focused
+  structure), and a language switch keeping the level.
+
+Not verified, or known gaps:
+
+- **Screen-reader speech was not heard.** TalkBack was enabled on the emulator and queued the
+  announcement, but its TTS engine was not ready. The live region, the selected state and the
+  custom action are wired and reviewed in code; none was heard.
+- **Nothing has run on iOS hardware.** On iOS the canvas still draws the three-cube toy pack,
+  so screens 07 and 21 are exercised there only against three cubes.
+- **The bundled default pack is stale.** `trunk-all-systems` (generated 2026-09-07) predates
+  group synthesis (b8c6d1e, 2026-09-09): all 599 structures are parentless and there are no
+  groups. On it the atlas tree is flat, isolation ghosts no neighbours and tree mode has one
+  level. `skeletal-trunk` has groups and behaves correctly. Regenerating the pack is tracked
+  separately.
+- **Focusing a group in tree mode moves no camera.** Framing a group would mean framing the
+  union of its descendants.
+- **The eight Latin system names in `SystemNames.kt` are unverified medical content.** They
+  go on the reviewer's list (§7).
+- **Polish copy for screens 07 and 21** has not been checked by a native speaker beyond
+  grammar-agreement fixes.
+- **No hardware measurement of hide/ghost cost.** §25.4's method is still to do.
+- compose-resources does not unescape `%%`; a literal percent is written as `%`.
