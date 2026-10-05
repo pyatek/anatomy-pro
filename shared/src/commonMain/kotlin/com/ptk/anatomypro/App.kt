@@ -71,7 +71,9 @@ fun App(dependencies: AppDependencies) {
         // remembered down there would be thrown away with it: switching language on the
         // settings tab used to land the user back on the atlas.
         val navController = rememberNavController()
-        // Above ProvideAppLocale for the same reason: the tree's level survives a language change.
+        // The tree's level, saved so a recreated process reopens where it was. The tree's
+        // model keeps the level across a language change by itself; this is held up here
+        // because anything saveable beneath ProvideAppLocale is rebuilt, and reset, with it.
         val treePath = rememberSaveable { mutableStateOf("") }
 
         ProvideAppLocale(settingsState.settings.interfaceLocale) {

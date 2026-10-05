@@ -82,6 +82,10 @@ fun AtlasTab(
     )
 }
 
+/**
+ * Screen 21. [pathIds] is the tree's level as saved state, held by the caller above the
+ * locale rebuild: this route reads it to open a new model and keeps it up to date.
+ */
 @Composable
 fun TreeRoute(
     repository: AtlasRepository?,
@@ -94,13 +98,19 @@ fun TreeRoute(
         Opening()
         return
     }
-    // The level survives a language change: the model is keyed on the locale, so the path's
-    // ids are held by the caller (above the locale rebuild) and the new model reopens at them.
-    val model: StructureTreeViewModel = viewModel(key = "tree-$locale") {
+    // One model for the tree, not one per language: models keyed on the locale each kept
+    // their own level, so returning to a language returned to wherever that one was left.
+    // The saved path is read once, when the model is created — the first time, or after the
+    // process was recreated.
+    val model: StructureTreeViewModel = viewModel(key = "tree") {
         StructureTreeViewModel(repository, locale, pathIds.value.split(',').filter { it.isNotEmpty() }.map(::StructureId))
     }
+    LaunchedEffect(model, locale) { model.onLocale(locale) }
     val state by model.state.collectAsState()
-    LaunchedEffect(state.path) {
+    // The model is the only source of the saved path, so what is written is never older
+    // than what is shown. Nothing is written while the first level is still loading: the
+    // empty path of a model that has not opened yet would wipe the one it is restoring.
+    LaunchedEffect(state.path, state.isLoading) {
         if (!state.isLoading) pathIds.value = state.path.joinToString(",") { it.id.value }
     }
     TreeScreen(

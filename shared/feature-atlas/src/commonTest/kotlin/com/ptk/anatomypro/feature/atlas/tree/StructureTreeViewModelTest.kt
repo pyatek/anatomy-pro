@@ -158,6 +158,93 @@ class StructureTreeViewModelTest {
     }
 
     @Test
+    fun a_language_change_keeps_the_level_and_the_focus_and_renames_them() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onEnter(1) // Muscular system
+        advanceUntilIdle()
+        model.onEnter(0) // Thoracic muscles
+        advanceUntilIdle()
+        model.onFocus(0)
+
+        model.onLocale("pl")
+        advanceUntilIdle()
+
+        assertEquals(3, model.state.value.level)
+        assertEquals(listOf("Układ mięśniowy", "Mięśnie klatki piersiowej"), model.state.value.path.map { it.name })
+        assertEquals("Mięsień piersiowy większy", model.state.value.focused?.name)
+        assertEquals(4, model.state.value.items.size)
+
+        // And back: the second switch is the one that used to return to a stale level.
+        model.onLocale("en")
+        advanceUntilIdle()
+
+        assertEquals(3, model.state.value.level)
+        assertEquals(listOf("Muscular system", "Thoracic muscles"), model.state.value.path.map { it.name })
+        assertEquals("Pectoralis major", model.state.value.focused?.name)
+        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun a_level_entered_after_a_language_change_is_kept_by_the_next_one() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onEnter(1) // Muscular system
+        advanceUntilIdle()
+        model.onLocale("pl")
+        advanceUntilIdle()
+
+        model.onEnter(0) // Mięśnie klatki piersiowej
+        advanceUntilIdle()
+        model.onLocale("en")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Muscular system", "Thoracic muscles"), model.state.value.path.map { it.name })
+    }
+
+    @Test
+    fun a_language_change_during_a_navigation_still_arrives_where_it_was_going() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val inner = FakeAtlasRepository()
+        val repository = object : AtlasRepository by inner {
+            override suspend fun children(parent: StructureId, locale: String): List<StructureSummary> {
+                if (locale == "en" && parent == StructureId("muscular")) gate.await()
+                return inner.children(parent, locale)
+            }
+        }
+        val model = StructureTreeViewModel(repository, locale = "en")
+        advanceUntilIdle()
+
+        model.onEnter(1) // Muscular system: blocks on the gate
+        advanceUntilIdle()
+        model.onLocale("pl")
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Układ mięśniowy"), model.state.value.path.map { it.name })
+        assertEquals("Mięśnie klatki piersiowej", model.state.value.items.first().name)
+    }
+
+    @Test
+    fun the_same_language_again_reloads_nothing() = runTest(dispatcher) {
+        val repository = FakeAtlasRepository()
+        val model = StructureTreeViewModel(repository, locale = "en")
+        advanceUntilIdle()
+        model.onEnter(1)
+        advanceUntilIdle()
+        model.onFocus(0)
+        val before = model.state.value
+        val calls = repository.childrenCalls
+
+        model.onLocale("en")
+        advanceUntilIdle()
+
+        assertEquals(before, model.state.value)
+        assertEquals(calls, repository.childrenCalls)
+    }
+
+    @Test
     fun the_last_navigation_wins_when_an_earlier_load_finishes_late() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val inner = FakeAtlasRepository()
