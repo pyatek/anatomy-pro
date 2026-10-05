@@ -136,6 +136,15 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
         engine = Engine.create()
         renderer = engine.createRenderer()
+        // Filament does not clear the swap chain unless asked: with no skybox, a pixel the
+        // model does not cover keeps whatever an earlier frame left there. Standing still
+        // that is invisible; once the camera moves or structures are hidden, every earlier
+        // frame shows through around the model — an isolated sternum sat on top of the
+        // ribcage that had just been hidden.
+        renderer.clearOptions = Renderer.ClearOptions().apply {
+            clear = true
+            clearColor = doubleArrayOf(0.0, 0.0, 0.0, 1.0)
+        }
         scene = engine.createScene()
         view = engine.createView()
         cameraEntity = EntityManager.get().create()

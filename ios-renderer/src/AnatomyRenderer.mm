@@ -383,6 +383,11 @@ ar_renderer_ref ar_create(void) {
     }
 
     r->renderer = r->engine->createRenderer();
+    // Filament does not clear the swap chain unless asked: with no skybox, a pixel the model
+    // does not cover keeps whatever an earlier frame left there. Seen on Android as earlier
+    // frames showing through around an isolated structure once the camera moved; the default
+    // is the engine's, so it is the same here.
+    r->renderer->setClearOptions({.clearColor = {0.0f, 0.0f, 0.0f, 1.0f}, .clear = true});
     r->scene = r->engine->createScene();
     r->view = r->engine->createView();
     r->cameraEntity = utils::EntityManager::get().create();
