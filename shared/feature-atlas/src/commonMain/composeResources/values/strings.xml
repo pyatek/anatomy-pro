@@ -35,4 +35,21 @@
     <string name="system_nervous_system_sense_organs">Nervous system and sense organs</string>
     <string name="system_joints">Joints</string>
     <string name="system_skeletal_system">Skeletal system</string>
+    <string name="tree_badge">TREE MODE</string>
+    <string name="tree_level">LEVEL %1$d · %2$s</string>
+    <string name="tree_level_top">LEVEL 1</string>
+    <plurals name="tree_count">
+        <item quantity="one">%1$d structure · swipe right to go deeper</item>
+        <item quantity="other">%1$d structures · swipe right to go deeper</item>
+    </plurals>
+    <string name="tree_focused_badge">FOCUSED %1$d/%2$d</string>
+    <string name="tree_announce_focused">%1$s, %2$d of %3$d</string>
+    <plurals name="tree_announce_level">
+        <item quantity="one">Level %1$d, %2$s, %3$d structure</item>
+        <item quantity="other">Level %1$d, %2$s, %3$d structures</item>
+    </plurals>
+    <string name="tree_up">Up a level</string>
+    <string name="tree_open">Open structure</string>
+    <string name="tree_enter">Go deeper</string>
+    <string name="tree_top_name">top</string>
 </resources>

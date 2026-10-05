@@ -130,15 +130,24 @@ private fun MainScaffold(
         Box(modifier = Modifier.weight(1f)) {
             NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
                 composable<AtlasRoute.Browse> {
-                    AtlasTab(
-                        repository = dependencies.atlas,
-                        scene = scene,
-                        locale = locale,
-                        latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
-                        onOpenDetail = openDetail,
-                        onSearch = { navController.navigate(AtlasRoute.Search) },
-                        onLayers = { navController.navigate(AtlasRoute.Layers) },
-                    )
+                    if (state.settings.structureTreeMode) {
+                        TreeRoute(
+                            repository = dependencies.atlas,
+                            scene = scene,
+                            locale = locale,
+                            onOpenDetail = openDetail,
+                        )
+                    } else {
+                        AtlasTab(
+                            repository = dependencies.atlas,
+                            scene = scene,
+                            locale = locale,
+                            latinOnly = state.settings.nameDisplay == NameDisplay.LatinOnly,
+                            onOpenDetail = openDetail,
+                            onSearch = { navController.navigate(AtlasRoute.Search) },
+                            onLayers = { navController.navigate(AtlasRoute.Layers) },
+                        )
+                    }
                 }
                 composable<AtlasRoute.Layers> {
                     LayersRoute(repository = dependencies.atlas, scene = scene, locale = locale, onBack = { navController.popBackStack() })

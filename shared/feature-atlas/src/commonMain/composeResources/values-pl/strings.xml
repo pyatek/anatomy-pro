@@ -35,4 +35,25 @@
     <string name="system_nervous_system_sense_organs">Układ nerwowy i narządy zmysłów</string>
     <string name="system_joints">Stawy</string>
     <string name="system_skeletal_system">Układ kostny</string>
+    <string name="tree_badge">TRYB DRZEWA</string>
+    <string name="tree_level">POZIOM %1$d · %2$s</string>
+    <string name="tree_level_top">POZIOM 1</string>
+    <plurals name="tree_count">
+        <item quantity="one">%1$d struktura · przesuń w prawo, aby wejść głębiej</item>
+        <item quantity="few">%1$d struktury · przesuń w prawo, aby wejść głębiej</item>
+        <item quantity="many">%1$d struktur · przesuń w prawo, aby wejść głębiej</item>
+        <item quantity="other">%1$d struktury · przesuń w prawo, aby wejść głębiej</item>
+    </plurals>
+    <string name="tree_focused_badge">WYBRANO %1$d/%2$d</string>
+    <string name="tree_announce_focused">%1$s, %2$d z %3$d</string>
+    <plurals name="tree_announce_level">
+        <item quantity="one">Poziom %1$d, %2$s, %3$d struktura</item>
+        <item quantity="few">Poziom %1$d, %2$s, %3$d struktury</item>
+        <item quantity="many">Poziom %1$d, %2$s, %3$d struktur</item>
+        <item quantity="other">Poziom %1$d, %2$s, %3$d struktury</item>
+    </plurals>
+    <string name="tree_up">Poziom wyżej</string>
+    <string name="tree_open">Otwórz strukturę</string>
+    <string name="tree_enter">Wejdź głębiej</string>
+    <string name="tree_top_name">początek</string>
 </resources>

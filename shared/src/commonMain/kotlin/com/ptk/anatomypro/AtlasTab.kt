@@ -42,6 +42,8 @@ import com.ptk.anatomypro.feature.atlas.layers.LayersScreen
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
+import com.ptk.anatomypro.feature.atlas.tree.StructureTreeViewModel
+import com.ptk.anatomypro.feature.atlas.tree.TreeScreen
 import com.ptk.anatomypro.feature.search.SearchScreen
 import com.ptk.anatomypro.feature.search.SearchUiState
 import com.ptk.anatomypro.feature.search.SearchViewModel
@@ -78,6 +80,34 @@ fun AtlasTab(
         onSearch = onSearch,
         onLayers = onLayers,
         onOpenDetail = onOpenDetail,
+    )
+}
+
+@Composable
+fun TreeRoute(
+    repository: AtlasRepository?,
+    scene: AtlasSceneViewModel?,
+    locale: String,
+    onOpenDetail: (StructureId) -> Unit,
+) {
+    if (repository == null) {
+        Opening()
+        return
+    }
+    val model: StructureTreeViewModel = viewModel(key = "tree-$locale") { StructureTreeViewModel(repository, locale) }
+    val state by model.state.collectAsState()
+    TreeScreen(
+        state = state,
+        onFocus = { index ->
+            model.onFocus(index)
+            state.items.getOrNull(index)?.let { item ->
+                scene?.onStructureSelected(item.id.takeUnless { item.isGroup })
+                scene?.focusCamera(item.id)
+            }
+        },
+        onEnter = model::onEnter,
+        onUp = model::onUp,
+        onOpen = { state.focused?.let { onOpenDetail(it.id) } },
     )
 }
 
