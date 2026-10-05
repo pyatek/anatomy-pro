@@ -1404,8 +1404,9 @@ through the whole path. §27.5 says what is verified and what is not.
 
 The renderer interface gained `focusCamera`, which frames one structure, and `frameAll`,
 which returns the camera to the whole model. The framing maths lives once, in common code
-(`CameraFraming.kt`), and is used by the fake, iOS and Android. Each real renderer only
-supplies the bounds of a set of nodes and applies a camera pose. On iOS that is two new
+(`CameraFraming.kt`), and is used by iOS and Android. Each real renderer only supplies the
+bounds of a set of nodes and applies a camera pose. The fake does no framing: it records
+which structure it was last asked to frame (`focused`), or null for the whole model. On iOS that is two new
 functions in the C seam, `ar_nodes_bounds` and `ar_set_camera`. A `FocusRequest` with a null
 structure means the whole model: the camera returns to the body on reset, when isolation is
 turned off, and when the selection is cleared while isolated.
@@ -1413,13 +1414,25 @@ turned off, and when the selection is cleared while isolated.
 ### 27.2 The scene owns what the renderer shows
 
 `AtlasSceneViewModel` is the single owner of layer state, isolation, selection and focus.
+The selection is two values. `selected` is what the user chose on any screen — a tap on the
+model, a row of the atlas list, a row focused in tree mode — and may be a group. `focus` is
+the part of it that has geometry: the same id for a structure, nothing for a group, because a
+group draws nothing. The atlas and the layer panel both highlight `focus` and isolate around
+it, and the atlas names `selected`, looking the name up in the interface language. So
+selecting a group names it and highlights nothing. `AtlasViewModel` holds the list's rows and
+which are expanded, and no selection. The scene is app-scoped and is not rebuilt by a language
+change, so the selection survives one.
+
+The scene catches repository failures: a failed load leaves an empty panel, and a failed
+isolation lookup leaves what was drawn as it was.
+
 It produces a `RenderState`; a `SceneResolver` turns the taxonomy and the layer state into
 concrete per-structure visibility and opacity, and `applyRenderState` applies that to the
 renderer as a diff against what was last applied, so unchanged structures are not touched. If
 a newer state arrives while a slower resolve is running, the latest state wins. The
 `AtlasRepository` gained `systems()`, `structuresIn()` and `allStructures()` to feed it.
-`AnatomyCanvas` takes a `RenderState` and a `FocusRequest` and applies them after
-`PackLoaded`.
+`AnatomyCanvas` takes a highlighted structure, a `RenderState` and a `FocusRequest` and
+applies all three only after `PackLoaded`.
 
 ### 27.3 Three renderer defects the first end-to-end run exposed
 
@@ -1445,8 +1458,14 @@ Screen 07, the layer panel, sets each system to on, ghost or off, isolates the s
 sets ghost opacity from 10 to 60 percent (default 30) and resets. Screen 21, structure tree
 mode, walks the hierarchy one level at a time, announces focus and level through a polite
 live region, and offers a custom "go deeper" accessibility action. It is shown instead of the
-canvas when the `structureTreeMode` setting is on. Its path survives a language change, and
-the last navigation wins. Two things are out of scope: the spatial-relations row and per-row
+canvas when the `structureTreeMode` setting is on. Its path survives a language change:
+there is one `StructureTreeViewModel` per tree, not one per language, and `onLocale` loads
+the same level and the same focused row again in the new language. The path is also kept as
+saved state above `ProvideAppLocale`, which is read only when a model is created, so a
+recreated process reopens at the same level. The last navigation wins. A focused row becomes
+the scene's selection, so leaving tree mode shows the model framed on it and highlighted.
+The count line says that the arrow goes deeper; there is no swipe gesture on this screen, and
+under a screen reader a swipe already means "next element". Two things are out of scope: the spatial-relations row and per-row
 descriptor on screen 21 have no data source, and focusing a **group** moves no camera,
 because groups draw nothing.
 
