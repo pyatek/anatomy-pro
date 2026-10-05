@@ -34,8 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -93,7 +96,9 @@ fun TreeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
                         .semantics {
-                            selected = isFocused
+                            // Only the focused row says so: "not selected" on every other
+                            // row is noise a screen reader would read out each time.
+                            if (isFocused) selected = true
                             if (item.hasChildren) {
                                 customActions = listOf(CustomAccessibilityAction(enterLabel) { onEnter(index); true })
                             }
@@ -118,7 +123,10 @@ fun TreeScreen(
                             "›",
                             style = MaterialTheme.typography.titleLarge,
                             color = Accent,
-                            modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp).clickable { onEnter(index) }.padding(top = 8.dp, start = 16.dp),
+                            modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp)
+                                .semantics { role = Role.Button; contentDescription = enterLabel }
+                                .clickable { onEnter(index) }
+                                .padding(top = 8.dp, start = 16.dp),
                         )
                     }
                 }

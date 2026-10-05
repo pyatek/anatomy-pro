@@ -39,10 +39,10 @@
     <string name="tree_level">POZIOM %1$d · %2$s</string>
     <string name="tree_level_top">POZIOM 1</string>
     <plurals name="tree_count">
-        <item quantity="one">%1$d struktura · przesuń w prawo, aby wejść głębiej</item>
-        <item quantity="few">%1$d struktury · przesuń w prawo, aby wejść głębiej</item>
-        <item quantity="many">%1$d struktur · przesuń w prawo, aby wejść głębiej</item>
-        <item quantity="other">%1$d struktury · przesuń w prawo, aby wejść głębiej</item>
+        <item quantity="one">%1$d struktura · strzałka prowadzi głębiej</item>
+        <item quantity="few">%1$d struktury · strzałka prowadzi głębiej</item>
+        <item quantity="many">%1$d struktur · strzałka prowadzi głębiej</item>
+        <item quantity="other">%1$d struktury · strzałka prowadzi głębiej</item>
     </plurals>
     <string name="tree_focused_badge">WYBRANO %1$d/%2$d</string>
     <string name="tree_announce_focused">%1$s, %2$d z %3$d</string>
