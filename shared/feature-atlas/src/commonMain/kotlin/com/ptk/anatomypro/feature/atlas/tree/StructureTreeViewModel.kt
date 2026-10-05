@@ -6,6 +6,8 @@ import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,12 +44,20 @@ class StructureTreeViewModel(
     private val _state = MutableStateFlow(TreeUiState())
     val state: StateFlow<TreeUiState> = _state.asStateFlow()
 
+    /** The load in flight. A newer navigation cancels it, so the last one wins. */
+    private var loading: Job? = null
+
     init {
-        viewModelScope.launch {
+        loading = viewModelScope.launch {
             // Names are fetched per locale, so the path is resolved again rather than reused.
-            val path = runCatching { initialPath.map { requireNotNull(repository.summary(it, locale)) } }
-                .getOrDefault(emptyList())
-            show(path = path, focusId = null)
+            val path = try {
+                initialPath.map { requireNotNull(repository.summary(it, locale)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
+            load(path, focusId = null)
         }
     }
 
@@ -74,22 +84,27 @@ class StructureTreeViewModel(
     }
 
     private fun show(path: List<StructureSummary>, focusId: String?) {
-        viewModelScope.launch {
-            runCatching {
-                val parent = path.lastOrNull()
-                if (parent == null) repository.roots(locale) else repository.children(parent.id, locale)
-            }.onSuccess { items ->
-                val focused = focusId?.let { id -> items.indexOfFirst { it.id.value == id } }?.takeIf { it >= 0 }
-                _state.value = TreeUiState(
-                    path = path,
-                    items = items,
-                    focusedIndex = focused,
-                    announcement = TreeAnnouncement.Level(path.size + 1, path.lastOrNull()?.name, items.size),
-                    isLoading = false,
-                )
-            }.onFailure {
-                _state.value = _state.value.copy(isLoading = false, error = AtlasError.LoadFailed)
-            }
+        loading?.cancel()
+        loading = viewModelScope.launch { load(path, focusId) }
+    }
+
+    private suspend fun load(path: List<StructureSummary>, focusId: String?) {
+        val items = try {
+            val parent = path.lastOrNull()
+            if (parent == null) repository.roots(locale) else repository.children(parent.id, locale)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(isLoading = false, error = AtlasError.LoadFailed)
+            return
         }
+        val focused = focusId?.let { id -> items.indexOfFirst { it.id.value == id } }?.takeIf { it >= 0 }
+        _state.value = TreeUiState(
+            path = path,
+            items = items,
+            focusedIndex = focused,
+            announcement = TreeAnnouncement.Level(path.size + 1, path.lastOrNull()?.name, items.size),
+            isLoading = false,
+        )
     }
 }

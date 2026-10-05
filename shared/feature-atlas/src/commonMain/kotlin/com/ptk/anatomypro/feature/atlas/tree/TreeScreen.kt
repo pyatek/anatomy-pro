@@ -71,7 +71,7 @@ fun TreeScreen(
             color = TextTertiary,
         )
 
-        // Spoken, not shown: the polite live region is what a screen reader announces.
+        // Shown as a status line, and announced by screen readers because it is a polite live region.
         Text(
             text = announcementText(state.announcement),
             style = MaterialTheme.typography.labelSmall,

@@ -2,7 +2,11 @@ package com.ptk.anatomypro.feature.atlas.tree
 
 import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
+import com.ptk.anatomypro.core.data.model.StructureSummary
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasError
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -118,5 +122,62 @@ class StructureTreeViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AtlasError.LoadFailed, model.state.value.error)
+    }
+
+    // An empty initialPath is the case every test above already covers (the first one).
+
+    @Test
+    fun an_initial_path_opens_at_that_level_in_the_given_locale() = runTest(dispatcher) {
+        val ids = listOf(StructureId("muscular"), StructureId("musculi-thoracis"))
+
+        val en = StructureTreeViewModel(FakeAtlasRepository(), locale = "en", initialPath = ids)
+        advanceUntilIdle()
+        assertEquals(listOf("Muscular system", "Thoracic muscles"), en.state.value.path.map { it.name })
+        assertEquals(4, en.state.value.items.size)
+        assertEquals(3, en.state.value.level)
+
+        val pl = StructureTreeViewModel(FakeAtlasRepository(), locale = "pl", initialPath = ids)
+        advanceUntilIdle()
+        assertEquals(listOf("Układ mięśniowy", "Mięśnie klatki piersiowej"), pl.state.value.path.map { it.name })
+        assertEquals("Mięsień piersiowy większy", pl.state.value.items.first().name)
+    }
+
+    @Test
+    fun an_initial_path_with_an_unknown_id_falls_back_to_the_top_level() = runTest(dispatcher) {
+        val model = StructureTreeViewModel(
+            FakeAtlasRepository(),
+            locale = "en",
+            initialPath = listOf(StructureId("muscular"), StructureId("no-such-structure")),
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, model.state.value.level)
+        assertEquals(listOf("Skeletal system", "Muscular system"), model.names())
+        assertEquals(false, model.state.value.isLoading)
+        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun the_last_navigation_wins_when_an_earlier_load_finishes_late() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val inner = FakeAtlasRepository()
+        val repository = object : AtlasRepository by inner {
+            override suspend fun children(parent: StructureId, locale: String): List<StructureSummary> {
+                if (parent == StructureId("muscular")) gate.await()
+                return inner.children(parent, locale)
+            }
+        }
+        val model = StructureTreeViewModel(repository, locale = "en")
+        advanceUntilIdle()
+
+        model.onEnter(1) // Muscular system: blocks on the gate
+        advanceUntilIdle()
+        model.onEnter(0) // Skeletal system: completes
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Skeletal system"), model.state.value.path.map { it.name })
+        assertNull(model.state.value.error)
     }
 }
