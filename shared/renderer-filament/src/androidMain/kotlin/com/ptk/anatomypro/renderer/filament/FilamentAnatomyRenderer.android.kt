@@ -182,6 +182,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         // Offscreen rendering has no display to pace against; left at the default,
         // Filament drops most frames of a tight loop and a picking readback never lands.
         renderer.setDisplayInfo(Renderer.DisplayInfo().apply { refreshRate = 0.0f })
+        releaseSwapChain()
         configureSurface(engine.createSwapChain(width, height, 0L), width, height)
     }
 
@@ -196,11 +197,26 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         renderer.setDisplayInfo(
             Renderer.DisplayInfo().apply { refreshRate = if (refreshHz > 0f) refreshHz else 60.0f }
         )
+        releaseSwapChain()
         configureSurface(engine.createSwapChain(surface), width, height)
     }
 
+    /**
+     * Lets go of the current swap chain, and waits until the backend really has.
+     *
+     * A window takes one producer at a time, and Filament only queues the destroy. When the
+     * host resizes its surface it hands over the same window again, so a new swap chain made
+     * before the old one is gone fails (`eglCreateWindowSurface`, `EGL_BAD_ALLOC`) and the
+     * model goes on being drawn at the old size, off-centre and cropped.
+     */
+    private fun releaseSwapChain() {
+        val current = swapChain ?: return
+        swapChain = null
+        engine.destroySwapChain(current)
+        engine.flushAndWait()
+    }
+
     private fun configureSurface(next: SwapChain, width: Int, height: Int) {
-        swapChain?.let(engine::destroySwapChain)
         swapChain = next
         this.width = width
         this.height = height
