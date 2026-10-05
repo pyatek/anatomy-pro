@@ -1,6 +1,7 @@
 package com.ptk.anatomypro.feature.atlas.scene
 
 import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
+import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.SystemId
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
@@ -261,6 +262,39 @@ class AtlasSceneViewModelTest {
         advanceUntilIdle()
 
         assertEquals(RenderState.None, model.render.value)
+    }
+
+    @Test
+    fun a_failing_atlas_leaves_an_empty_panel_rather_than_crashing() = runTest(dispatcher) {
+        // This model is created for every tab; an exception escaping it takes the app down.
+        val model = AtlasSceneViewModel(FakeAtlasRepository(FakeBehaviour(failure = { IllegalStateException("no database") })))
+        advanceUntilIdle()
+
+        assertEquals(false, model.panel.value.isLoading)
+        assertTrue(model.panel.value.rows.isEmpty())
+        assertEquals(RenderState.None, model.render.value)
+    }
+
+    @Test
+    fun a_failure_while_isolating_keeps_what_was_drawn() = runTest(dispatcher) {
+        val inner = FakeAtlasRepository()
+        val model = AtlasSceneViewModel(
+            object : AtlasRepository by inner {
+                override suspend fun detail(id: StructureId, locale: String): StructureDetail? =
+                    throw IllegalStateException("no database")
+            },
+        )
+        advanceUntilIdle()
+        model.setLayer(muscle, LayerMode.Hidden)
+        advanceUntilIdle()
+        val before = model.render.value
+
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        assertEquals(before, model.render.value)
+        assertTrue(model.panel.value.isolate)
     }
 
     private class GatedRepository(private val delegate: AtlasRepository) : AtlasRepository by delegate {

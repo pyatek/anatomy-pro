@@ -6,6 +6,7 @@ import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.SystemId
 import com.ptk.anatomypro.feature.atlas.IsolationPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,17 +62,28 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
 
     init {
         viewModelScope.launch {
-            val systems = repository.systems()
-            membership = systems.associateWith { repository.structuresIn(it) }
-            everything = repository.allStructures()
-            val ordered = systems.sortedWith(
-                compareBy<SystemId>({ SYSTEM_DISPLAY_ORDER.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }, { it.value }),
-            )
-            _panel.value = _panel.value.copy(
-                rows = ordered.map { LayerRow(it, LayerMode.Visible) },
-                isLoading = false,
-            )
-            resolve()
+            // Created for every tab, so nothing may escape: an uncaught exception in this
+            // scope reaches the thread's handler and takes the whole app down.
+            try {
+                val systems = repository.systems()
+                membership = systems.associateWith { repository.structuresIn(it) }
+                everything = repository.allStructures()
+                val ordered = systems.sortedWith(
+                    compareBy<SystemId>({ SYSTEM_DISPLAY_ORDER.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }, { it.value }),
+                )
+                _panel.value = _panel.value.copy(
+                    rows = ordered.map { LayerRow(it, LayerMode.Visible) },
+                    isLoading = false,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // An atlas that cannot be read has no layers to offer: an empty panel.
+                membership = emptyMap()
+                everything = emptySet()
+                _panel.value = _panel.value.copy(rows = emptyList(), isLoading = false)
+            }
+            launchResolve()
         }
     }
 
@@ -138,7 +150,14 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
         val panel = _panel.value
         val focus = panel.focus
         val isolation = if (panel.isolate && focus != null) {
-            IsolationPolicy.resolve(focus, siblingsOf(focus), everything)
+            try {
+                IsolationPolicy.resolve(focus, siblingsOf(focus), everything)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // What is drawn stays as it was: a half-known isolation would hide the wrong things.
+                return
+            }
         } else {
             null
         }
