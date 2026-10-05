@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,13 +35,20 @@ data class TreeUiState(
 class StructureTreeViewModel(
     private val repository: AtlasRepository,
     private val locale: String,
+    /** Ids from the top level down; lets a new model (a language change) reopen at the same level. */
+    initialPath: List<StructureId> = emptyList(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TreeUiState())
     val state: StateFlow<TreeUiState> = _state.asStateFlow()
 
     init {
-        show(path = emptyList(), focusId = null)
+        viewModelScope.launch {
+            // Names are fetched per locale, so the path is resolved again rather than reused.
+            val path = runCatching { initialPath.map { requireNotNull(repository.summary(it, locale)) } }
+                .getOrDefault(emptyList())
+            show(path = path, focusId = null)
+        }
     }
 
     fun onFocus(index: Int) {

@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -88,14 +89,22 @@ fun TreeRoute(
     repository: AtlasRepository?,
     scene: AtlasSceneViewModel?,
     locale: String,
+    pathIds: MutableState<String>,
     onOpenDetail: (StructureId) -> Unit,
 ) {
     if (repository == null) {
         Opening()
         return
     }
-    val model: StructureTreeViewModel = viewModel(key = "tree-$locale") { StructureTreeViewModel(repository, locale) }
+    // The level survives a language change: the model is keyed on the locale, so the path's
+    // ids are held by the caller (above the locale rebuild) and the new model reopens at them.
+    val model: StructureTreeViewModel = viewModel(key = "tree-$locale") {
+        StructureTreeViewModel(repository, locale, pathIds.value.split(',').filter { it.isNotEmpty() }.map(::StructureId))
+    }
     val state by model.state.collectAsState()
+    LaunchedEffect(state.path) {
+        if (!state.isLoading) pathIds.value = state.path.joinToString(",") { it.id.value }
+    }
     TreeScreen(
         state = state,
         onFocus = { index ->

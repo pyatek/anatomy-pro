@@ -15,8 +15,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,6 +71,8 @@ fun App(dependencies: AppDependencies) {
         // remembered down there would be thrown away with it: switching language on the
         // settings tab used to land the user back on the atlas.
         val navController = rememberNavController()
+        // Above ProvideAppLocale for the same reason: the tree's level survives a language change.
+        val treePath = rememberSaveable { mutableStateOf("") }
 
         ProvideAppLocale(settingsState.settings.interfaceLocale) {
             Surface(modifier = Modifier.fillMaxSize()) {
@@ -92,6 +97,7 @@ fun App(dependencies: AppDependencies) {
                             state = settingsState,
                             model = settingsModel,
                             navController = navController,
+                            treePath = treePath,
                         )
                     }
                 }
@@ -114,6 +120,7 @@ private fun MainScaffold(
     state: SettingsUiState,
     model: SettingsViewModel,
     navController: NavHostController,
+    treePath: MutableState<String>,
 ) {
     val entry by navController.currentBackStackEntryAsState()
     val tab = entry?.destination?.tab() ?: TopLevel.Atlas
@@ -135,6 +142,7 @@ private fun MainScaffold(
                             repository = dependencies.atlas,
                             scene = scene,
                             locale = locale,
+                            pathIds = treePath,
                             onOpenDetail = openDetail,
                         )
                     } else {
