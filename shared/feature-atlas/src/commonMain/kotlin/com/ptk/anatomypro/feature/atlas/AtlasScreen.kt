@@ -39,6 +39,10 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun AtlasScreen(
     state: AtlasUiState,
+    /** The selected structure that has geometry; a selected group marks no row, as it outlines nothing. */
+    highlighted: StructureId?,
+    /** The selection's name in the interface language, or null when nothing is selected. */
+    selectedName: String?,
     canvas: @Composable (Modifier) -> Unit,
     onRowToggled: (StructureId) -> Unit,
     onRowSelected: (StructureSummary) -> Unit,
@@ -49,7 +53,7 @@ fun AtlasScreen(
         canvas(Modifier.fillMaxWidth().weight(1f))
 
         Text(
-            text = state.selectedName ?: stringResource(Res.string.atlas_select_prompt),
+            text = selectedName ?: stringResource(Res.string.atlas_select_prompt),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
@@ -62,7 +66,7 @@ fun AtlasScreen(
                 items(state.rows, key = { it.summary.id.value }) { row ->
                     TaxonomyRow(
                         row = row,
-                        isSelected = state.selected == row.summary.id,
+                        isSelected = highlighted == row.summary.id,
                         onToggle = { onRowToggled(row.summary.id) },
                         onSelect = { onRowSelected(row.summary) },
                         latinOnly = latinOnly,

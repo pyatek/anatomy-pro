@@ -13,15 +13,12 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AtlasViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val skeletal = StructureId("skeletal")
-    private val ribs = StructureId("costae")
-    private val seventhRib = StructureId("costa-vii")
     private val repository = FakeAtlasRepository()
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
@@ -65,57 +62,7 @@ class AtlasViewModelTest {
         assertEquals(1, repository.childrenCalls)
     }
 
-    @Test
-    fun selecting_a_leaf_marks_it_for_highlighting() = runTest(dispatcher) {
-        val model = viewModel()
-        advanceUntilIdle()
-        model.onRowToggled(skeletal)
-        advanceUntilIdle()
-        model.onRowToggled(ribs)
-        advanceUntilIdle()
-
-        model.onRowSelected(model.state.value.rows.single { it.summary.id == seventhRib }.summary)
-
-        assertEquals(seventhRib, model.state.value.selected)
-        assertEquals("Rib VII", model.state.value.selectedName)
-    }
-
-    @Test
-    fun selecting_a_group_names_it_but_highlights_nothing() = runTest(dispatcher) {
-        // A group has no geometry of its own, so there is nothing to outline.
-        val model = viewModel()
-        advanceUntilIdle()
-
-        model.onRowSelected(model.state.value.rows.first().summary)
-
-        assertNull(model.state.value.selected)
-        assertEquals("Skeletal system", model.state.value.selectedName)
-    }
-
-    @Test
-    fun a_pick_in_the_model_selects_the_same_structure_the_tree_would() = runTest(dispatcher) {
-        val model = viewModel()
-        advanceUntilIdle()
-
-        model.onPickedInModel(seventhRib)
-        advanceUntilIdle()
-
-        assertEquals(seventhRib, model.state.value.selected)
-        assertEquals("Rib VII", model.state.value.selectedName)
-    }
-
-    @Test
-    fun a_miss_in_the_model_clears_the_selection() = runTest(dispatcher) {
-        val model = viewModel()
-        advanceUntilIdle()
-        model.onPickedInModel(seventhRib)
-        advanceUntilIdle()
-
-        model.onPickedInModel(null)
-        advanceUntilIdle()
-
-        assertNull(model.state.value.selected)
-    }
+    // Selection is the scene's: see AtlasSceneViewModelTest.
 
     @Test
     fun a_failing_repository_surfaces_as_an_error_rather_than_an_empty_tree() = runTest(dispatcher) {

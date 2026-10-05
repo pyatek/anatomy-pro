@@ -1,7 +1,6 @@
 package com.ptk.anatomypro.feature.atlas
 
 import com.ptk.anatomypro.core.data.model.StructureSummary
-import com.ptk.anatomypro.core.model.StructureId
 
 /**
  * One row of the flattened taxonomy.
@@ -24,8 +23,6 @@ data class AtlasRow(
  */
 data class AtlasUiState(
     val rows: List<AtlasRow> = emptyList(),
-    val selected: StructureId? = null,
-    val selectedName: String? = null,
     val isLoading: Boolean = true,
     val error: AtlasError? = null,
 )

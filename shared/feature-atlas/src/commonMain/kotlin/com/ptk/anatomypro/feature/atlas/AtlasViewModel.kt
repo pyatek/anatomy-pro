@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Owns the atlas screen's state.
+ * Owns the atlas list: its rows and which of them are expanded.
  *
  * Children are fetched when a node is first expanded rather than up front: the whole
  * taxonomy is thousands of rows and almost none of it is ever looked at.
  *
- * Selection is deliberately one-directional in both senses — tapping a row and tapping the
- * model both end here, and the renderer is told what to highlight rather than asked what
- * is highlighted. That is §4's rule that Kotlin owns all state, applied one level up.
+ * The selection is not here. `AtlasSceneViewModel` owns it for every screen that draws the
+ * model, so a structure picked on another screen, or before a language change replaced this
+ * model, is still the one the atlas highlights and names.
  */
 class AtlasViewModel(
     private val repository: AtlasRepository,
@@ -56,25 +56,6 @@ class AtlasViewModel(
                 expanded += id
             }
             _state.value = _state.value.copy(rows = flatten())
-        }
-    }
-
-    /** A row was tapped. Groups draw nothing, so selecting one highlights nothing. */
-    fun onRowSelected(summary: StructureSummary) {
-        _state.value = _state.value.copy(
-            selected = summary.id.takeUnless { summary.isGroup },
-            selectedName = summary.name,
-        )
-    }
-
-    /** The model was tapped. Null is a miss, which clears the selection. */
-    fun onPickedInModel(id: StructureId?) {
-        viewModelScope.launch {
-            val summary = id?.let { repository.summary(it, locale) }
-            _state.value = _state.value.copy(
-                selected = id,
-                selectedName = summary?.name ?: id?.value,
-            )
         }
     }
 

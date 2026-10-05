@@ -41,14 +41,12 @@ import com.ptk.anatomypro.feature.atlas.StructureDetailUiState
 import com.ptk.anatomypro.feature.atlas.StructureDetailViewModel
 import com.ptk.anatomypro.feature.atlas.layers.LayersScreen
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
-import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
-import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.atlas.tree.StructureTreeViewModel
 import com.ptk.anatomypro.feature.atlas.tree.TreeScreen
 import com.ptk.anatomypro.feature.search.SearchScreen
 import com.ptk.anatomypro.feature.search.SearchUiState
 import com.ptk.anatomypro.feature.search.SearchViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -69,7 +67,7 @@ fun AtlasTab(
     onSearch: () -> Unit,
     onLayers: () -> Unit,
 ) {
-    if (repository == null) {
+    if (repository == null || scene == null) {
         Opening()
         return
     }
@@ -92,7 +90,7 @@ fun TreeRoute(
     pathIds: MutableState<String>,
     onOpenDetail: (StructureId) -> Unit,
 ) {
-    if (repository == null) {
+    if (repository == null || scene == null) {
         Opening()
         return
     }
@@ -110,8 +108,11 @@ fun TreeRoute(
         onFocus = { index ->
             model.onFocus(index)
             state.items.getOrNull(index)?.let { item ->
-                scene?.onStructureSelected(item.id.takeUnless { item.isGroup })
-                scene?.focusCamera(item.id)
+                // The scene keeps the selection, so the atlas highlights and names it when
+                // tree mode is left. A group draws nothing: asking the camera to frame one
+                // would do nothing except replace a request that is still waiting.
+                scene.onStructureSelected(item.id, isGroup = item.isGroup)
+                if (!item.isGroup) scene.focusCamera(item.id)
             }
         },
         onEnter = model::onEnter,
@@ -184,7 +185,7 @@ fun LayersRoute(
     var focusName by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(panel.focus, locale) {
         focusName = null
-        focusName = panel.focus?.let { runCatching { repository.summary(it, locale)?.name }.getOrNull() }
+        focusName = panel.focus?.let { nameOf(repository, it, locale) }
     }
     LayersScreen(
         state = panel,
@@ -217,26 +218,31 @@ private fun Opening() {
 @Composable
 private fun BrowseRoute(
     repository: AtlasRepository,
-    scene: AtlasSceneViewModel?,
+    scene: AtlasSceneViewModel,
     locale: String,
     latinOnly: Boolean,
     onSearch: () -> Unit,
     onLayers: () -> Unit,
     onOpenDetail: (StructureId) -> Unit,
 ) {
-    // The stand-in flows are remembered, or a null scene would create a new flow on every
-    // recomposition.
-    val noRender = remember { MutableStateFlow(RenderState.None) }
-    val noFocus = remember { MutableStateFlow<FocusRequest?>(null) }
-    val render by (scene?.render ?: noRender).collectAsState()
-    val focus by (scene?.cameraFocus ?: noFocus).collectAsState()
+    val panel by scene.panel.collectAsState()
+    val render by scene.render.collectAsState()
+    val focus by scene.cameraFocus.collectAsState()
     var stats by remember { mutableStateOf(CanvasStats()) }
     // Keyed on the locale for the same reason as the detail page: the tree's names are
-    // loaded once per model.
+    // loaded once per model. That is why the selection is not this model's to keep: it
+    // belongs to the scene, which a language change does not replace.
     val model: AtlasViewModel = viewModel(key = "atlas-$locale") {
         AtlasViewModel(repository, locale)
     }
     val state: AtlasUiState by model.state.collectAsState()
+    // The selection is an id; its name is looked up here so it follows the interface language.
+    // A structure the atlas has no entry for is still named, by its id, rather than left blank.
+    var selectedName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(panel.selected, locale) {
+        selectedName = null
+        selectedName = panel.selected?.let { nameOf(repository, it, locale) ?: it.value }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -261,25 +267,23 @@ private fun BrowseRoute(
 
         AtlasScreen(
             state = state,
+            highlighted = panel.focus,
+            selectedName = selectedName,
             modifier = Modifier.weight(1f),
             canvas = { canvasModifier ->
                 AnatomyCanvas(
                     modifier = canvasModifier,
-                    highlighted = state.selected,
+                    highlighted = panel.focus,
                     render = render,
                     focus = focus,
-                    onPicked = { picked ->
-                        model.onPickedInModel(picked)
-                        scene?.onStructureSelected(picked)
-                    },
+                    onPicked = scene::onStructureSelected,
                     onStats = { stats = it },
                 )
             },
             latinOnly = latinOnly,
             onRowToggled = model::onRowToggled,
             onRowSelected = { summary ->
-                model.onRowSelected(summary)
-                scene?.onStructureSelected(summary.id.takeUnless { summary.isGroup })
+                scene.onStructureSelected(summary.id, isGroup = summary.isGroup)
                 onOpenDetail(summary.id)
             },
         )
@@ -300,6 +304,15 @@ private fun BrowseRoute(
             modifier = Modifier.fillMaxWidth().padding(6.dp),
         )
     }
+}
+
+/** A structure's name in [locale], or null when the atlas does not know it or cannot be read. */
+private suspend fun nameOf(repository: AtlasRepository, id: StructureId, locale: String): String? = try {
+    repository.summary(id, locale)?.name
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    null
 }
 
 @Composable

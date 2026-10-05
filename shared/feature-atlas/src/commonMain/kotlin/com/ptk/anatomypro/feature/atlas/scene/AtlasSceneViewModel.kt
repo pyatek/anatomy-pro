@@ -32,6 +32,9 @@ data class LayerRow(val system: SystemId, val mode: LayerMode)
 data class LayerPanelUiState(
     val rows: List<LayerRow> = emptyList(),
     val isolate: Boolean = false,
+    /** What the user chose, on whichever screen. A group can be chosen; it is named, not drawn. */
+    val selected: StructureId? = null,
+    /** The part of the selection that has geometry: what is highlighted and isolated. */
     val focus: StructureId? = null,
     val ghostPercent: Int = DEFAULT_GHOST_PERCENT,
     val isLoading: Boolean = true,
@@ -43,6 +46,10 @@ data class LayerPanelUiState(
  * App-scoped rather than per screen: a system hidden on screen 07 stays hidden on the
  * atlas, and a structure focused in tree mode (screen 21) is framed when the model is next
  * on screen. Screens only ever read [render] and [cameraFocus]; this is the one writer.
+ *
+ * It is also the one owner of the selection ([LayerPanelUiState.selected]): every screen that
+ * highlights or names a structure reads it from here, so they cannot disagree, and it
+ * outlives a language change, which rebuilds the screens but not this.
  */
 class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel() {
 
@@ -119,14 +126,18 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
     }
 
     /**
-     * A structure was chosen anywhere — model, tree, list. The camera stays where it is,
-     * except when the selection is dropped while isolating: the isolated structure comes
-     * back among everything else, and a camera left on it would show a close-up of nothing
-     * in particular.
+     * A structure was chosen anywhere — model, tree, list — or, with null, the selection was
+     * dropped. A group ([isGroup]) is selected like anything else, but it draws nothing, so
+     * there is nothing of it to highlight or isolate: the focus is empty.
+     *
+     * The camera stays where it is, except when the focus is lost while isolating: the
+     * isolated structure comes back among everything else, and a camera left on it would
+     * show a close-up of nothing in particular.
      */
-    fun onStructureSelected(id: StructureId?) {
-        _panel.value = _panel.value.copy(focus = id)
-        if (id == null && _panel.value.isolate) frameWholeModel()
+    fun onStructureSelected(id: StructureId?, isGroup: Boolean = false) {
+        val focus = id.takeUnless { isGroup }
+        _panel.value = _panel.value.copy(selected = id, focus = focus)
+        if (focus == null && _panel.value.isolate) frameWholeModel()
         launchResolve()
     }
 

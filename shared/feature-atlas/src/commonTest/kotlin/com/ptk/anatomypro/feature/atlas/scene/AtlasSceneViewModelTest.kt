@@ -30,6 +30,8 @@ class AtlasSceneViewModelTest {
     private val muscle = SystemId("muscular-system")
     private val bone = SystemId("skeletal-system")
     private val seventhRib = StructureId("costa-vii")
+    private val sixthRib = StructureId("costa-vi")
+    private val ribs = StructureId("costae")
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
     @AfterTest fun tearDown() = Dispatchers.resetMain()
@@ -262,6 +264,82 @@ class AtlasSceneViewModelTest {
         advanceUntilIdle()
 
         assertEquals(RenderState.None, model.render.value)
+    }
+
+    @Test
+    fun selecting_a_structure_marks_it_for_highlighting() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+
+        model.onStructureSelected(seventhRib)
+
+        assertEquals(seventhRib, model.panel.value.selected)
+        assertEquals(seventhRib, model.panel.value.focus)
+    }
+
+    @Test
+    fun selecting_a_group_names_it_but_highlights_and_isolates_nothing() = runTest(dispatcher) {
+        // A group has no geometry of its own, so there is nothing to outline or to isolate.
+        val model = model()
+        advanceUntilIdle()
+
+        model.onStructureSelected(ribs, isGroup = true)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        assertEquals(ribs, model.panel.value.selected)
+        assertNull(model.panel.value.focus)
+        assertEquals(RenderState.None, model.render.value)
+        assertNull(model.cameraFocus.value)
+    }
+
+    @Test
+    fun selecting_a_group_while_isolated_returns_the_camera_to_the_whole_model() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        model.onStructureSelected(ribs, isGroup = true)
+        advanceUntilIdle()
+
+        assertNull(assertNotNull(model.cameraFocus.value).structure)
+        assertEquals(RenderState.None, model.render.value)
+    }
+
+    @Test
+    fun a_miss_clears_the_selection() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        model.onStructureSelected(seventhRib)
+
+        model.onStructureSelected(null)
+
+        assertNull(model.panel.value.selected)
+        assertNull(model.panel.value.focus)
+    }
+
+    @Test
+    fun a_selection_made_on_one_screen_is_what_another_reads() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+        // The atlas selects a rib and isolation is turned on in the layer panel…
+        model.onStructureSelected(seventhRib)
+        model.setIsolation(true)
+        advanceUntilIdle()
+
+        // …then the panel's own canvas picks another one.
+        model.onStructureSelected(sixthRib)
+        advanceUntilIdle()
+
+        // Back on the atlas there is one answer to "what is selected", and it is drawn.
+        val panel = model.panel.value
+        assertEquals(sixthRib, panel.selected)
+        assertEquals(sixthRib, panel.focus)
+        val render = model.render.value
+        assertTrue(seventhRib in render.ghosted)
+        assertTrue(sixthRib !in render.ghosted && sixthRib !in render.hidden)
     }
 
     @Test
