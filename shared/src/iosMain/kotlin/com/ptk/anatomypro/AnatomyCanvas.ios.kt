@@ -161,7 +161,8 @@ actual fun AnatomyCanvas(
         }
     }
 
-    LaunchedEffect(renderer, highlighted) {
+    LaunchedEffect(renderer, highlighted, packLoaded) {
+        if (!packLoaded) return@LaunchedEffect
         renderer.highlight(setOfNotNull(highlighted), HighlightTokens.Selected)
     }
 }

@@ -301,6 +301,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     }
 
     override suspend fun loadPack(pack: PackId, source: MeshSource) {
+        // Unconditionally, as iOS does on every load: releaseAsset returns early when nothing
+        // is loaded, so sets declared before the first pack would otherwise outlive it and be
+        // applied to structures of a pack they were never meant for.
+        hidden.clear()
+        ghosted.clear()
+        highlighted.clear()
         releaseAsset()
 
         val file = File(source.uri.removePrefix("file://"))
