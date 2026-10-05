@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -116,7 +117,14 @@ fun LayersScreen(
             for (row in state.rows) LayerRowView(row, state.ghostPercent, onMode)
 
             Text(stringResource(Res.string.layers_isolation_heading), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
-            Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The whole row is the switch, so a screen reader hears the row's text as its
+            // label instead of a bare "switch, off".
+            val canIsolate = state.focus != null || state.isolate
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                    .toggleable(value = state.isolate, role = Role.Switch, enabled = canIsolate, onValueChange = onIsolate),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(Res.string.layers_isolate), style = MaterialTheme.typography.bodyMedium)
                     Text(
@@ -126,7 +134,7 @@ fun LayersScreen(
                         color = TextTertiary,
                     )
                 }
-                Switch(checked = state.isolate, onCheckedChange = onIsolate, enabled = state.focus != null || state.isolate)
+                Switch(checked = state.isolate, onCheckedChange = null, enabled = canIsolate)
             }
 
             Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
