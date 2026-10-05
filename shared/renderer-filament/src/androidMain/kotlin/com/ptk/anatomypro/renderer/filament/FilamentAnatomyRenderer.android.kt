@@ -205,7 +205,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         this.width = width
         this.height = height
         view.viewport = Viewport(0, 0, width, height)
-        frameAsset()
+        fitCameraToSurface()
         _events.tryEmit(RendererEvent.Ready)
     }
 
@@ -524,6 +524,23 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         nodesByStructure = byStructure
         entityToStructure = byEntity
         entitiesByStructure = entitiesByStructureId.mapValues { it.value.toIntArray() }
+    }
+
+    /**
+     * Gives the camera the new surface's shape without moving it.
+     *
+     * The surface arrives and changes size on the host's schedule, which can be after the
+     * app has sent the camera somewhere: a canvas is told what to frame as soon as its pack
+     * has loaded, and its surface may not exist yet. Framing the whole asset here, as this
+     * once did, threw that request away.
+     */
+    private fun fitCameraToSurface() {
+        val current = shot
+        when {
+            current != null -> place(current)
+            // A flight that has not drawn a frame yet places the camera on its first one.
+            flight == null -> frameAsset()
+        }
     }
 
     /** Frames the whole asset, so a caller that never sets a camera still sees the model. */

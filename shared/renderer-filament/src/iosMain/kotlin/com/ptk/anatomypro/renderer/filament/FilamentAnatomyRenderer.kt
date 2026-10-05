@@ -107,16 +107,27 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      */
     private var ghostAlpha = 1f
 
-    /** The shot last placed, so a flight starts where the camera is. Null after any reframe. */
+    /** The shot last placed, so a flight starts where the camera is. Null while it is where load put it. */
     private var shot: CameraShot? = null
     private var flight: CameraFlight? = null
+
+    /**
+     * Puts the camera back where the app last sent it, in the new surface's shape.
+     *
+     * The shim frames the whole asset on every attach, and the surface arrives and changes
+     * size on the host's schedule — which can be after the app has asked for a structure to
+     * be framed. A flight that has not drawn a frame yet is left alone: it places the camera
+     * on its first one.
+     */
+    private fun keepCameraAcrossSurfaceChange() {
+        shot?.let { place(it) }
+    }
 
     /** Draws offscreen. Used by contract tests, which have no window. */
     fun attachHeadless(width: Int, height: Int) {
         ar_attach_headless(handle, width.toUInt(), height.toUInt())
         drain()
-        shot = null
-        flight = null
+        keepCameraAcrossSurfaceChange()
     }
 
     /** Draws into a `CAMetalLayer` owned by the host app. */
@@ -129,8 +140,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             refreshHz,
         )
         drain()
-        shot = null
-        flight = null
+        keepCameraAcrossSurfaceChange()
     }
 
     /**
