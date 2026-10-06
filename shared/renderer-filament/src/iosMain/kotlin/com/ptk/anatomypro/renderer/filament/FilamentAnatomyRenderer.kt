@@ -7,6 +7,7 @@ import com.ptk.anatomypro.renderer.api.AnatomyRenderer
 import com.ptk.anatomypro.renderer.api.CameraPose
 import com.ptk.anatomypro.renderer.api.HighlightStyle
 import com.ptk.anatomypro.renderer.api.MeshSource
+import com.ptk.anatomypro.renderer.api.OutlineStyle
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_ERROR
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_LOAD_PROGRESS
@@ -228,7 +229,10 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         flight = null
     }
 
-    override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
+    // Interim: one style for the whole map. Replaced when the shim takes groups.
+    override fun highlight(styles: Map<StructureId, HighlightStyle>) {
+        val structures = styles.keys
+        val style = styles.values.firstOrNull() ?: HighlightStyle(0, 1f, OutlineStyle.SOLID, 0, 0f)
         val nodes = structures.flatMap { nodesByStructure[it].orEmpty() }
         if (nodes.isEmpty()) {
             ar_clear_highlight(handle)

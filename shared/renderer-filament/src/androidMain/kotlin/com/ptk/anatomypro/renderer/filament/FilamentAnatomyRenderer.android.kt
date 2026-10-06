@@ -365,10 +365,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         applyAppearance()
     }
 
-    override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
+    // Interim: one style for the whole map. Replaced when applyAppearance takes a style
+    // per structure.
+    override fun highlight(styles: Map<StructureId, HighlightStyle>) {
         highlighted.clear()
-        highlighted += structures
-        highlightStyle = style
+        highlighted += styles.keys
+        highlightStyle = styles.values.firstOrNull()
         applyAppearance()
     }
 

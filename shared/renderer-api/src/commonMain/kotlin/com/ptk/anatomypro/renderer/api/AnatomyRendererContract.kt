@@ -113,6 +113,26 @@ abstract class AnatomyRendererContract {
         assertEquals(null, error, "an error was reported during highlight")
     }
 
+    suspend fun verifySeveralHighlightsAtOnceAreAccepted() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        // Survival again, not pixels. Two structures in two styles, with a third the pack
+        // does not contain; then one of them restyled; then nothing.
+        val absent = StructureId("no-such-structure")
+        renderer.highlight(
+            mapOf(hitStructure to HIGHLIGHT, offCentreStructure to SECOND_HIGHLIGHT, absent to HIGHLIGHT)
+        )
+        settle(renderer)
+        renderer.highlight(mapOf(hitStructure to SECOND_HIGHLIGHT))
+        settle(renderer)
+        renderer.highlight(emptyMap())
+        settle(renderer)
+
+        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
+        assertEquals(null, error, "an error was reported highlighting several structures")
+    }
+
     suspend fun verifyHidingAStructureRemovesItFromPicking() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
@@ -299,6 +319,15 @@ abstract class AnatomyRendererContract {
             outlineStyle = OutlineStyle.SOLID,
             fillArgb = 0xFFF07C69.toInt(),
             fillLuminanceShift = 0.25f,
+        )
+
+        /** Darker and a different hue: the wrong answer beside the right one. */
+        val SECOND_HIGHLIGHT = HighlightStyle(
+            outlineArgb = 0xFFD89B3C.toInt(),
+            outlineWidthDp = 3f,
+            outlineStyle = OutlineStyle.DASHED,
+            fillArgb = 0xFFD89B3C.toInt(),
+            fillLuminanceShift = -0.20f,
         )
     }
 }

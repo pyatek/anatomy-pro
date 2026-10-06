@@ -45,6 +45,7 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun reports_a_miss() = runTest { verifyPickingEmptySpaceReportsNothing() }
     @Test fun honours_disabled_picking() = runTest { verifyPickingCanBeDisabled() }
     @Test fun accepts_a_highlight() = runTest { verifyHighlightingALoadedStructureIsAccepted() }
+    @Test fun accepts_several_highlights_at_once() = runTest { verifySeveralHighlightsAtOnceAreAccepted() }
     @Test fun forgets_an_unloaded_pack() = runTest { verifyUnloadingAPackForgetsIt() }
     @Test fun hides_a_structure_from_picking() = runTest { verifyHidingAStructureRemovesItFromPicking() }
     @Test fun shows_a_hidden_structure_again() = runTest { verifyShowingAHiddenStructureRestoresPicking() }
@@ -57,6 +58,61 @@ class FakeAnatomyRendererTest {
 
     private val pack = PackId("skeletal-thorax")
     private val source = MeshSource("file:///packs/skeletal-thorax.glb")
+    private val rib = StructureId("costa-vii")
+    private val vertebra = StructureId("vertebra-c7")
+
+    private fun style(argb: Long) = HighlightStyle(
+        outlineArgb = argb.toInt(),
+        outlineWidthDp = 3f,
+        outlineStyle = OutlineStyle.SOLID,
+        fillArgb = argb.toInt(),
+        fillLuminanceShift = 0f,
+    )
+
+    @Test
+    fun each_structure_keeps_its_own_style() {
+        // Screen 12: the expected answer and the chosen one, on the model together.
+        val renderer = FakeAnatomyRenderer()
+        val expected = style(0xFF57B37C)
+        val chosen = style(0xFFD89B3C)
+
+        renderer.highlight(mapOf(rib to expected, vertebra to chosen))
+
+        assertEquals(expected, renderer.highlights[rib])
+        assertEquals(chosen, renderer.highlights[vertebra])
+    }
+
+    @Test
+    fun a_new_highlight_replaces_the_last_one_rather_than_adding_to_it() {
+        // Review Focus 1. The renderer is a projection of what it was last told (§4).
+        val renderer = FakeAnatomyRenderer()
+        renderer.highlight(mapOf(rib to style(0xFF57B37C), vertebra to style(0xFFD89B3C)))
+
+        renderer.highlight(mapOf(rib to style(0xFFD89B3C)))
+
+        assertEquals(mapOf(rib to style(0xFFD89B3C)), renderer.highlights)
+    }
+
+    @Test
+    fun an_empty_map_clears_every_highlight() {
+        // Review Focus 3.
+        val renderer = FakeAnatomyRenderer()
+        renderer.highlight(mapOf(rib to style(0xFF57B37C)))
+
+        renderer.highlight(emptyMap())
+
+        assertTrue(renderer.highlights.isEmpty())
+    }
+
+    @Test
+    fun the_one_style_form_gives_every_structure_that_style() {
+        val renderer = FakeAnatomyRenderer()
+        val selected = style(0xFFFFD3CB)
+
+        renderer.highlight(setOf(rib, vertebra), selected)
+
+        assertEquals(mapOf(rib to selected, vertebra to selected), renderer.highlights)
+    }
 
     @Test
     fun holds_the_three_declared_sets_so_a_lost_surface_can_be_replayed() = runTest {

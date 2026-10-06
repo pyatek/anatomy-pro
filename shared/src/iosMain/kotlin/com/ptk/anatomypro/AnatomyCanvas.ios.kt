@@ -16,6 +16,7 @@ import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.atlas.scene.applyRenderState
 import com.ptk.anatomypro.renderer.api.RendererEvent
+import com.ptk.anatomypro.renderer.api.highlight
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi

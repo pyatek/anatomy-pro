@@ -49,7 +49,17 @@ interface AnatomyRenderer {
      */
     fun setOpacity(structures: Set<StructureId>, alpha: Float)
 
-    fun highlight(structures: Set<StructureId>, style: HighlightStyle)
+    /**
+     * Highlights each structure in its own style, and nothing else.
+     *
+     * The map is the whole of what is highlighted: a structure left out of it stops being
+     * highlighted, and an empty map clears every highlight. A structure the loaded packs do
+     * not draw — a group, or an id from a pack that is not loaded — is ignored.
+     *
+     * Several styles at once is what lets a wrong answer be shown beside the right one.
+     * Highlight beats ghost: a structure the app is pointing at is not also faded out.
+     */
+    fun highlight(styles: Map<StructureId, HighlightStyle>)
 
     fun focusCamera(structure: StructureId, durationMs: Int)
 
@@ -65,3 +75,7 @@ interface AnatomyRenderer {
 
     fun setPickingEnabled(enabled: Boolean)
 }
+
+/** Every structure in [structures] in the one [style]: the common case, a selection. */
+fun AnatomyRenderer.highlight(structures: Set<StructureId>, style: HighlightStyle) =
+    highlight(structures.associateWith { style })

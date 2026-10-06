@@ -23,9 +23,8 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
 
     var loadedPacks: Set<PackId> = emptySet()
         private set
-    var highlighted: Set<StructureId> = emptySet()
-        private set
-    var highlightStyle: HighlightStyle? = null
+    /** What is highlighted, and how: exactly the last map [highlight] was given. */
+    var highlights: Map<StructureId, HighlightStyle> = emptyMap()
         private set
     var cameraPose: CameraPose? = null
         private set
@@ -63,9 +62,8 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         if (alpha < 1f) ghostAlpha = alpha
     }
 
-    override fun highlight(structures: Set<StructureId>, style: HighlightStyle) {
-        highlighted = structures
-        highlightStyle = style
+    override fun highlight(styles: Map<StructureId, HighlightStyle>) {
+        highlights = styles.toMap()
     }
 
     override fun focusCamera(structure: StructureId, durationMs: Int) {
