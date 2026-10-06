@@ -29,7 +29,8 @@ hide/ghost is implemented and verified on the emulator.
 **251 tests pass on the iOS simulator and 222 on the JVM host** — common tests run on both, so
 those figures overlap rather than sum. Android's renderer contract and
 database wiring have their own instrumented tests, which need a device; 24 pass on the API 36
-emulator.
+emulator. After the several-highlights change the `:shared:renderer-filament` instrumented
+suite is 30 tests on the API 36 emulator.
 
 ## What is verified, and what is not
 
@@ -56,6 +57,10 @@ Not verified, in rough order of how much it matters:
    fixed and seen working there. Screen 07 has not been exercised on iOS against a real
    pack, and the iOS shim still creates the new swap chain before destroying the old one, the
    order that failed on Android.
+
+Two highlight styles at once are accepted by both renderers (the contract passes on the fake,
+the iOS simulator and the Android emulator) and have not been seen: no screen asks for them
+until screen 12 exists.
 
 What is verified since: screen 07 was hand-checked on the emulator with the real pack, and
 screen 21 with `skeletal-trunk`. A ghost reads as a pale shell, not a dark smear — on the

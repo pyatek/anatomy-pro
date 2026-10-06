@@ -1851,3 +1851,34 @@ one on the rib cage selects `Third rib`: real structure ids the tree knows.
 Verified on the simulator only; no hardware. Not checked on iOS: screen 07, the search
 screen in English, screen-reader behaviour on any screen, and rotation.
 
+## 33. Addendum — 2026-10-06: several highlights at once
+
+Screen 12 shows the expected answer beside the chosen one. The renderer could hold one
+highlight style at a time: a second `highlight` call replaced the first on both platforms.
+
+`AnatomyRenderer.highlight` now takes a map of structure to style, which is the whole of
+what is highlighted. The one-style form survives as an extension. On iOS the C seam's
+`ar_set_highlight` became `ar_add_highlight`, which appends a group of nodes with a
+ready-made tint; a node belongs to one group, so no primitive is visited twice in an apply
+pass (§26.4).
+
+How a style becomes material parameters is `HighlightPaint`, in shared Kotlin. Both
+renderers had clamped a negative luminance shift to zero, so `HighlightTokens.Incorrect`'s
+"darker" was never drawn. It is now: a negative shift scales the tint down.
+
+`AnatomyCanvas` takes the map too; the atlas passes `selectionHighlight(panel.focus)`, which
+is the selected structure with `HighlightTokens.Selected`, or nothing.
+
+Verified: the paint rule by unit tests on both targets (5 tests); that each renderer accepts
+several styles, a restyle and a clear without faulting, by the contract on the fake, the iOS
+simulator and the Android emulator. By hand, with one style: on the Android emulator
+(`trunk-all-systems`), tapping the model named a region under the canvas and tinted it,
+tapping another region moved the tint, and tapping empty canvas cleared the name and the
+tint. On the iOS simulator (`skeletal-trunk`), tapping a vertebra and then the sacrum did the
+same: the name appeared, the tint moved and left nothing on the first, and tapping empty
+canvas cleared both.
+
+Not verified: what two styles look like side by side. The contract cannot see colour, and
+no screen asks for two styles until screen 12 exists. Outlines are still not drawn; the tint
+still comes from the style's outline colour, and `fillArgb` is still unused. The hand check
+was one screenshot per step, judged by eye, not compared against the pre-change build.

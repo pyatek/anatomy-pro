@@ -2,9 +2,11 @@ package com.ptk.anatomypro
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
+import com.ptk.anatomypro.renderer.api.HighlightStyle
 
 /**
  * What the Phase 0 harness needs to show to be worth running.
@@ -32,9 +34,13 @@ data class CanvasStats(
 @Composable
 expect fun AnatomyCanvas(
     modifier: Modifier,
-    highlighted: StructureId?,
+    highlights: Map<StructureId, HighlightStyle>,
     render: RenderState,
     focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
 )
+
+/** The atlas's one highlight: the selected structure, or nothing. */
+fun selectionHighlight(structure: StructureId?): Map<StructureId, HighlightStyle> =
+    structure?.let { mapOf(it to HighlightTokens.Selected) } ?: emptyMap()

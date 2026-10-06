@@ -17,14 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.atlas.scene.applyRenderState
+import com.ptk.anatomypro.renderer.api.HighlightStyle
 import com.ptk.anatomypro.renderer.api.MeshSource
-import com.ptk.anatomypro.renderer.api.highlight
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
 import com.ptk.anatomypro.renderer.filament.Phase0ToyAsset
@@ -47,7 +46,7 @@ private const val BUNDLED_PACK_ID = "packs/phase0-pack.id"
 @Composable
 actual fun AnatomyCanvas(
     modifier: Modifier,
-    highlighted: StructureId?,
+    highlights: Map<StructureId, HighlightStyle>,
     render: RenderState,
     focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
@@ -179,9 +178,10 @@ actual fun AnatomyCanvas(
         }
     }
 
-    LaunchedEffect(renderer, highlighted, packLoaded) {
+    // Keyed on the map's contents: an equal map built afresh on recomposition is not a change.
+    LaunchedEffect(renderer, highlights, packLoaded) {
         if (!packLoaded) return@LaunchedEffect
-        renderer.highlight(setOfNotNull(highlighted), HighlightTokens.Selected)
+        renderer.highlight(highlights)
     }
 }
 

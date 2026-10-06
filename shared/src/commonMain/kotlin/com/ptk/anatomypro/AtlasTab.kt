@@ -203,7 +203,7 @@ fun LayersRoute(
         canvas = { modifier ->
             AnatomyCanvas(
                 modifier = modifier,
-                highlighted = panel.focus,
+                highlights = selectionHighlight(panel.focus),
                 render = render,
                 focus = focus,
                 onPicked = scene::onStructureSelected,
@@ -283,7 +283,7 @@ private fun BrowseRoute(
             canvas = { canvasModifier ->
                 AnatomyCanvas(
                     modifier = canvasModifier,
-                    highlighted = panel.focus,
+                    highlights = selectionHighlight(panel.focus),
                     render = render,
                     focus = focus,
                     onPicked = scene::onStructureSelected,
