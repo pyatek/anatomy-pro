@@ -463,7 +463,8 @@ scheduling decisions more than anything technical in this document.
 - ~~Final model source.~~ Decided 2026-10-06: Z-Anatomy, with the paywall on the learning
   system rather than on content. Rationale and compliance plan in §29.
 - Whether a TA2-keyed, translated term database needs FIPAT's permission (§29.4).
-- Exactly where the free tier ends inside the learning system (§29.2).
+- ~~Exactly where the free tier ends inside the learning system.~~ Decided 2026-10-06:
+  skeletal quizzes free, the rest by subscription (§29.2).
 - Subscription pricing and trial length.
 - Whether Polish and English launch together or English follows.
 
@@ -1629,8 +1630,14 @@ adds dependence on a vendor's naming stability (sourcing spec §1). Neither was 
 - **Paid:** the learning system — quizzes, progress, the daily quiz and the leaderboard.
 
 The paid surface contains none of the licensed work, which is what makes the gate
-enforceable. Where exactly the free tier ends inside the learning system — whether some
-quizzing is free as a taste — is not decided, and joins the open product questions.
+enforceable.
+
+**Decided 2026-10-06: quizzes on the skeletal system are free.** Every other quiz topic, the
+daily quiz and the leaderboard need a subscription. The skeleton is the first system verified
+(`docs/verification-plan.md`), so the free taste is also the first content that can be
+quizzed at all. A topic the user has not paid for is shown locked, not hidden. Practice mode
+— a local, unranked session offered when the daily quiz cannot be reached (§9.1, §14) — is in
+v1. The all-screens spec §15 carries what these change in the screens and contracts.
 
 Consequences for what is already written:
 

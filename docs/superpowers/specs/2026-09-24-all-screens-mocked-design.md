@@ -1,7 +1,7 @@
 # All screens, mocked repositories — Design Specification
 
 - **Date:** 2026-09-24
-- **Status:** Approved for planning
+- **Status:** Approved for planning; amended 2026-10-06 — read §15 with §4.5, §4.6, §9 and §13
 - **Companion to:** `2026-08-29-anatomy-pro-design.md` §8–§14 (quiz, daily, packs,
   accessibility, i18n, error handling) and `docs/design-prompt-prototype-screens.md`
   (the 21-screen brief)
@@ -489,6 +489,8 @@ Steps 6 to 10 are independent of each other once 1 to 5 land.
 
 ## 13. Open questions
 
+> Both were decided on 2026-10-06; see §15.
+
 1. **Entitlement enforcement on screen 08.** A locked topic could be hidden or shown locked.
    Showing it locked is the better sales argument and the worse study experience. Decide
    when screen 18's copy is written; the contract supports either.
@@ -503,3 +505,74 @@ Steps 6 to 10 are independent of each other once 1 to 5 land.
 No question generation (§8.1), no backend (§11), no billing integration, no download
 implementation, no §12 outline shaders, no Compose UI tests. Each of those is named in the
 contracts so the screens are built to receive them, and none is built here.
+
+---
+
+## 15. Amendment — 2026-10-06: what the paywall decision changes here
+
+The design spec §29 moved the paywall off content packs and onto the learning system, and
+its owner then settled three things this document had left open or assumed. Where this
+section and an earlier one disagree, this section holds.
+
+### 15.1 What was decided
+
+| Question | Decision |
+|---|---|
+| What is free | The whole atlas, every system; and quizzes on the skeletal system |
+| What is paid | Every other quiz topic, the daily quiz, the leaderboard |
+| A topic not paid for, on screen 08 (§13.1) | Shown locked; choosing it opens the paywall |
+| Practice mode (§13.2) | In v1 |
+
+### 15.2 Entitlements gate topics, not packs
+
+`Entitlements.allows(system)` keeps its shape and changes its meaning: it answers "may this
+user be quizzed on this system", not "may this user download this pack". §4.5's comment that
+"the paywall boundary is the pack boundary" is superseded.
+
+- The daily quiz and the leaderboard are gated on `Entitlements.subscribed` alone. They are
+  not per system.
+- `FREE_SYSTEMS` holds the skeletal system. It currently names it `skeletal`, while real
+  packs and the fixture say `skeletal-system`; the quiz plan corrects the constant, since a
+  free tier that matches no real id is no free tier.
+- `PackState.entitlement` (§4.6) is no longer read by any screen. Packs are free and their
+  manifests carry no entitlement (design §29.2). The field stays until a plan removes it, and
+  nothing new may depend on it. `PackFailure.NOT_ENTITLED` cannot occur.
+
+### 15.3 What changes in the screen inventory
+
+These replace the corresponding rows of §9's "States that must exist".
+
+| # | Screen | States that must exist |
+|---|---|---|
+| 08 | Topic selection | untouched topic; partial mastery; **locked, shown with its lock, opening the paywall** |
+| 14 | Home / dashboard | daily not started; in progress; done; offline; **not subscribed** |
+| 15 | Daily quiz lobby | ready; running; already attempted today; **offline, offering practice**; **not subscribed** |
+| 16 | Leaderboard | daily board; streak board; unranked user; **not subscribed** |
+| 18 | Paywall | free; subscribed; purchase failed — **selling the learning system, never content** |
+| 19 | Pack manager | installed; available; downloading; delete confirm — **nothing is ever locked** |
+
+"Not subscribed" is a designed state with its own copy and a way to the paywall, in the same
+spirit as `DailyQuiz.Unavailable`: a free user who opens the Today tab is the expected case,
+not an error.
+
+Screens 14 and 15 therefore read `EntitlementRepository` as well as what §9 lists, and so
+does screen 16.
+
+### 15.4 Practice mode
+
+Design §9.1: "Offline play is practice mode and is never ranked." §14: "Daily quiz offline:
+block entry with a clear message; offer practice mode."
+
+- It is offered from screen 15 when `DailyRepository.today()` is `Unavailable`.
+- It is **an ordinary topic session**: `QuizRepository.startSession` on a topic the user is
+  entitled to, played through screens 09 to 13. It needs no new contract and no new screens.
+- The topic is the first of the user's studied systems (screen 02) that they are entitled
+  to; with none, the skeletal system, which everyone is entitled to. So practice is always
+  available to a subscriber who is offline.
+- It is never submitted to `DailyRepository` and never appears on a leaderboard.
+- Progress treats it exactly as it treats any topic session, because that is what it is.
+  No separate rule for streaks is introduced.
+
+Practice mode is reached only by a subscriber: the daily lobby is itself behind the
+subscription, and a free user sees "not subscribed" before "offline".
+
