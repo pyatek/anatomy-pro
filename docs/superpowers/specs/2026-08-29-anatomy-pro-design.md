@@ -1690,3 +1690,28 @@ Decided: the source, and the paywall boundary. Not done: the manifest fields, th
 attribution screen, the choice of where packs are published, and the answer from FIPAT. None
 of this is legal advice; whether an app that bundles share-alike packs is a collection or an
 adaptation was not reviewed by a lawyer.
+
+## 30. Addendum — 2026-10-06: verification capacity, planned
+
+§17 called verification capacity the highest risk and said it should drive scheduling. The
+plan is `docs/verification-plan.md`; this section records what it decided and what it found.
+
+Decided by the owner: one reviewer at ten or more hours a week; the whole-body skeleton
+first; a structure is a quiz answer only when **every locale the app ships names in** is
+verified, which is Latin and English at first release, with Polish names following pack by
+pack already verified.
+
+Found while counting:
+
+- **The workload is terms, not structures × locales.** Left and right share a name. The
+  whole-body skeleton is 347 structures and 215 terms; the atlas extrapolates to roughly
+  2,400 terms, not 16,000 decisions. Only the skeleton is counted for the whole body.
+- **A verification currently approves a Wikipedia article.** `PackIngest.contentHash` covers
+  the name and the definition, and the definitions are whole articles — 116,040 words across
+  the skeleton, 2,001 for the femur. §24.1's rule that an edited definition invalidates the
+  approval was deliberate; with these definitions it makes verifying a name mean reading an
+  article. The plan assumes verification is narrowed to identity and name, with definitions
+  as separately-stated, attributed, trimmed content. That change is not made.
+
+No throughput is measured. The plan's dates rest on an assumed minute per card and are to be
+replaced by timing the first 50.

@@ -1,7 +1,7 @@
 # State of play — 2026-10-06
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–29 there are the running record of what was actually built and why. This file is
+sections 20–30 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -102,9 +102,11 @@ and packs are currently bundled in the APK.
   the learning system and the whole atlas free. Packs are published under CC BY-SA. Still
   open from it: where packs are published, where the free tier ends inside the learning
   system, and FIPAT's answer on the TA2 licence.
-- **Verification capacity (§17, the highest risk in the spec).** The pipeline now makes the
-  arithmetic concrete: ~3,300 leaf structures plus ~458 groups across the atlas, at three
-  locales each. That is roughly 16,000 review decisions for one reviewer.
+- ~~Verification capacity (§17).~~ Planned 2026-10-06 in `docs/verification-plan.md`: one
+  reviewer at 10+ hours a week, skeleton first, every shipped locale verified before a
+  structure is a quiz answer. The workload is about 2,400 terms, not 16,000 decisions — but
+  the plan depends on a change not yet made: a verification currently hashes in a whole
+  Wikipedia article per structure (§30).
 
 ## Environment notes
 
