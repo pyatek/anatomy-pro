@@ -26,11 +26,12 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**251 tests pass on the iOS simulator and 222 on the JVM host** — common tests run on both, so
+**262 tests pass on the iOS simulator and 232 on the JVM host** — common tests run on both, so
 those figures overlap rather than sum. Android's renderer contract and
-database wiring have their own instrumented tests, which need a device; 24 pass on the API 36
-emulator. After the several-highlights change the `:shared:renderer-filament` instrumented
-suite is 30 tests on the API 36 emulator.
+database wiring have their own instrumented tests, which need a device. The
+`:shared:renderer-filament` module's instrumented suite is 30 tests, measured on the API 36
+emulator after the several-highlights change. An earlier figure of 24 instrumented tests
+predates that work and was not re-measured.
 
 ## What is verified, and what is not
 
@@ -100,6 +101,11 @@ and packs are currently bundled in the APK.
 
 ## Known defects
 
+- **The two renderers read a highlight's colour differently.** iOS sets the base colour as
+  sRGB; Android passes it through unconverted. The same style, and the darkening of a negative
+  luminance shift in particular, is not identical on the two. The ghost material differs the
+  same way. This predates the several-highlights change and has to be closed before screen
+  12's colours are judged.
 - **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
   objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
   drops them silently. Fixing it will move the performance numbers for those systems.

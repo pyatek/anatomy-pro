@@ -6,8 +6,10 @@ import com.ptk.anatomypro.renderer.api.HighlightStyle
  * A highlight as the two material parameters the renderers set: `baseColorFactor` and
  * `emissiveFactor`.
  *
- * In shared code so iOS and Android cannot disagree about what a style looks like. The
- * colour is the style's outline colour, as it has been on both platforms; outlines
+ * In shared code so both renderers are handed the same numbers for a style. They do not
+ * yet interpret those numbers alike: iOS treats the base colour as sRGB and Android passes
+ * it through unconverted, so the same style, and the darkening in particular, is not
+ * identical on the two. The colour is the style's outline colour, as it has been on both platforms; outlines
  * themselves are §12's shader work and are not drawn yet.
  *
  * A positive luminance shift is light the structure gives off, in its own colour. A

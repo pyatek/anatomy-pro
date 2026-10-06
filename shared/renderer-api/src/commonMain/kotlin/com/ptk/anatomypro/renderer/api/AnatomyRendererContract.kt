@@ -117,16 +117,27 @@ abstract class AnatomyRendererContract {
         renderer.loadPack(pack, source)
         settle(renderer)
 
-        // Survival again, not pixels. Two structures in two styles, with a third the pack
-        // does not contain; then one of them restyled; then nothing.
+        // Survival again, not pixels. Both real structures are ghosted first, so highlight has
+        // to win over ghost for every group, and a faulty unwind has the chance to fault on the
+        // restyle and the clear. Then two structures in two styles, with a third the pack does
+        // not contain, in a style of its own; then one of them restyled; then nothing; then
+        // the ghosting is lifted.
+        renderer.setOpacity(setOf(hitStructure, offCentreStructure), alpha = 0.25f)
+        settle(renderer)
         val absent = StructureId("no-such-structure")
         renderer.highlight(
-            mapOf(hitStructure to HIGHLIGHT, offCentreStructure to SECOND_HIGHLIGHT, absent to HIGHLIGHT)
+            mapOf(
+                hitStructure to HIGHLIGHT,
+                offCentreStructure to SECOND_HIGHLIGHT,
+                absent to THIRD_HIGHLIGHT,
+            )
         )
         settle(renderer)
         renderer.highlight(mapOf(hitStructure to SECOND_HIGHLIGHT))
         settle(renderer)
         renderer.highlight(emptyMap())
+        settle(renderer)
+        renderer.setOpacity(setOf(hitStructure, offCentreStructure), alpha = 1.0f)
         settle(renderer)
 
         val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
@@ -328,6 +339,15 @@ abstract class AnatomyRendererContract {
             outlineStyle = OutlineStyle.DASHED,
             fillArgb = 0xFFD89B3C.toInt(),
             fillLuminanceShift = -0.20f,
+        )
+
+        /** A style of its own for the structure the pack lacks, so it forms a group with no nodes. */
+        val THIRD_HIGHLIGHT = HighlightStyle(
+            outlineArgb = 0xFF5B8DEF.toInt(),
+            outlineWidthDp = 1.5f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = 0xFF5B8DEF.toInt(),
+            fillLuminanceShift = 0.10f,
         )
     }
 }

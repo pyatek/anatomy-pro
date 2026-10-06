@@ -93,7 +93,8 @@ const char* ar_node_name_at(ar_renderer_ref renderer, size_t index);
  *
  * `tint_rgba` is four floats and `emissive_rgb` three, both already worked out by the
  * caller: how a highlight style becomes a colour is decided once, in shared Kotlin, so
- * that this shim and the Android renderer cannot disagree.
+ * that this shim and the Android renderer are handed the same numbers. (They do not yet
+ * interpret the tint alike: this shim sets it as sRGB, Android unconverted.)
  *
  * Groups accumulate until ar_clear_highlight. A node belongs to one group at a time: adding
  * it again moves it to the new group.

@@ -382,9 +382,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * That ordering is load-bearing: on iOS the same loops recorded an already-installed
      * override as the "original" when a set contained the same node twice, which left the
      * ghost permanently installed and, in the highlight path, a freed material instance on a
-     * renderable. Kotlin's `Map<StructureId, HighlightStyle>` de-duplicates structures for free, so the
-     * iOS de-duplication has no analogue here — but if this ever iterates node names or a
-     * list instead, the hazard returns.
+     * renderable. Each entity is indexed under exactly one structure, and a map has each structure
+     * once, so every primitive is visited once and the iOS de-duplication has no analogue
+     * here. If this ever iterates node names or a list instead, the hazard returns.
      */
     private fun applyAppearance() {
         val current = asset ?: return

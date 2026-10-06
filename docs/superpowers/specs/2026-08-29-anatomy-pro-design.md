@@ -1862,7 +1862,8 @@ what is highlighted. The one-style form survives as an extension. On iOS the C s
 ready-made tint; a node belongs to one group, so no primitive is visited twice in an apply
 pass (§26.4).
 
-How a style becomes material parameters is `HighlightPaint`, in shared Kotlin. Both
+How a style becomes material parameters is `HighlightPaint`, in shared Kotlin, so both
+renderers are handed the same numbers. Both
 renderers had clamped a negative luminance shift to zero, so `HighlightTokens.Incorrect`'s
 "darker" was never drawn. It is now: a negative shift scales the tint down.
 
@@ -1882,3 +1883,8 @@ Not verified: what two styles look like side by side. The contract cannot see co
 no screen asks for two styles until screen 12 exists. Outlines are still not drawn; the tint
 still comes from the style's outline colour, and `fillArgb` is still unused. The hand check
 was one screenshot per step, judged by eye, not compared against the pre-change build.
+
+Known divergence, older than this change: iOS sets `baseColorFactor` as sRGB and Filament
+converts it to linear; Android calls the plain four-float `setParameter`, which converts
+nothing. The ghost material differs the same way. The darkening added here is therefore
+stronger on iOS than on Android. It has to be closed before screen 12's colours are judged.

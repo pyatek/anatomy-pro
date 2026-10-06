@@ -588,7 +588,7 @@ void ar_set_opacity(ar_renderer_ref r, const char* const* nodeNames, size_t coun
     r->ghostedNodes = collect(nodeNames, count);
     // An alpha of 0 would be a structure that is invisible yet still drawn and still costs
     // a blended draw — a worse way to get nothing on screen than ar_set_hidden. Clamped to
-    // a valid range, as luminance_shift already is (below) for the same reason.
+    // a valid range.
     r->ghostAlpha = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
     applyAppearance(r);
 }

@@ -23,7 +23,12 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
 
     var loadedPacks: Set<PackId> = emptySet()
         private set
-    /** What is highlighted, and how: exactly the last map [highlight] was given. */
+    /**
+     * What is highlighted, and how: exactly the last map [highlight] was given.
+     * Unlike a real renderer, the fake keeps that map across [loadPack] and [unloadPack] and
+     * records ids no pack draws, so a test must not read it as what is on screen after a pack
+     * change.
+     */
     var highlights: Map<StructureId, HighlightStyle> = emptyMap()
         private set
     var cameraPose: CameraPose? = null
