@@ -77,6 +77,19 @@ highlighting is colour and luminance only and the quiz must not be built on it.
 predicate over one indexed column, and the synthesised taxonomy gives the hard tier real
 siblings — `Thoracic vertebrae` (12), `Cervical vertebrae` (7), `Ribs` (14).
 
+**The remaining screens are planned, not built.** `docs/superpowers/plans/` holds one plan
+per step of the all-screens spec, written 2026-10-06 and none of them executed:
+
+1. `…-onboarding-goals-and-first-download.md` — screens 02 and 03.
+2. `…-renderer-several-highlights.md` — two highlight styles at once; the quiz needs it.
+3. `…-quiz-flow.md` — screens 08 to 13, after the renderer plan.
+4. `…-daily-and-leaderboard.md` — screens 14 to 16, after the quiz plan.
+5. `…-profile-paywall-and-packs.md` — screens 17 to 19.
+
+All of them run on fakes: in production the Test, Today and Ranking tabs keep their
+placeholders and the Profile tab keeps opening settings, because the repositories behind
+them refuse until Phase 3 builds them.
+
 **Not yet:** Home, Daily and Leaderboard need Phase 3's backend. Pack manager needs downloads,
 and packs are currently bundled in the APK.
 
