@@ -88,8 +88,18 @@ void ar_unload_model(ar_renderer_ref renderer, const char* uri);
 size_t ar_node_count(ar_renderer_ref renderer);
 const char* ar_node_name_at(ar_renderer_ref renderer, size_t index);
 
-void ar_set_highlight(ar_renderer_ref renderer, const char* const* node_names, size_t count,
-                      int32_t outline_argb, float luminance_shift);
+/*
+ * Adds a group of nodes to what is highlighted, all painted alike.
+ *
+ * `tint_rgba` is four floats and `emissive_rgb` three, both already worked out by the
+ * caller: how a highlight style becomes a colour is decided once, in shared Kotlin, so
+ * that this shim and the Android renderer cannot disagree.
+ *
+ * Groups accumulate until ar_clear_highlight. A node belongs to one group at a time: adding
+ * it again moves it to the new group.
+ */
+void ar_add_highlight(ar_renderer_ref renderer, const char* const* node_names, size_t count,
+                      const float* tint_rgba, const float* emissive_rgb);
 void ar_clear_highlight(ar_renderer_ref renderer);
 
 /*

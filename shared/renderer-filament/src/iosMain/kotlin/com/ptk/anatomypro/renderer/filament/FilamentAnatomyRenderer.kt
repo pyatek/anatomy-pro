@@ -7,7 +7,6 @@ import com.ptk.anatomypro.renderer.api.AnatomyRenderer
 import com.ptk.anatomypro.renderer.api.CameraPose
 import com.ptk.anatomypro.renderer.api.HighlightStyle
 import com.ptk.anatomypro.renderer.api.MeshSource
-import com.ptk.anatomypro.renderer.api.OutlineStyle
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_ERROR
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_LOAD_PROGRESS
@@ -36,7 +35,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_renderer_ref
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_resident_bytes
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_camera
-import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_highlight
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_add_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_hidden
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_opacity
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_picking_enabled
@@ -53,6 +52,7 @@ import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
@@ -229,18 +229,21 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         flight = null
     }
 
-    // Interim: one style for the whole map. Replaced when the shim takes groups.
     override fun highlight(styles: Map<StructureId, HighlightStyle>) {
-        val structures = styles.keys
-        val style = styles.values.firstOrNull() ?: HighlightStyle(0, 1f, OutlineStyle.SOLID, 0, 0f)
-        val nodes = structures.flatMap { nodesByStructure[it].orEmpty() }
-        if (nodes.isEmpty()) {
-            ar_clear_highlight(handle)
-            drain()
-            return
-        }
-        passNodes(nodes) { names, count ->
-            ar_set_highlight(handle, names, count, style.outlineArgb, style.fillLuminanceShift)
+        // Clear, then one group per style. No frame is drawn in between: this runs to
+        // completion on the thread that renders.
+        ar_clear_highlight(handle)
+        for ((style, structures) in styles.entries.groupBy({ it.value }, { it.key })) {
+            val nodes = structures.flatMap { nodesByStructure[it].orEmpty() }
+            if (nodes.isEmpty()) continue // groups, and structures this pack does not draw
+            val paint = HighlightPaint.of(style)
+            passNodes(nodes) { names, count ->
+                memScoped {
+                    val tint = allocArrayOf(paint.red, paint.green, paint.blue, paint.alpha)
+                    val emissive = allocArrayOf(paint.emissiveRed, paint.emissiveGreen, paint.emissiveBlue)
+                    ar_add_highlight(handle, names, count, tint, emissive)
+                }
+            }
         }
         drain()
     }

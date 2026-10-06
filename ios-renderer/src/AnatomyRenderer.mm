@@ -28,6 +28,7 @@
 
 #include <mach/mach.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <deque>
@@ -82,6 +83,13 @@ struct SwappedMaterial {
     Entity entity;
     size_t primitiveIndex;
     MaterialInstance* original;
+};
+
+/** Nodes highlighted alike. The tint arrives ready-made; see ar_add_highlight. */
+struct HighlightGroup {
+    std::vector<std::string> nodes;
+    float4 tint;
+    float3 emissive;
 };
 
 std::string pathFromUri(const char* uri) {
@@ -150,10 +158,8 @@ struct ar_renderer {
     std::vector<MaterialInstance*> highlightInstances;
     std::vector<std::string> hiddenNodes;
     std::vector<std::string> ghostedNodes;
-    std::vector<std::string> highlightedNodes;
+    std::vector<HighlightGroup> highlights;
     float ghostAlpha = 1.0f;
-    int32_t highlightArgb = 0;
-    float highlightLift = 0.0f;
     MaterialInstance* ghostMaterial = nullptr;
 
     bool pickingEnabled = true;
@@ -260,6 +266,13 @@ std::vector<Entity> entitiesFor(ar_renderer* r, const std::vector<std::string>& 
     return result;
 }
 
+bool isHighlighted(const ar_renderer* r, const std::string& name) {
+    for (const auto& group : r->highlights) {
+        if (contains(group.nodes, name)) return true;
+    }
+    return false;
+}
+
 /*
  * Resolves the three declared sets to one state per primitive, and applies it (§26.4).
  *
@@ -306,9 +319,8 @@ void applyAppearance(ar_renderer* r) {
     if (ghost) {
         for (const auto& entity : entitiesFor(r, r->ghostedNodes)) {
             const auto nodeEntry = r->entityToNode.find(entity.getId());
-            const bool isHighlighted = nodeEntry != r->entityToNode.end() &&
-                                        contains(r->highlightedNodes, nodeEntry->second);
-            if (isHighlighted) continue;
+            // Highlight beats ghost, whichever group the node is highlighted in.
+            if (nodeEntry != r->entityToNode.end() && isHighlighted(r, nodeEntry->second)) continue;
             auto instance = rm.getInstance(entity);
             if (!instance) continue;
             for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
@@ -324,15 +336,8 @@ void applyAppearance(ar_renderer* r) {
         }
     }
 
-    if (!r->highlightedNodes.empty()) {
-        const float4 tint{
-            float((r->highlightArgb >> 16) & 0xFF) / 255.0f,
-            float((r->highlightArgb >> 8) & 0xFF) / 255.0f,
-            float(r->highlightArgb & 0xFF) / 255.0f,
-            float((uint32_t(r->highlightArgb) >> 24) & 0xFF) / 255.0f,
-        };
-        const float lift = r->highlightLift < 0.0f ? 0.0f : r->highlightLift;
-        for (const auto& entity : entitiesFor(r, r->highlightedNodes)) {
+    for (const auto& group : r->highlights) {
+        for (const auto& entity : entitiesFor(r, group.nodes)) {
             auto instance = rm.getInstance(entity);
             if (!instance) continue;
             for (size_t p = 0, primitives = rm.getPrimitiveCount(instance); p < primitives; ++p) {
@@ -341,11 +346,10 @@ void applyAppearance(ar_renderer* r) {
                 const Material* material = original->getMaterial();
                 MaterialInstance* replacement = MaterialInstance::duplicate(original);
                 if (material->hasParameter("baseColorFactor")) {
-                    replacement->setParameter("baseColorFactor", RgbaType::sRGB, tint);
+                    replacement->setParameter("baseColorFactor", RgbaType::sRGB, group.tint);
                 }
                 if (material->hasParameter("emissiveFactor")) {
-                    replacement->setParameter("emissiveFactor",
-                                              float3{tint.r * lift, tint.g * lift, tint.b * lift});
+                    replacement->setParameter("emissiveFactor", group.emissive);
                 }
                 r->swapped.push_back({entity, p, original});
                 r->highlightInstances.push_back(replacement);
@@ -359,7 +363,7 @@ void releaseAsset(ar_renderer* r) {
     if (!r->asset) return;
     r->hiddenNodes.clear();
     r->ghostedNodes.clear();
-    r->highlightedNodes.clear();
+    r->highlights.clear();
     applyAppearance(r);
     if (r->ghostMaterial) {
         r->engine->destroy(r->ghostMaterial);
@@ -539,18 +543,31 @@ const char* ar_node_name_at(ar_renderer_ref r, size_t index) {
     return r->nodeNames[index].c_str();
 }
 
-void ar_set_highlight(ar_renderer_ref r, const char* const* nodeNames, size_t count,
-                      int32_t outlineArgb, float luminanceShift) {
-    if (!r || !r->engine || !r->asset) return;
-    r->highlightedNodes = collect(nodeNames, count);
-    r->highlightArgb = outlineArgb;
-    r->highlightLift = luminanceShift;
+void ar_add_highlight(ar_renderer_ref r, const char* const* nodeNames, size_t count,
+                      const float* tintRgba, const float* emissiveRgb) {
+    if (!r || !r->engine || !r->asset || !tintRgba || !emissiveRgb) return;
+
+    HighlightGroup group;
+    group.nodes = collect(nodeNames, count);
+    group.tint = float4{tintRgba[0], tintRgba[1], tintRgba[2], tintRgba[3]};
+    group.emissive = float3{emissiveRgb[0], emissiveRgb[1], emissiveRgb[2]};
+
+    // A node in two groups would be visited twice in one apply pass, and the second visit
+    // would record the first's replacement as the "original" — the same corruption collect()
+    // guards against within a group. Adding a node therefore moves it.
+    for (auto& existing : r->highlights) {
+        existing.nodes.erase(
+            std::remove_if(existing.nodes.begin(), existing.nodes.end(),
+                           [&](const std::string& name) { return contains(group.nodes, name); }),
+            existing.nodes.end());
+    }
+    if (!group.nodes.empty()) r->highlights.push_back(std::move(group));
     applyAppearance(r);
 }
 
 void ar_clear_highlight(ar_renderer_ref r) {
     if (!r || !r->engine) return;
-    r->highlightedNodes.clear();
+    r->highlights.clear();
     applyAppearance(r);
 }
 
