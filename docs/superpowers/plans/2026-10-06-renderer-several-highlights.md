@@ -892,7 +892,7 @@ Remove from each actual the `import com.ptk.anatomypro.renderer.api.highlight` t
 
 - [ ] **Step 3: Change the callers**
 
-In `AtlasTab.kt` there are three `highlighted = panel.focus,` arguments to `AnatomyCanvas` (in `LayersRoute` and twice in `BrowseRoute`). Replace each with:
+In `AtlasTab.kt` there are two `AnatomyCanvas(` calls, one in `LayersRoute` and one in `BrowseRoute`, each passing `highlighted = panel.focus,`. In those two calls only, replace that argument with the line below. `BrowseRoute` also passes `highlighted = panel.focus` to `AtlasScreen`, which marks the selected row in the list; that one is a different parameter and stays as it is.
 
 ```kotlin
                 highlights = selectionHighlight(panel.focus),
