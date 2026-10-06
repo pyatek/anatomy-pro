@@ -44,8 +44,8 @@ class FakeCommerceTest {
     fun skeletal_is_playable_before_any_purchase() = runTest {
         val entitlements = FakeEntitlementRepository().entitlements.first()
 
-        assertTrue(entitlements.allows(SystemId("skeletal")))
-        assertTrue(!entitlements.allows(SystemId("muscular")))
+        assertTrue(entitlements.allows(SystemId("skeletal-system")))
+        assertTrue(!entitlements.allows(SystemId("muscular-system")))
     }
 
     @Test
@@ -56,7 +56,7 @@ class FakeCommerceTest {
         val outcome = repository.purchase(plan)
 
         assertIs<PurchaseOutcome.Succeeded>(outcome)
-        assertTrue(repository.entitlements.first().allows(SystemId("muscular")))
+        assertTrue(repository.entitlements.first().allows(SystemId("muscular-system")))
     }
 
     @Test

@@ -2,8 +2,13 @@ package com.ptk.anatomypro.core.data.model
 
 import com.ptk.anatomypro.core.model.SystemId
 
-/** Skeletal is free forever (§10). Enforced here, not by whoever fills ownedSystems. */
-val FREE_SYSTEMS: Set<SystemId> = setOf(SystemId("skeletal"))
+/**
+ * What a user may be quizzed on without paying: the skeletal system (design spec §29.2).
+ *
+ * Entitlements gate quiz topics, not packs — the whole atlas is free (all-screens spec
+ * §15.2). The id is the one packs and the atlas use.
+ */
+val FREE_SYSTEMS: Set<SystemId> = setOf(SystemId("skeletal-system"))
 
 data class Entitlements(val subscribed: Boolean, val ownedSystems: Set<SystemId>) {
     fun allows(system: SystemId): Boolean =
