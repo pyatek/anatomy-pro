@@ -1748,7 +1748,8 @@ says so instead: under a definition it prints the source, the licence and "not r
 
 ### 31.3 The pipeline cuts articles to their lead
 
-`definitions.summarise` drops the capitalised title, lifts a trailing address out into
+`definitions.summarise` drops the capitalised title (which runs to a second line for 24 of
+the 521 definitions seen), lifts a trailing address out into
 `definition_source`, stops at the first `== Section ==` heading, and keeps whole paragraphs
 up to 120 words — always at least the first. Text ending in a Wikipedia address is marked
 CC BY-SA 3.0; text with no address is Z-Anatomy's own and marked CC BY-SA 4.0.
@@ -1756,7 +1757,7 @@ CC BY-SA 3.0; text with no address is Z-Anatomy's own and marked CC BY-SA 4.0.
 The source breaks nearly every sentence into its own paragraph, so "the lead paragraph" would
 have been one sentence; a word limit over whole paragraphs is what gives a usable extract.
 
-On the whole-body skeleton: 144 distinct definitions and 116,040 words became 128 and 9,639,
+On the whole-body skeleton: 144 distinct definitions and 116,040 words became 128 and 9,632,
 with a median of 80 words. Of the sixteen that vanished, ten were a title with nothing under it
 and six became identical to another once cut.
 

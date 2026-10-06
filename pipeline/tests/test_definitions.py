@@ -86,3 +86,9 @@ def test_rewriting_an_old_manifest_summarises_it_once():
     # A second pass must not read the already-lifted text as having no source.
     assert definitions.rewrite(document) == 0
     assert document["structures"][0] == first
+
+
+def test_a_title_spread_over_two_lines_is_dropped_whole():
+    # Twenty-four of the source's titles give an alternative term on a second line.
+    summary = definitions.summarise("SKELETAL SYSTEM/\nSKELETON\n\nHuman:\n\nThe skeleton consists of bones.")
+    assert summary.text == "Human:\n\nThe skeleton consists of bones."

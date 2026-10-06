@@ -78,7 +78,7 @@ whether `Femur` is the femur. And any edit to an article silently un-verifies th
 
 So this plan assumes **a verification covers identity and name only.** That change was made
 on 2026-10-06 (design spec §31): definitions are separate content, shown attributed and
-marked unreviewed, and cut by the pipeline to a lead of at most 120 words — 9,639 words for
+marked unreviewed, and cut by the pipeline to a lead of at most 120 words — 9,632 words for
 the skeleton instead of 116,040. Quiz answers are names; nothing in §8 asks a definition.
 
 ## 5. Throughput

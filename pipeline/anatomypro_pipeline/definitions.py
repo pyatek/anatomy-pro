@@ -47,8 +47,8 @@ def summarise(raw: Optional[str]) -> Optional[Summary]:
     if lines[-1].strip().startswith("http"):
         source = lines.pop().strip()
 
-    # The title repeats the term, in capitals.
-    if lines and any(c.isalpha() for c in lines[0]) and lines[0] == lines[0].upper():
+    # The title repeats the term, in capitals, sometimes with an alternative on a second line.
+    while lines and any(c.isalpha() for c in lines[0]) and lines[0] == lines[0].upper():
         lines.pop(0)
 
     lead = []
