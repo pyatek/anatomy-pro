@@ -78,9 +78,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
     private val hidden = mutableSetOf<StructureId>()
     private val ghosted = mutableSetOf<StructureId>()
-    private val highlighted = mutableSetOf<StructureId>()
+    /** What is highlighted and how. One style per structure, so no primitive is visited twice. */
+    private val highlights = mutableMapOf<StructureId, HighlightStyle>()
     private var ghostAlpha = 1f
-    private var highlightStyle: HighlightStyle? = null
     private var entitiesByStructure: Map<StructureId, IntArray> = emptyMap()
 
     private val _events = MutableSharedFlow<RendererEvent>(replay = 64, extraBufferCapacity = 64)
@@ -306,7 +306,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         // applied to structures of a pack they were never meant for.
         hidden.clear()
         ghosted.clear()
-        highlighted.clear()
+        highlights.clear()
         releaseAsset()
 
         val file = File(source.uri.removePrefix("file://"))
@@ -365,12 +365,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         applyAppearance()
     }
 
-    // Interim: one style for the whole map. Replaced when applyAppearance takes a style
-    // per structure.
     override fun highlight(styles: Map<StructureId, HighlightStyle>) {
-        highlighted.clear()
-        highlighted += styles.keys
-        highlightStyle = styles.values.firstOrNull()
+        highlights.clear()
+        highlights += styles
         applyAppearance()
     }
 
@@ -385,7 +382,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * That ordering is load-bearing: on iOS the same loops recorded an already-installed
      * override as the "original" when a set contained the same node twice, which left the
      * ghost permanently installed and, in the highlight path, a freed material instance on a
-     * renderable. Kotlin's `Set<StructureId>` de-duplicates structures for free, so the
+     * renderable. Kotlin's `Map<StructureId, HighlightStyle>` de-duplicates structures for free, so the
      * iOS de-duplication has no analogue here — but if this ever iterates node names or a
      * list instead, the hazard returns.
      */
@@ -415,7 +412,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         val ghost = if (ghosted.isEmpty()) null else ghostMaterial()
         if (ghost != null) {
             ghost.setParameter("baseColorFactor", GHOST_RED, GHOST_GREEN, GHOST_BLUE, ghostAlpha)
-            for (structure in ghosted - highlighted) {
+            // Highlight beats ghost, whatever style the structure is highlighted in.
+            for (structure in ghosted - highlights.keys) {
                 for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
                     val instance = renderables.getInstance(entity)
                     if (instance == 0) continue
@@ -428,31 +426,29 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             }
         }
 
-        val style = highlightStyle
-        if (style != null && highlighted.isNotEmpty()) {
-            val alpha = ((style.outlineArgb ushr 24) and 0xFF) / 255f
-            val red = ((style.outlineArgb shr 16) and 0xFF) / 255f
-            val green = ((style.outlineArgb shr 8) and 0xFF) / 255f
-            val blue = (style.outlineArgb and 0xFF) / 255f
-            val lift = style.fillLuminanceShift.coerceAtLeast(0f)
-            for (structure in highlighted) {
-                for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
-                    val instance = renderables.getInstance(entity)
-                    if (instance == 0) continue
-                    for (primitive in 0 until renderables.getPrimitiveCount(instance)) {
-                        val original = renderables.getMaterialInstanceAt(instance, primitive) ?: continue
-                        val replacement = MaterialInstance.duplicate(original, null)
-                        val material = original.material
-                        if (material.hasParameter("baseColorFactor")) {
-                            replacement.setParameter("baseColorFactor", red, green, blue, alpha)
-                        }
-                        if (material.hasParameter("emissiveFactor")) {
-                            replacement.setParameter("emissiveFactor", red * lift, green * lift, blue * lift)
-                        }
-                        swapped += Triple(entity, primitive, original)
-                        highlightInstances += replacement
-                        renderables.setMaterialInstanceAt(instance, primitive, replacement)
+        for ((structure, style) in highlights) {
+            val paint = HighlightPaint.of(style)
+            for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
+                val instance = renderables.getInstance(entity)
+                if (instance == 0) continue
+                for (primitive in 0 until renderables.getPrimitiveCount(instance)) {
+                    val original = renderables.getMaterialInstanceAt(instance, primitive) ?: continue
+                    val replacement = MaterialInstance.duplicate(original, null)
+                    val material = original.material
+                    if (material.hasParameter("baseColorFactor")) {
+                        replacement.setParameter("baseColorFactor", paint.red, paint.green, paint.blue, paint.alpha)
                     }
+                    if (material.hasParameter("emissiveFactor")) {
+                        replacement.setParameter(
+                            "emissiveFactor",
+                            paint.emissiveRed,
+                            paint.emissiveGreen,
+                            paint.emissiveBlue,
+                        )
+                    }
+                    swapped += Triple(entity, primitive, original)
+                    highlightInstances += replacement
+                    renderables.setMaterialInstanceAt(instance, primitive, replacement)
                 }
             }
         }
@@ -595,7 +591,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         flight = null
         hidden.clear()
         ghosted.clear()
-        highlighted.clear()
+        highlights.clear()
         applyAppearance()
         ghostMaterial?.let(engine::destroyMaterialInstance)
         ghostMaterial = null
