@@ -4,6 +4,7 @@
 - **Answers:** design spec §17 risk 1 — content verification capacity, the item most likely to
   stall the release.
 - **Status:** decisions made; throughput is assumed, not measured, until §5's calibration runs.
+  The numbers in §4 describe the packs as they were before the change it asks for.
 
 ## 1. Decisions
 
@@ -75,11 +76,10 @@ The definitions Z-Anatomy carries are whole articles:
 Reading that critically is 13 hours or more for the skeleton alone, most of it irrelevant to
 whether `Femur` is the femur. And any edit to an article silently un-verifies the name.
 
-So this plan assumes a change that is not yet made: **a verification covers identity and
-name only.** Definitions become separate content with their own state, shown attributed to
-Wikipedia (which §29.3 requires anyway) and marked unreviewed, and trimmed by the pipeline to
-the lead paragraph. Quiz answers are names; nothing in §8 asks a definition. Without this
-change, multiply every estimate below several times over.
+So this plan assumes **a verification covers identity and name only.** That change was made
+on 2026-10-06 (design spec §31): definitions are separate content, shown attributed and
+marked unreviewed, and cut by the pipeline to a lead of at most 120 words — 9,639 words for
+the skeleton instead of 116,040. Quiz answers are names; nothing in §8 asks a definition.
 
 ## 5. Throughput
 
@@ -104,7 +104,7 @@ range, this section is rewritten rather than the schedule stretched.
 
 | Step | Target | Depends on |
 |---|---|---|
-| Definitions separated from verification (§4) | 2026-10-19 | — |
+| Definitions separated from verification (§4) | Done 2026-10-06 | — |
 | Calibration: 50 skeleton cards timed | 2026-10-26 | A way to see a structure beside its names; the atlas screen and a term list are enough |
 | Reviewer tool usable (§7 of the spec) | 2026-11-09 — assumed, not planned | Its own spec and plan, which do not exist |
 | **Skeleton verified, Latin and English** | **2026-11-23** | The two rows above |

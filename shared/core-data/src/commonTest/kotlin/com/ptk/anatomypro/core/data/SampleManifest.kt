@@ -7,6 +7,8 @@ const val SAMPLE_MANIFEST = """
     {
       "structure_id": "1168-clavicula-left", "ta2_id": "1168",
       "english": "Clavicle", "latin": "Clavicula", "definition": "The collarbone.",
+      "definition_source": "https://en.wikipedia.org/wiki/Clavicle",
+      "definition_licence": "CC BY-SA 3.0",
       "system": "skeletal-system", "region": "trunk",
       "parent_id": "361-cingulum-pectorale-median", "laterality": "L",
       "is_group": false, "nodes": ["1168__clavicula__L"], "triangles": 900

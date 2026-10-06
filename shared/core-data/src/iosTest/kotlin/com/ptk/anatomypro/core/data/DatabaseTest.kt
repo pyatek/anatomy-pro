@@ -97,9 +97,9 @@ class DatabaseTest {
         )
         assertNotNull(dao.currentVerification("1168-clavicula-left", "en"))
 
-        // The pack is updated and the definition edited.
+        // The pack is updated and the name corrected.
         PackInstaller(database).install(
-            SAMPLE_MANIFEST.replace("The collarbone.", "A long bone of the shoulder girdle."),
+            SAMPLE_MANIFEST.replace("\"Clavicle\"", "\"Collar bone\""),
             version = 2,
             meshUri = "file:///m.glb",
         )
@@ -112,6 +112,66 @@ class DatabaseTest {
             dao.anyVerification("1168-clavicula-left", "en"),
             "the reviewer's work was destroyed rather than marked stale",
         )
+    }
+
+    @Test
+    fun a_verification_survives_an_edit_to_the_definition() = runTest {
+        install()
+        val approved = assertNotNull(dao.text("1168-clavicula-left", "en"))
+        dao.upsertVerification(
+            StructureVerificationEntity(
+                structureId = "1168-clavicula-left",
+                locale = "en",
+                state = "VERIFIED",
+                verifiedAt = 1_000L,
+                verifiedTextHash = approved.contentHash,
+            )
+        )
+
+        PackInstaller(database).install(
+            SAMPLE_MANIFEST.replace("The collarbone.", "A long bone of the shoulder girdle."),
+            version = 2,
+            meshUri = "file:///m.glb",
+        )
+
+        assertEquals(
+            "A long bone of the shoulder girdle.",
+            assertNotNull(dao.definition("1168-clavicula-left", "en")).text,
+        )
+        assertNotNull(
+            dao.currentVerification("1168-clavicula-left", "en"),
+            "editing an encyclopedia extract un-verified a name",
+        )
+    }
+
+    @Test
+    fun a_definition_dropped_by_a_pack_update_is_gone() = runTest {
+        install()
+        assertNotNull(dao.definition("1168-clavicula-left", "en"))
+
+        PackInstaller(database).install(
+            SAMPLE_MANIFEST.replace("\"The collarbone.\"", "null"),
+            version = 2,
+            meshUri = "file:///m.glb",
+        )
+
+        assertNull(dao.definition("1168-clavicula-left", "en"))
+    }
+
+    @Test
+    fun the_detail_screen_gets_the_definition_with_its_source() = runTest {
+        install()
+        val repository = com.ptk.anatomypro.core.data.repository.RoomAtlasRepository(database)
+
+        // Asked for in Latin, which has no definition of its own: the English one is
+        // returned and says that it is English.
+        val detail = assertNotNull(
+            repository.detail(com.ptk.anatomypro.core.model.StructureId("1168-clavicula-left"), "la")
+        )
+        assertEquals("The collarbone.", detail.definition)
+        assertEquals("en", detail.definitionLocale)
+        assertEquals("https://en.wikipedia.org/wiki/Clavicle", detail.definitionSource)
+        assertEquals("CC BY-SA 3.0", detail.definitionLicence)
     }
 
     @Test

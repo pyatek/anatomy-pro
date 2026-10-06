@@ -26,14 +26,16 @@ class RoomAtlasRepository(private val database: AnatomyDatabase) : AtlasReposito
     override suspend fun detail(id: StructureId, locale: String): StructureDetail? {
         val entity = dao.structure(id.value) ?: return null
         val texts = dao.texts(id.value)
-        val preferred = texts.firstOrNull { it.locale == locale }
-            ?: texts.firstOrNull { it.locale == PackIngest.LOCALE_LATIN }
+        val definition = dao.definition(id.value, locale)
+            ?: dao.definition(id.value, PackIngest.LOCALE_ENGLISH)
 
         return StructureDetail(
             id = StructureId(entity.id),
             names = texts.associate { it.locale to it.name },
-            definition = preferred?.definition,
-            definitionLocale = preferred?.locale,
+            definition = definition?.text,
+            definitionLocale = definition?.locale,
+            definitionSource = definition?.sourceUrl,
+            definitionLicence = definition?.licence,
             systemId = entity.systemId,
             regionId = entity.regionId,
             laterality = entity.laterality.toLaterality(),

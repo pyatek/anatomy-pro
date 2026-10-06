@@ -1,7 +1,7 @@
 # State of play — 2026-10-06
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–30 there are the running record of what was actually built and why. This file is
+sections 20–31 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -26,7 +26,7 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**239 tests pass on the iOS simulator and 207 on the JVM host** — common tests run on both, so
+**251 tests pass on the iOS simulator and 222 on the JVM host** — common tests run on both, so
 those figures overlap rather than sum. Android's renderer contract and
 database wiring have their own instrumented tests, which need a device; 24 pass on the API 36
 emulator.
@@ -104,9 +104,9 @@ and packs are currently bundled in the APK.
   system, and FIPAT's answer on the TA2 licence.
 - ~~Verification capacity (§17).~~ Planned 2026-10-06 in `docs/verification-plan.md`: one
   reviewer at 10+ hours a week, skeleton first, every shipped locale verified before a
-  structure is a quiz answer. The workload is about 2,400 terms, not 16,000 decisions — but
-  the plan depends on a change not yet made: a verification currently hashes in a whole
-  Wikipedia article per structure (§30).
+  structure is a quiz answer. The workload is about 2,400 terms, not 16,000 decisions. The
+  change it depended on is made (§31): a verification covers the name, and definitions are
+  separate, attributed extracts.
 
 ## Environment notes
 

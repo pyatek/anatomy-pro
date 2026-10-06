@@ -127,3 +127,19 @@ def test_a_leaf_may_be_parented_to_a_group():
     doc, _ = manifest.build("p", [child], groups=[group("1105-costae-median", "Ribs")])
     leaf = next(s for s in doc["structures"] if s["structure_id"] == "1107-costa-prima-left")
     assert leaf["parent_id"] == "1105-costae-median"
+
+
+def test_a_definition_goes_out_as_its_lead_with_its_source_beside_it():
+    article = "AORTA\n\n\nThe main artery.\n\n\n== History ==\n\nLong.\n\n\nhttps://en.wikipedia.org/wiki/Aorta"
+    entry = dict(record("a__b__M", "a-b-median", 10), definition=article)
+    group = {
+        "structure_id": "g-median", "ta2_id": "1", "english": "Vessels", "latin": "Vasa",
+        "definition": article, "system": None, "region": None, "laterality": "M", "parent_id": None,
+    }
+
+    doc, _ = manifest.build("p", [entry], [group])
+
+    for structure in doc["structures"]:
+        assert structure["definition"] == "The main artery."
+        assert structure["definition_source"] == "https://en.wikipedia.org/wiki/Aorta"
+        assert structure["definition_licence"] == "CC BY-SA 3.0"

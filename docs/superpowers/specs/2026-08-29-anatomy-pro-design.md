@@ -1032,6 +1032,9 @@ answers, so it reads as stale rather than as either lost or — worse — still 
 makes VERIFIED the gate on quiz answers, and a stale approval surviving an edit is exactly
 how a wrong name becomes a question that teaches something false.
 
+> Amended 2026-10-06 (§31): the hash covers the **name** only, and definitions live in their
+> own table. "The exact text that was approved" above now means the name.
+
 The hash is FNV-1a written out in `PackIngest`, not `hashCode`, so its value is defined by
 this project rather than by a compiler that is free to change it.
 
@@ -1711,7 +1714,78 @@ Found while counting:
   the skeleton, 2,001 for the femur. §24.1's rule that an edited definition invalidates the
   approval was deliberate; with these definitions it makes verifying a name mean reading an
   article. The plan assumes verification is narrowed to identity and name, with definitions
-  as separately-stated, attributed, trimmed content. That change is not made.
+  as separately-stated, attributed, trimmed content. That change was made the same day; see
+  §31.
 
 No throughput is measured. The plan's dates rest on an assumed minute per card and are to be
 replaced by timing the first 50.
+
+## 31. Addendum — 2026-10-06: definitions leave the verification
+
+§30 found that approving a name meant approving an encyclopedia article. This section records
+the change that undoes it.
+
+### 31.1 What a verification covers
+
+A name, in one locale, for one structure — and through it the claim that this mesh is that
+term. `PackIngest.contentHash` now takes the name alone. Editing a definition leaves a
+verification valid; editing a name makes it stale, as before. §24.1's invariant is unchanged
+in kind and narrower in scope.
+
+### 31.2 Definitions are their own content
+
+`structure_definition` holds one row per structure per language the text is **written in**,
+with the text, the address it came from and its licence. The source writes definitions in
+English only, so that is the one locale filled. Before this the English text was copied onto
+the Latin row too and offered as the Latin definition.
+
+A pack update deletes the pack's definitions before writing the new ones, so a definition a
+new version drops does not linger under a source that no longer says it.
+
+Definitions carry no review state. Nobody reviews them under the verification plan; a state
+column with one possible value would be a claim the schema could not back. The detail screen
+says so instead: under a definition it prints the source, the licence and "not reviewed".
+
+### 31.3 The pipeline cuts articles to their lead
+
+`definitions.summarise` drops the capitalised title, lifts a trailing address out into
+`definition_source`, stops at the first `== Section ==` heading, and keeps whole paragraphs
+up to 120 words — always at least the first. Text ending in a Wikipedia address is marked
+CC BY-SA 3.0; text with no address is Z-Anatomy's own and marked CC BY-SA 4.0.
+
+The source breaks nearly every sentence into its own paragraph, so "the lead paragraph" would
+have been one sentence; a word limit over whole paragraphs is what gives a usable extract.
+
+On the whole-body skeleton: 144 distinct definitions and 116,040 words became 128 and 9,639,
+with a median of 80 words. Of the sixteen that vanished, ten were a title with nothing under it
+and six became identical to another once cut.
+
+`python3 -m anatomypro_pipeline.definitions <manifest>…` applies the same rule to a manifest
+generated earlier. The ten packs in `pipeline/build` were rewritten that way, because the
+Z-Anatomy source was not on the machine to regenerate them; their meshes are untouched and
+the originals are kept beside them in `pipeline/build/manifest-backup-2026-10-06`.
+
+### 31.4 Migration
+
+Schema version 3. The migration creates the table, moves each English row's definition into
+it, drops the column, and recomputes every name's hash in Kotlin — FNV-1a is not something
+SQL can reproduce. Verifications recorded against an old hash stop matching and read as
+stale. None exist outside tests.
+
+### 31.5 Status
+
+Verified: 251 tests on the iOS simulator and 222 on the JVM host, and 56 in the pipeline.
+Among them: a definition edit leaves the hash and a stored verification alone, a name edit
+does not, a dropped definition is gone, a version 2 database file opens as version 3 with
+its data moved, and an older manifest without source fields still ingests.
+
+Not verified:
+
+- **The migration has not run on Android.** Its test builds a version 2 file by hand, which
+  is written for iOS; both platforms run the same bundled SQLite and the same Kotlin.
+  Android's device tests compile and were not run.
+- **The detail screen's credit line has not been looked at.** Its wording is tested as a
+  function; the screen was not opened.
+- **No pack has been regenerated from the atlas.** The summariser has only met definitions
+  through the rewrite of existing manifests.
+- The extracts keep Wikipedia's artefacts, such as the femur's "(, pl. femurs or femora )".

@@ -15,6 +15,7 @@ class PackInstaller(private val database: AnatomyDatabase) {
             pack = rows.pack,
             structures = rows.structures,
             text = rows.text,
+            definitions = rows.definitions,
             synonyms = rows.synonyms,
             meshRefs = rows.meshRefs,
             searchRows = rows.search,

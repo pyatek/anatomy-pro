@@ -9,6 +9,8 @@ from __future__ import annotations
 import statistics
 from typing import Any, Dict, List, Sequence, Tuple
 
+from . import definitions
+
 #: Model sourcing spec §3.
 TRIANGLES_PER_STRUCTURE = (2_000, 5_000)
 MAX_RESIDENT_TRIANGLES = 3_000_000
@@ -41,7 +43,7 @@ def build(
                 "ta2_id": r["ta2_id"],
                 "english": r["english"],
                 "latin": r["latin"],
-                "definition": r["definition"],
+                **definitions.fields(r["definition"]),
                 "parent_id": None,
                 "is_group": False,
                 "system": r["system"],
@@ -67,7 +69,7 @@ def build(
             "ta2_id": g["ta2_id"],
             "english": g["english"],
             "latin": g["latin"],
-            "definition": g["definition"],
+            **definitions.fields(g["definition"]),
             "system": g["system"],
             "region": g["region"],
             "laterality": g["laterality"],

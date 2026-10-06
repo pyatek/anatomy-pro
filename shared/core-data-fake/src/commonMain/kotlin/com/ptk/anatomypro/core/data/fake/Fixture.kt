@@ -181,6 +181,8 @@ object AtlasFixture {
             names = structure.names,
             definition = structure.definition,
             definitionLocale = structure.definition?.let { "en" },
+            definitionSource = null,
+            definitionLicence = null,
             systemId = structure.system,
             regionId = null,
             laterality = structure.laterality,

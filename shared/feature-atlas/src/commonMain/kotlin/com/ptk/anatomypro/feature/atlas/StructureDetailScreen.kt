@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import anatomypro.shared.feature_atlas.generated.resources.Res
+import anatomypro.shared.feature_atlas.generated.resources.detail_definition_credit
+import anatomypro.shared.feature_atlas.generated.resources.detail_definition_unreviewed
 import anatomypro.shared.feature_atlas.generated.resources.detail_load_failed
 import anatomypro.shared.feature_atlas.generated.resources.detail_loading
 import anatomypro.shared.feature_atlas.generated.resources.detail_not_found
@@ -87,10 +89,26 @@ fun StructureDetailScreen(
                     }
                 }
 
-                state.detail?.definition?.let {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SectionLabel(stringResource(Res.string.detail_section_definition))
-                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                state.detail?.let { detail ->
+                    detail.definition?.let {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SectionLabel(stringResource(Res.string.detail_section_definition))
+                            Text(it, style = MaterialTheme.typography.bodyMedium)
+                            // Someone else's prose, never reviewed here: say whose, and say so.
+                            val source = definitionSourceName(detail.definitionSource, detail.definitionLicence)
+                            Text(
+                                text = if (source == null) {
+                                    stringResource(Res.string.detail_definition_unreviewed)
+                                } else {
+                                    stringResource(
+                                        Res.string.detail_definition_credit,
+                                        listOfNotNull(source, detail.definitionLicence).joinToString(" · "),
+                                    )
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextTertiary,
+                            )
+                        }
                     }
                 }
 

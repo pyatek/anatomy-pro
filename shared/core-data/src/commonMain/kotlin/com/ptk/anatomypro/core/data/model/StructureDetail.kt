@@ -9,12 +9,18 @@ import com.ptk.anatomypro.core.model.StructureId
  * [names] is keyed by locale rather than split into fields, so adding a language stays a
  * data drop (spec §13). [ancestors] is root-first, which is the order the hierarchy is
  * displayed in.
+ *
+ * [definition] may be in a different language from the one asked for — the source writes
+ * them in English only — so [definitionLocale] says which it is.
  */
 data class StructureDetail(
     val id: StructureId,
     val names: Map<String, String>,
     val definition: String?,
     val definitionLocale: String?,
+    /** Where the definition was taken from, and under what licence; shown beside it. */
+    val definitionSource: String?,
+    val definitionLicence: String?,
     val systemId: String?,
     val regionId: String?,
     val laterality: Laterality,

@@ -6,6 +6,8 @@
     <string name="detail_section_structure">STRUKTURA</string>
     <string name="detail_loading">Wczytywanie…</string>
     <string name="detail_section_definition">DEFINICJA</string>
+    <string name="detail_definition_credit">Źródło: %1$s · niezweryfikowane</string>
+    <string name="detail_definition_unreviewed">Niezweryfikowane</string>
     <string name="detail_section_hierarchy">POZYCJA W HIERARCHII</string>
     <string name="detail_not_found">Nie znaleziono struktury</string>
     <string name="detail_load_failed">Nie udało się wczytać</string>

@@ -6,6 +6,8 @@
     <string name="detail_section_structure">STRUCTURE</string>
     <string name="detail_loading">Loading…</string>
     <string name="detail_section_definition">DEFINITION</string>
+    <string name="detail_definition_credit">Source: %1$s · not reviewed</string>
+    <string name="detail_definition_unreviewed">Not reviewed</string>
     <string name="detail_section_hierarchy">PLACE IN THE HIERARCHY</string>
     <string name="detail_not_found">Structure not found</string>
     <string name="detail_load_failed">Could not be loaded</string>

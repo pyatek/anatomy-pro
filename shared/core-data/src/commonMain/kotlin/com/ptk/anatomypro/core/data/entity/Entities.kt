@@ -41,16 +41,36 @@ data class StructureEntity(
 /**
  * Pack content: replaced wholesale whenever a pack updates.
  *
- * [contentHash] is what lets a verification survive a content update without silently
- * becoming a lie — see [StructureVerificationEntity].
+ * [contentHash] covers [name] and is what lets a verification survive a content update
+ * without silently becoming a lie — see [StructureVerificationEntity].
  */
 @Entity(tableName = "structure_text", primaryKeys = ["structureId", "locale"])
 data class StructureTextEntity(
     val structureId: String,
     val locale: String,
     val name: String,
-    val definition: String?,
     val contentHash: String,
+)
+
+/**
+ * An encyclopedia extract describing a structure, in the language it was written in.
+ *
+ * Apart from [StructureTextEntity] because it is a different kind of content. A name is
+ * what a reviewer verifies and a quiz asks; a definition is someone else's prose, shown
+ * with its source and never an answer. Kept in the name's row it was copied onto every
+ * locale and hashed into every verification (spec §30).
+ *
+ * [sourceUrl] and [licence] travel with the text because share-alike requires attribution
+ * where the text is shown (spec §29.3). Both are null for packs generated before the
+ * pipeline recorded them.
+ */
+@Entity(tableName = "structure_definition", primaryKeys = ["structureId", "locale"])
+data class StructureDefinitionEntity(
+    val structureId: String,
+    val locale: String,
+    val text: String,
+    val sourceUrl: String?,
+    val licence: String?,
 )
 
 @Entity(
@@ -80,8 +100,8 @@ data class MeshRefEntity(
  * it describes.
  *
  * A pack update replaces [StructureTextEntity] rows freely; these survive. [verifiedTextHash]
- * records the text that was actually reviewed, so a row whose hash no longer matches the
- * current text reads as stale rather than as verified. §7 makes VERIFIED the gate on quiz
+ * records the name that was actually reviewed, so a row whose hash no longer matches the
+ * current name reads as stale rather than as verified. §7 makes VERIFIED the gate on quiz
  * answers, and a stale approval surviving an edit is how a wrong name becomes a question
  * that teaches something false.
  */

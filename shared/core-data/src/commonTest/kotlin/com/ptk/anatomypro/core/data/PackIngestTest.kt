@@ -15,6 +15,8 @@ private val MANIFEST = """
       "english": "Clavicle",
       "latin": "Clavicula",
       "definition": "The collarbone.",
+      "definition_source": "https://en.wikipedia.org/wiki/Clavicle",
+      "definition_licence": "CC BY-SA 3.0",
       "system": "skeletal-system",
       "region": "trunk",
       "parent_id": "361-cingulum-pectorale-median",
@@ -85,7 +87,22 @@ class PackIngestTest {
     }
 
     @Test
-    fun hashes_the_text_so_a_later_edit_is_detectable() {
+    fun a_name_edit_changes_the_hash_a_reviewer_approved() {
+        val original = rows.text.single { it.structureId == "1168-clavicula-left" && it.locale == "en" }
+        val edited = PackIngest.parse(
+            MANIFEST.replace("\"Clavicle\"", "\"Collar bone\""),
+            version = 3,
+            meshUri = null,
+        ).text.single { it.structureId == "1168-clavicula-left" && it.locale == "en" }
+
+        assertTrue(original.contentHash != edited.contentHash, "hash ignored a name change")
+    }
+
+    @Test
+    fun a_definition_edit_leaves_the_hash_alone() {
+        // A reviewer approves that this mesh is this name. The definition is an encyclopedia
+        // extract hundreds of words long; folding it into the hash made verifying a name mean
+        // approving an article, and let any edit to the article un-verify the name.
         val original = rows.text.single { it.structureId == "1168-clavicula-left" && it.locale == "en" }
         val edited = PackIngest.parse(
             MANIFEST.replace("The collarbone.", "The clavicle."),
@@ -93,7 +110,7 @@ class PackIngestTest {
             meshUri = null,
         ).text.single { it.structureId == "1168-clavicula-left" && it.locale == "en" }
 
-        assertTrue(original.contentHash != edited.contentHash, "hash ignored a definition change")
+        assertEquals(original.contentHash, edited.contentHash)
     }
 
     @Test
@@ -128,9 +145,38 @@ class PackIngestTest {
     }
 
     @Test
-    fun a_structure_without_a_definition_still_gets_a_name_row() {
+    fun stores_a_definition_once_in_the_language_it_is_written_in() {
+        // The source's definitions are English. Copying one onto the Latin row as well
+        // stored it twice and presented English text as Latin.
+        val definition = rows.definitions.single { it.structureId == "1168-clavicula-left" }
+        assertEquals("en", definition.locale)
+        assertEquals("The collarbone.", definition.text)
+    }
+
+    @Test
+    fun keeps_where_a_definition_came_from() {
+        // Share-alike text has to be attributed where it is shown (spec section 29.3).
+        val definition = rows.definitions.single { it.structureId == "1168-clavicula-left" }
+        assertEquals("https://en.wikipedia.org/wiki/Clavicle", definition.sourceUrl)
+        assertEquals("CC BY-SA 3.0", definition.licence)
+    }
+
+    @Test
+    fun a_structure_without_a_definition_gets_a_name_row_and_no_definition() {
         val text = rows.text.single { it.structureId == "361-cingulum-pectorale-median" && it.locale == "la" }
         assertEquals("Cingulum pectorale", text.name)
-        assertNull(text.definition)
+        assertTrue(rows.definitions.none { it.structureId == "361-cingulum-pectorale-median" })
+    }
+
+    @Test
+    fun a_manifest_written_before_sources_were_recorded_still_reads() {
+        // Packs generated before the pipeline emitted a source carry the text alone.
+        val old = MANIFEST.lines()
+            .filterNot { "definition_source" in it || "definition_licence" in it }
+            .joinToString("\n")
+        val definition = PackIngest.parse(old, version = 3, meshUri = null).definitions.single()
+        assertEquals("The collarbone.", definition.text)
+        assertNull(definition.sourceUrl)
+        assertNull(definition.licence)
     }
 }

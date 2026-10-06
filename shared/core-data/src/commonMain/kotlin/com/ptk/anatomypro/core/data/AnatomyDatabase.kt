@@ -9,6 +9,7 @@ import com.ptk.anatomypro.core.data.dao.StructureDao
 import com.ptk.anatomypro.core.data.entity.MeshRefEntity
 import com.ptk.anatomypro.core.data.entity.PackEntity
 import com.ptk.anatomypro.core.data.entity.PreferenceEntity
+import com.ptk.anatomypro.core.data.entity.StructureDefinitionEntity
 import com.ptk.anatomypro.core.data.entity.StructureEntity
 import com.ptk.anatomypro.core.data.entity.StructureSearchEntity
 import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
@@ -19,6 +20,7 @@ import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
     entities = [
         StructureEntity::class,
         StructureTextEntity::class,
+        StructureDefinitionEntity::class,
         StructureSynonymEntity::class,
         MeshRefEntity::class,
         StructureVerificationEntity::class,
@@ -26,7 +28,7 @@ import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
         StructureSearchEntity::class,
         PreferenceEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @ConstructedBy(AnatomyDatabaseConstructor::class)

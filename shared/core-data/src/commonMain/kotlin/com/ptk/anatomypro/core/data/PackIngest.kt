@@ -2,6 +2,7 @@ package com.ptk.anatomypro.core.data
 
 import com.ptk.anatomypro.core.data.entity.MeshRefEntity
 import com.ptk.anatomypro.core.data.entity.PackEntity
+import com.ptk.anatomypro.core.data.entity.StructureDefinitionEntity
 import com.ptk.anatomypro.core.data.entity.StructureEntity
 import com.ptk.anatomypro.core.data.entity.StructureSearchEntity
 import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
@@ -29,6 +30,7 @@ object PackIngest {
         val pack: PackEntity,
         val structures: List<StructureEntity>,
         val text: List<StructureTextEntity>,
+        val definitions: List<StructureDefinitionEntity>,
         val synonyms: List<StructureSynonymEntity>,
         val meshRefs: List<MeshRefEntity>,
         val search: List<StructureSearchEntity>,
@@ -40,6 +42,7 @@ object PackIngest {
 
         val structures = mutableListOf<StructureEntity>()
         val text = mutableListOf<StructureTextEntity>()
+        val definitions = mutableListOf<StructureDefinitionEntity>()
         val meshRefs = mutableListOf<MeshRefEntity>()
         val search = mutableListOf<StructureSearchEntity>()
 
@@ -58,6 +61,18 @@ object PackIngest {
             entry.latin?.let { text += textRow(entry, LOCALE_LATIN, it) }
             text += textRow(entry, LOCALE_ENGLISH, entry.english)
 
+            // The source writes its definitions in English, so that is the one locale a
+            // definition is stored under.
+            entry.definition?.let {
+                definitions += StructureDefinitionEntity(
+                    structureId = entry.structureId,
+                    locale = LOCALE_ENGLISH,
+                    text = it,
+                    sourceUrl = entry.definitionSource,
+                    licence = entry.definitionLicence,
+                )
+            }
+
             entry.nodes.forEach { node ->
                 meshRefs += MeshRefEntity(entry.structureId, packId, node)
             }
@@ -72,6 +87,7 @@ object PackIngest {
             pack = PackEntity(id = packId, version = version, installedAt = null, meshUri = meshUri),
             structures = structures,
             text = text,
+            definitions = definitions,
             synonyms = emptyList(),
             meshRefs = meshRefs,
             search = search,
@@ -83,23 +99,26 @@ object PackIngest {
             structureId = entry.structureId,
             locale = locale,
             name = name,
-            definition = entry.definition,
-            contentHash = contentHash(name, entry.definition),
+            contentHash = contentHash(name),
         )
 
     private fun searchRow(structureId: String, locale: String, term: String) =
         StructureSearchEntity(structureId, locale, normalise(term))
 
     /**
-     * Identifies the exact text a reviewer approved.
+     * Identifies the exact name a reviewer approved.
+     *
+     * The name and nothing else. A verification says this mesh is this term; the definition
+     * is an encyclopedia extract with its own source, and hashing it in made approving a
+     * name mean approving an article (spec section 30).
      *
      * FNV-1a rather than `hashCode`, so the value is defined here and cannot drift with a
      * compiler or platform change. A hash that silently stopped matching would either
      * resurrect stale approvals or discard sound ones (spec section 7).
      */
-    fun contentHash(name: String, definition: String?): String {
+    fun contentHash(name: String): String {
         var hash = 0x811C9DC5u
-        for (byte in (name + " " + definition.orEmpty()).encodeToByteArray()) {
+        for (byte in name.encodeToByteArray()) {
             hash = hash xor byte.toUByte().toUInt()
             hash *= 0x01000193u
         }
@@ -141,6 +160,8 @@ object PackIngest {
         val english: String,
         val latin: String? = null,
         val definition: String? = null,
+        @SerialName("definition_source") val definitionSource: String? = null,
+        @SerialName("definition_licence") val definitionLicence: String? = null,
         val system: String? = null,
         val region: String? = null,
         @SerialName("parent_id") val parentId: String? = null,

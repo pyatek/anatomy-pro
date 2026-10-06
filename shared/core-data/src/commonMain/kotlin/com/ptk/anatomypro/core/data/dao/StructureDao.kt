@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.ptk.anatomypro.core.data.entity.MeshRefEntity
 import com.ptk.anatomypro.core.data.entity.PackEntity
+import com.ptk.anatomypro.core.data.entity.StructureDefinitionEntity
 import com.ptk.anatomypro.core.data.entity.StructureEntity
 import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
 import com.ptk.anatomypro.core.data.entity.StructureTextEntity
@@ -25,6 +26,18 @@ interface StructureDao {
     suspend fun upsertText(rows: List<StructureTextEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDefinitions(rows: List<StructureDefinitionEntity>)
+
+    /**
+     * Clears a pack's definitions before its new ones are written.
+     *
+     * An upsert alone would leave behind a definition the new version of the pack no
+     * longer carries, attributed to a source that no longer says it.
+     */
+    @Query("DELETE FROM structure_definition WHERE structureId IN (SELECT id FROM structure WHERE packId = :packId)")
+    suspend fun deleteDefinitionsOfPack(packId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSynonyms(rows: List<StructureSynonymEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -41,6 +54,9 @@ interface StructureDao {
 
     @Query("SELECT * FROM structure_text WHERE structureId = :id AND locale = :locale")
     suspend fun text(id: String, locale: String): StructureTextEntity?
+
+    @Query("SELECT * FROM structure_definition WHERE structureId = :id AND locale = :locale")
+    suspend fun definition(id: String, locale: String): StructureDefinitionEntity?
 
     @Query("SELECT * FROM mesh_ref WHERE structureId = :id")
     suspend fun meshRefs(id: String): List<MeshRefEntity>
@@ -93,7 +109,7 @@ interface StructureDao {
     // --- verification ----------------------------------------------------------------
 
     /**
-     * A verification counts only while it still describes the current text.
+     * A verification counts only while it still describes the current name.
      *
      * The join on `contentHash` is the whole point of storing the hash: an edit that
      * arrives with a pack update leaves the row present but no longer matching, so it
@@ -155,6 +171,7 @@ interface StructureDao {
         pack: PackEntity,
         structures: List<StructureEntity>,
         text: List<StructureTextEntity>,
+        definitions: List<StructureDefinitionEntity>,
         synonyms: List<StructureSynonymEntity>,
         meshRefs: List<MeshRefEntity>,
         searchRows: List<com.ptk.anatomypro.core.data.entity.StructureSearchEntity>,
@@ -162,6 +179,8 @@ interface StructureDao {
         upsertPack(pack)
         upsertStructures(structures)
         upsertText(text)
+        deleteDefinitionsOfPack(pack.id)
+        upsertDefinitions(definitions)
         upsertSynonyms(synonyms)
         upsertMeshRefs(meshRefs)
         upsertSearchRows(searchRows)
