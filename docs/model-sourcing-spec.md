@@ -171,6 +171,9 @@ The final item is easy to forget and expensive to reconstruct. Insist on it.
 
 ## 6. Recommendation
 
+> Decided 2026-10-06: Z-Anatomy, taking exit 2 of §4.2 — the paywall moves to the learning
+> system. See the design spec §29.
+
 1. **Run Phase 0 on Z-Anatomy.** Free, immediate, and sufficient to answer the only
    technical question that matters.
 2. **Defer the sourcing decision** until Phase 0 has produced real numbers on

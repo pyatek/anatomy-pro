@@ -28,8 +28,8 @@ serves that loop.
 | 3D renderer | Filament (SceneView on Android, Swift/Obj-C++ shim on iOS) |
 | Asset format | glTF 2.0, Draco/meshopt compressed |
 | Backend | Ktor + PostgreSQL |
-| Model source | To be selected — see `docs/model-sourcing-spec.md` |
-| Monetization | Freemium: skeletal system free, other systems by subscription |
+| Model source | Z-Anatomy, CC BY-SA 4.0 — decided 2026-10-06, see §29 |
+| Monetization | Freemium: the atlas is free for every system; the learning system is by subscription — decided 2026-10-06, see §29 |
 | Identity | Anonymous-first, upgradeable to Google/Apple sign-in |
 | Daily quiz integrity | Server-authoritative |
 | Study features (v1) | Layer peeling and isolation; search and structure detail pages |
@@ -324,6 +324,9 @@ Pack manifest entries carry id, version, byte size, checksum, URL, and entitleme
 Downloads are resumable, checksum-verified, and swapped atomically — a partial or
 corrupt pack is never visible to the renderer.
 
+> Superseded 2026-10-06 by §29: packs are no longer entitled. What follows is the original
+> design.
+
 **The paywall boundary is the pack boundary.** Skeletal is free; other systems require
 subscription. Entitlements are resolved server-side when the manifest is issued, so an
 unentitled client is never handed a download URL.
@@ -457,7 +460,10 @@ scheduling decisions more than anything technical in this document.
 
 ## 18. Open questions
 
-- Final model source. Decision criteria and acceptance checklist in `docs/model-sourcing-spec.md`; recommendation is to defer until Phase 0 produces real decimation and frame-rate numbers.
+- ~~Final model source.~~ Decided 2026-10-06: Z-Anatomy, with the paywall on the learning
+  system rather than on content. Rationale and compliance plan in §29.
+- Whether a TA2-keyed, translated term database needs FIPAT's permission (§29.4).
+- Exactly where the free tier ends inside the learning system (§29.2).
 - Subscription pricing and trial length.
 - Whether Polish and English launch together or English follows.
 
@@ -1594,3 +1600,93 @@ Not done, and needing an iPhone:
 
 The app opens on screen 01 until onboarding is finished, and the log only runs while the atlas
 is on screen, so the device needs one pass through onboarding by hand before measuring.
+
+## 29. Addendum — 2026-10-06: the model source, and where the paywall goes
+
+§18's first open question is closed. **The atlas is built on Z-Anatomy, and the subscription
+gates the learning system, not the content.** This was the owner's decision; this section
+records it, why, and what it obliges.
+
+### 29.1 Why not gate the packs
+
+§10 put the paywall on the pack boundary. Under CC BY-SA that gate is legal and does not
+hold. Creative Commons' own reading of the 4.0 licences is that limiting access to a set of
+users is permitted, because it does not stop a recipient exercising the licence — and one of
+the rights a recipient keeps is redistribution. One subscriber could republish every paid
+pack, lawfully. A paywall whose contents anyone may give away is a convenience fee.
+
+The two alternatives that keep meshes exclusive were a licensed commercial atlas and a
+commissioned one. Both cost thousands to five figures before any revenue, and a licensed one
+adds dependence on a vendor's naming stability (sourcing spec §1). Neither was chosen.
+
+### 29.2 What is free and what is paid
+
+- **Free:** browsing the atlas, for every system — the model, picking, layers, isolation,
+  search, structure detail.
+- **Paid:** the learning system — quizzes, progress, the daily quiz and the leaderboard.
+
+The paid surface contains none of the licensed work, which is what makes the gate
+enforceable. Where exactly the free tier ends inside the learning system — whether some
+quizzing is free as a taste — is not decided, and joins the open product questions.
+
+Consequences for what is already written:
+
+- §10's entitlement rule is superseded. Pack manifests need no entitlement field and the
+  server need not withhold download URLs; packs remain versioned, checksummed and swapped
+  atomically.
+- Risk 2 in §17 is resolved by its own stated fallback.
+- Code that treats the skeletal system as the free tier is now wrong in intent, not only in
+  the name it compares against.
+- Screen 18's paywall sells the learning system, and screen 19's pack manager has nothing to
+  lock.
+
+### 29.3 What share-alike obliges
+
+Attribution has three layers, because Z-Anatomy is itself a derivative:
+
+| Work | Licence | Used for |
+|---|---|---|
+| Z-Anatomy (Gauthier Kervyn) | CC BY-SA 4.0 | Meshes, hierarchy, English names |
+| BodyParts3D (Database Center for Life Science) | CC BY-SA 2.1 Japan | The meshes Z-Anatomy is built on |
+| Wikipedia | CC BY-SA 3.0 | The definitions Z-Anatomy carries |
+
+The compliance plan:
+
+1. **Packs are published.** Every generated pack is available at a public, unauthenticated
+   location under CC BY-SA 4.0, with the three attributions and a statement of what was
+   changed (decimation, re-chunking, renaming, conversion to glTF). Where — a public
+   repository's releases or the pack CDN itself — is not yet chosen.
+2. **Each pack carries its licence.** The manifest gains licence and attribution fields, so
+   a pack separated from the app still says what it is.
+3. **The app has an attribution screen**, reachable from settings, naming the three works,
+   their licences and the changes made.
+4. **Definitions taken from Z-Anatomy stay marked as such.** Text shown from that source is
+   share-alike and is attributed where it is shown.
+
+No technical measure may stop a recipient copying a pack out. Packs are not encrypted.
+
+### 29.4 Keeping the source replaceable
+
+The decision is cheap to make now because verification has not started; §17 puts it at
+roughly 16,000 review decisions. Two rules keep that work from being tied to these meshes:
+
+- Verification is keyed to `StructureId`, which derives from the TA code, never to a mesh or
+  a node name.
+- Names and translations authored or verified for this project are stored apart from text
+  inherited from Z-Anatomy, with their origin recorded, so it is always clear which rows are
+  share-alike and which are not.
+
+With both, replacing the meshes later is a pipeline change.
+
+One licence question remains open and is independent of the model. Terminologia Anatomica
+(TA2) is published under CC BY-ND 4.0. FIPAT states that the individual terms are in the
+public domain, and also that translations and works "that might be considered derivative"
+need its permission. The pipeline joins on `TA2.csv` and the product is a Latin, Polish and
+English term database keyed by TA ids. Whether that needs permission is being asked of FIPAT.
+
+### 29.5 Status
+
+Decided: the source, and the paywall boundary. Not done: the manifest fields, the
+attribution screen, the choice of where packs are published, and the answer from FIPAT. None
+of this is legal advice; whether an app that bundles share-alike packs is a collection or an
+adaptation was not reviewed by a lawyer.

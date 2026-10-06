@@ -1,7 +1,7 @@
 # State of play — 2026-10-06
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–28 there are the running record of what was actually built and why. This file is
+sections 20–29 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -98,10 +98,10 @@ and packs are currently bundled in the APK.
 
 ## Decisions that are yours, not the code's
 
-- **The model source (§18).** Z-Anatomy decimates well and hits the budget, so this is now
-  purely the CC BY-SA question: generated packs must ship under share-alike with attribution,
-  while the app around them stays yours. §4.2 of the sourcing spec calls it a business
-  judgement, and it is the last thing gating a commitment to the content source.
+- ~~The model source (§18).~~ Decided 2026-10-06 (§29): Z-Anatomy, with the subscription on
+  the learning system and the whole atlas free. Packs are published under CC BY-SA. Still
+  open from it: where packs are published, where the free tier ends inside the learning
+  system, and FIPAT's answer on the TA2 licence.
 - **Verification capacity (§17, the highest risk in the spec).** The pipeline now makes the
   arithmetic concrete: ~3,300 leaf structures plus ~458 groups across the atlas, at three
   locales each. That is roughly 16,000 review decisions for one reviewer.
