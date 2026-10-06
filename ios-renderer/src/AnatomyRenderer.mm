@@ -26,6 +26,8 @@
 #include <utils/EntityManager.h>
 #include <utils/NameComponentManager.h>
 
+#include <mach/mach.h>
+
 #include <cmath>
 #include <cstdio>
 #include <deque>
@@ -671,6 +673,26 @@ int64_t ar_gpu_frame_nanos(ar_renderer_ref r) {
         if (it->denoisedGpuFrameDuration > 0) return it->denoisedGpuFrameDuration;
     }
     return 0;
+}
+
+namespace {
+
+bool readTaskVmInfo(task_vm_info_data_t* info) {
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    return task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(info), &count)
+        == KERN_SUCCESS;
+}
+
+} // namespace
+
+int64_t ar_resident_bytes(void) {
+    task_vm_info_data_t info;
+    return readTaskVmInfo(&info) ? int64_t(info.resident_size) : 0;
+}
+
+int64_t ar_footprint_bytes(void) {
+    task_vm_info_data_t info;
+    return readTaskVmInfo(&info) ? int64_t(info.phys_footprint) : 0;
 }
 
 void ar_wait_for_gpu(ar_renderer_ref r) {

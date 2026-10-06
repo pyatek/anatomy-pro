@@ -22,6 +22,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_opacity
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_create
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_destroy
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_footprint_bytes
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_gpu_frame_nanos
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_load_model
@@ -32,6 +33,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_pick_at
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_poll_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_renderer_ref
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_resident_bytes
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_camera
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_hidden
@@ -166,6 +168,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * the wrong refresh rate; this can.
      */
     val gpuFrameMillis: Float get() = ar_gpu_frame_nanos(handle) / 1_000_000f
+
+    /** The process's resident size in bytes, which is what §6.1's budget is written against. */
+    val residentBytes: Long get() = ar_resident_bytes()
+
+    /** What iOS charges the process with when it decides whom to terminate, in bytes. */
+    val footprintBytes: Long get() = ar_footprint_bytes()
 
     /** How many distinct structures the loaded pack resolved to. */
     val loadedStructureCount: Int get() = nodesByStructure.size

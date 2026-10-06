@@ -1501,3 +1501,96 @@ Not verified, or known gaps:
   grammar-agreement fixes.
 - **No hardware measurement of hide/ghost cost.** §25.4's method is still to do.
 - compose-resources does not unescape `%%`; a literal percent is written as `%`.
+
+## 28. Addendum — 2026-10-06: preparing the iPhone run, and what the simulator found first
+
+§16's Phase 0 named "a real iPhone" and §23.10 deferred it. This section records the work
+done to make that run possible, and one defect found on the way. **No iPhone was attached and
+no signing team is configured, so nothing here is a hardware result.** §28.5 lists what the
+hardware session still has to do.
+
+### 28.1 The iOS canvas drew nothing
+
+Launched on the simulator, the atlas showed a blank canvas: the pack loaded (86 structures),
+the tree filled in, and every frame was refused — 60 display-link callbacks a second, 60
+refusals, 0 fps.
+
+The cause was in the log. Compose's deprecated `UIKitView` no longer calls `onResize`; it
+prints a warning and does nothing. `onResize` was the only place the `CAMetalLayer` was sized
+and handed to the renderer, so `attachLayer` never ran, no swap chain existed, and
+`ar_render_frame` returned false for ever. The contract tests could not see this because they
+draw headless.
+
+The layer now belongs to a `UIView` subclass that sizes and attaches it in `layoutSubviews`,
+and attaches again only when the pixel size changes. With that, the simulator draws
+`skeletal-trunk` at 60 fps. §27.3 said of the clear-before-frame change that "the iOS change
+has never been seen on screen"; that is now explained, and it has now been seen on the
+simulator.
+
+When this broke is not known. The iOS shim still creates the new swap chain before destroying
+the old one (§27.3); a first attach works, and a re-creation after a real resize is still
+untested.
+
+### 28.2 iOS draws real packs
+
+The Xcode build phase now runs `iosApp/stage-packs.sh`, which copies `skeletal-trunk`,
+`muscular-trunk` and `skeletal-body` from `pipeline/build/packs` into the app bundle
+(`ANATOMYPRO_PACKS` overrides the list). A pack that was never generated is skipped and the
+app falls back to the toy, as on Android.
+
+Which pack is drawn is a launch argument, `-anatomypro.pack <id>`, defaulting to
+`skeletal-trunk`. It is an argument rather than a build property so that one install can
+alternate packs, which is what §25.4's method requires. The same resolution feeds the canvas
+and `PackInstaller`, so the atlas tree on iOS is no longer empty.
+
+### 28.3 What the harness reports
+
+The iOS canvas logs one `AnatomyPerf` line a second, as Android does, with pacing and memory
+beside the frame rate:
+
+- `linkHz` — how often the display link fired; `grantedHz` — the interval the system granted
+  it (`targetTimestamp − timestamp`); `refreshHz` — what Filament was told. On a ProMotion
+  phone these can disagree: `CADisableMinimumFrameDurationOnPhone` is set, but the link does
+  not ask for a frame-rate range, so it may be granted 60 Hz while Filament paces against 120.
+  That is §23.7's mistake mirrored, and these three fields are how the device will show it.
+- `maxGapMs` — the longest gap between two callbacks in the second; `refused` — callbacks
+  Filament declined to draw. Together they separate a dropped vsync from a refused frame.
+- `residentMb` and `footprintMb`, from two new functions in the C seam, `ar_resident_bytes`
+  and `ar_footprint_bytes`. Resident size is what §6.1 is written against; the physical
+  footprint is what iOS terminates on.
+
+`iosApp/measure-packs.py` runs the protocol: launch per pack, drop ten seconds, keep 21, and
+repeat the interleaved set, printing per-launch and pooled medians as a table.
+
+### 28.4 Simulator figures, which are not the budget
+
+Two interleaved rounds on the iPhone 17 simulator, to prove the plumbing. §23.8 already says
+why emulated GPU time says little about content.
+
+| Pack | Structures | fps | GPU median | GPU p90 | Refused | Resident | Footprint |
+|---|---|---|---|---|---|---|---|
+| `skeletal-trunk` | 86 | 60 | 5.4 ms | 5.9 ms | 1 | 260 MB | 99 MB |
+| `muscular-trunk` | 205 | 60 | 6.8 ms | 7.3 ms | 0 | 287 MB | 125 MB |
+| `skeletal-body` | 277 | 60 | 5.5 ms | 5.7 ms | 0 | 327 MB | 165 MB |
+
+Two things to watch on hardware rather than conclude from here: `skeletal-body` measured
+358 MB resident in one launch and 312 MB in the other, and the footprint of a single launch
+rose by about 1 MB a second over its first ten seconds. Neither was investigated.
+
+### 28.5 Status
+
+Verified: the device slice compiles and links unsigned for `generic/platform=iOS`; the three
+packs are in the bundle; the simulator draws each of them; 239 iOS simulator tests pass.
+
+Not done, and needing an iPhone:
+
+- Signing. `TEAM_ID` in `iosApp/Configuration/Config.xcconfig` is empty.
+- Load, pick and highlight on the device. Picking was not exercised on the simulator either:
+  nothing here can tap it.
+- Pacing on hardware: whether `linkHz`, `grantedHz` and `refreshHz` agree, and whether
+  `refused` stays at zero after start-up. The first two seconds of a launch refuse nearly
+  every frame on the simulator; whether that is the load or the first attach is not known.
+- The §6.1 figures for the three packs, by `measure-packs.py --device`.
+
+The app opens on screen 01 until onboarding is finished, and the log only runs while the atlas
+is on screen, so the device needs one pass through onboarding by hand before measuring.

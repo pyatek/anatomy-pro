@@ -14,21 +14,19 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.platform.LocalDensity
 import com.ptk.anatomypro.core.designsystem.HighlightTokens
-import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.atlas.scene.applyRenderState
-import com.ptk.anatomypro.renderer.api.MeshSource
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
-import com.ptk.anatomypro.renderer.filament.Phase0ToyAsset
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectZero
 import kotlinx.coroutines.flow.filterIsInstance
 import platform.Foundation.NSDefaultRunLoopMode
+import platform.Foundation.NSLog
 import platform.Foundation.NSRunLoop
 import platform.Foundation.NSSelectorFromString
 import platform.QuartzCore.CADisplayLink
@@ -36,6 +34,7 @@ import platform.QuartzCore.CAMetalLayer
 import platform.darwin.NSObject
 import platform.UIKit.UIScreen
 import platform.UIKit.UIView
+import kotlin.math.roundToInt
 
 /**
  * Hosts Filament in a `CAMetalLayer` and pumps it from a coroutine.
@@ -58,6 +57,7 @@ actual fun AnatomyCanvas(
     val refreshHz = UIScreen.mainScreen.maximumFramesPerSecond.toFloat()
     val density = LocalDensity.current.density
     val renderer = remember { FilamentAnatomyRenderer() }
+    val pack = remember { resolveBundledPack() }
     val currentOnPicked by rememberUpdatedState(onPicked)
     val currentOnStats by rememberUpdatedState(onStats)
 
@@ -67,32 +67,19 @@ actual fun AnatomyCanvas(
 
     UIKitView(
         factory = {
-            val view = UIView(frame = CGRectZero.readValue())
-            val layer = CAMetalLayer()
-            layer.contentsScale = scale
-            view.layer.addSublayer(layer)
-            view
+            MetalHostView(scale) { layer, widthPx, heightPx ->
+                renderer.attachLayer(layer, widthPx, heightPx, refreshHz)
+            }
         },
         modifier = modifier.pointerInput(renderer) {
             detectTapGestures { offset ->
                 renderer.pickAt(offset.x * scale.toFloat() / density, offset.y * scale.toFloat() / density)
             }
         },
-        onResize = { view, rect ->
-            val metalLayer = view.layer.sublayers?.firstOrNull() as? CAMetalLayer ?: return@UIKitView
-            metalLayer.setFrame(rect)
-            rect.useContents {
-                val widthPx = (size.width * scale).toInt()
-                val heightPx = (size.height * scale).toInt()
-                if (widthPx > 0 && heightPx > 0) {
-                    renderer.attachLayer(metalLayer, widthPx, heightPx, refreshHz)
-                }
-            }
-        },
     )
 
-    LaunchedEffect(renderer) {
-        renderer.loadPack(PackId("phase0-toy"), MeshSource("file://${Phase0ToyAsset.path}"))
+    LaunchedEffect(renderer, pack) {
+        renderer.loadPack(pack.id, pack.mesh)
     }
 
     // Filament paces against the vsync timestamp, so frames come from a display link
@@ -101,27 +88,53 @@ actual fun AnatomyCanvas(
     //
     // UNVERIFIED ON DEVICE: the Android failure is the evidence for this shape, not a
     // reproduction here. Nothing has run the iOS on-screen path on real hardware.
-    DisposableEffect(renderer) {
+    DisposableEffect(renderer, pack) {
         var framesThisSecond = 0
         var windowStart = 0.0
+        // Pacing, as opposed to throughput: how often the link fired, the longest it went
+        // between two firings, and how many of those Filament declined to draw. A frame
+        // rate alone cannot tell a dropped vsync from a refused frame.
+        var callbacks = 0
+        var refused = 0
+        var previous = 0.0
+        var longestGap = 0.0
 
-        val driver = FrameDriver { seconds ->
-            if (renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())) framesThisSecond++
+        val driver = FrameDriver { seconds, granted ->
+            callbacks++
+            if (previous != 0.0 && seconds - previous > longestGap) longestGap = seconds - previous
+            previous = seconds
+
+            if (renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())) framesThisSecond++ else refused++
 
             if (windowStart == 0.0) windowStart = seconds
             val elapsed = seconds - windowStart
             if (elapsed >= 1.0) {
+                val fps = (framesThisSecond / elapsed).toInt()
+                // One screenshot is a sample, not a measurement. Logging each second
+                // lets a run be reduced to a median instead of an anecdote.
+                NSLog(
+                    "AnatomyPerf pack=${pack.label} structures=${renderer.loadedStructureCount} " +
+                        "fps=$fps gpuMs=${renderer.gpuFrameMillis.oneDecimal()} " +
+                        "refreshHz=${refreshHz.toInt()} linkHz=${(callbacks / elapsed).roundToInt()} " +
+                        "grantedHz=${if (granted > 0.0) (1.0 / granted).roundToInt() else 0} " +
+                        "maxGapMs=${(longestGap * 1000.0).oneDecimal()} refused=$refused " +
+                        "residentMb=${renderer.residentBytes / BYTES_PER_MB} " +
+                        "footprintMb=${renderer.footprintBytes / BYTES_PER_MB}"
+                )
                 currentOnStats(
                     CanvasStats(
-                        fps = (framesThisSecond / elapsed).toInt(),
+                        fps = fps,
                         structures = renderer.loadedStructureCount,
-                        pack = "phase0-toy",
+                        pack = pack.label,
                         gpuMillis = renderer.gpuFrameMillis,
                         refreshHz = refreshHz.toInt(),
                     )
                 )
                 framesThisSecond = 0
                 windowStart = seconds
+                callbacks = 0
+                refused = 0
+                longestGap = 0.0
             }
         }
         val link = CADisplayLink.displayLinkWithTarget(driver, NSSelectorFromString("step:"))
@@ -168,6 +181,48 @@ actual fun AnatomyCanvas(
 }
 
 private const val NANOS_PER_SECOND = 1_000_000_000.0
+private const val BYTES_PER_MB = 1024L * 1024L
+
+private fun Float.oneDecimal(): Double = (this * 10f).roundToInt() / 10.0
+
+private fun Double.oneDecimal(): Double = (this * 10.0).roundToInt() / 10.0
+
+/**
+ * A view whose only content is the `CAMetalLayer` Filament draws into.
+ *
+ * The layer is sized in `layoutSubviews` because that is the one place UIKit reports the
+ * view's real size. `UIKitView`'s `onResize` used to do this and is now a no-op that only
+ * logs a warning — so the layer was never attached, no swap chain existed, and every frame
+ * was refused while the canvas stayed blank.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class MetalHostView(
+    private val scale: Double,
+    private val onSized: (layer: CAMetalLayer, widthPx: Int, heightPx: Int) -> Unit,
+) : UIView(frame = CGRectZero.readValue()) {
+
+    private val metalLayer = CAMetalLayer().also {
+        it.contentsScale = scale
+        layer.addSublayer(it)
+    }
+    private var attachedWidth = 0
+    private var attachedHeight = 0
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        metalLayer.setFrame(bounds)
+        val (widthPx, heightPx) = bounds.useContents {
+            (size.width * scale).toInt() to (size.height * scale).toInt()
+        }
+        // Layout runs far more often than the size changes, and each attach replaces the
+        // swap chain.
+        if (widthPx <= 0 || heightPx <= 0) return
+        if (widthPx == attachedWidth && heightPx == attachedHeight) return
+        attachedWidth = widthPx
+        attachedHeight = heightPx
+        onSized(metalLayer, widthPx, heightPx)
+    }
+}
 
 /**
  * Receives display-link callbacks.
@@ -175,10 +230,12 @@ private const val NANOS_PER_SECOND = 1_000_000_000.0
  * `CADisplayLink` dispatches through a target and selector, so this has to be a real
  * Objective-C object rather than a Kotlin lambda.
  */
-private class FrameDriver(private val onFrame: (Double) -> Unit) : NSObject() {
+private class FrameDriver(private val onFrame: (timestamp: Double, granted: Double) -> Unit) : NSObject() {
 
     @kotlinx.cinterop.ObjCAction
     fun step(sender: CADisplayLink) {
-        onFrame(sender.timestamp)
+        // The gap to the frame's target is the interval the system actually granted, which
+        // on a ProMotion panel need not be the panel's maximum.
+        onFrame(sender.timestamp, sender.targetTimestamp - sender.timestamp)
     }
 }

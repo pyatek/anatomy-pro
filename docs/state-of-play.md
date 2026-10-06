@@ -1,7 +1,7 @@
-# State of play — 2026-10-05
+# State of play — 2026-10-06
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–26 there are the running record of what was actually built and why. This file is
+sections 20–28 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -26,7 +26,7 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**232 tests pass on the iOS simulator and 207 on the JVM host** — common tests run on both, so
+**239 tests pass on the iOS simulator and 207 on the JVM host** — common tests run on both, so
 those figures overlap rather than sum. Android's renderer contract and
 database wiring have their own instrumented tests, which need a device; 24 pass on the API 36
 emulator.
@@ -40,15 +40,20 @@ budget at region scope — `skeletal-trunk` 8.3 ms, `muscular-trunk` ~13 ms, `sk
 Not verified, in rough order of how much it matters:
 
 1. **Nothing has run on iOS hardware.** The `CADisplayLink` frame driver was written from
-   the Android failure rather than from a reproduction (§23.2). It compiles; that is all.
+   the Android failure rather than from a reproduction (§23.2). It now paces correctly on the
+   simulator, and everything the device run needs is in place (§28): packs in the bundle, a
+   per-second pacing and memory log, and `iosApp/measure-packs.py`. What is missing is an
+   iPhone and a `TEAM_ID` in `iosApp/Configuration/Config.xcconfig`.
 2. **No mid-range Android device**, which is what §16 actually specifies. A flagship is the
    only hardware this has seen.
 3. **Screens 01, 05, 06, 20 and the bottom bar have never been run at all.**
 4. **Screen-reader speech on screen 21 was never heard.** TalkBack queued the announcement on
    the emulator, but its speech engine was not ready. The live region and custom action are
    wired, not heard.
-5. **iOS draws only the three-cube toy pack**, so screens 07 and 21 have only met three cubes
-   there. The clear-before-frame fix was never seen on iOS, and the iOS shim still creates the
+5. **iOS has drawn real packs only on the simulator, and only since 2026-10-06.** Before that
+   its on-screen canvas drew nothing at all: `UIKitView.onResize` had become a no-op, so the
+   Metal layer was never attached (§28.1). Screens 07 and 21 have not been exercised on iOS
+   against a real pack, picking has not been tapped there, and the iOS shim still creates the
    new swap chain before destroying the old one, the order that failed on Android.
 
 What is verified since: screen 07 was hand-checked on the emulator with the real pack, and

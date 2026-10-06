@@ -70,6 +70,17 @@ void ar_attach_layer(ar_renderer_ref renderer, void* ca_metal_layer, uint32_t wi
  */
 int64_t ar_gpu_frame_nanos(ar_renderer_ref renderer);
 
+/*
+ * The process's memory in bytes, or 0 when the kernel will not say.
+ *
+ * Two figures because they answer different questions. Resident size is what §6.1's budget
+ * is written against; the physical footprint is what iOS charges the app with when it
+ * decides whom to terminate, and it counts compressed and GPU-shared pages that resident
+ * size leaves out. Process-wide, so neither takes a renderer.
+ */
+int64_t ar_resident_bytes(void);
+int64_t ar_footprint_bytes(void);
+
 void ar_load_model(ar_renderer_ref renderer, const char* uri);
 void ar_unload_model(ar_renderer_ref renderer, const char* uri);
 
