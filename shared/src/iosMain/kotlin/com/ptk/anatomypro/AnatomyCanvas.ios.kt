@@ -1,6 +1,5 @@
 package com.ptk.anatomypro
 
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -10,9 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.interop.UIKitView
-import androidx.compose.ui.platform.LocalDensity
 import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
@@ -20,7 +17,9 @@ import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.atlas.scene.applyRenderState
 import com.ptk.anatomypro.renderer.api.RendererEvent
 import com.ptk.anatomypro.renderer.filament.FilamentAnatomyRenderer
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectZero
@@ -33,6 +32,7 @@ import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
 import platform.darwin.NSObject
 import platform.UIKit.UIScreen
+import platform.UIKit.UITapGestureRecognizer
 import platform.UIKit.UIView
 import kotlin.math.roundToInt
 
@@ -55,7 +55,6 @@ actual fun AnatomyCanvas(
 ) {
     val scale = UIScreen.mainScreen.scale
     val refreshHz = UIScreen.mainScreen.maximumFramesPerSecond.toFloat()
-    val density = LocalDensity.current.density
     val renderer = remember { FilamentAnatomyRenderer() }
     val pack = remember { resolveBundledPack() }
     val currentOnPicked by rememberUpdatedState(onPicked)
@@ -67,15 +66,15 @@ actual fun AnatomyCanvas(
 
     UIKitView(
         factory = {
-            MetalHostView(scale) { layer, widthPx, heightPx ->
-                renderer.attachLayer(layer, widthPx, heightPx, refreshHz)
-            }
+            MetalHostView(
+                scale = scale,
+                onSized = { layer, widthPx, heightPx ->
+                    renderer.attachLayer(layer, widthPx, heightPx, refreshHz)
+                },
+                onTapped = { xPx, yPx -> renderer.pickAt(xPx, yPx) },
+            )
         },
-        modifier = modifier.pointerInput(renderer) {
-            detectTapGestures { offset ->
-                renderer.pickAt(offset.x * scale.toFloat() / density, offset.y * scale.toFloat() / density)
-            }
-        },
+        modifier = modifier,
     )
 
     LaunchedEffect(renderer, pack) {
@@ -195,10 +194,11 @@ private fun Double.oneDecimal(): Double = (this * 10.0).roundToInt() / 10.0
  * logs a warning — so the layer was never attached, no swap chain existed, and every frame
  * was refused while the canvas stayed blank.
  */
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private class MetalHostView(
     private val scale: Double,
     private val onSized: (layer: CAMetalLayer, widthPx: Int, heightPx: Int) -> Unit,
+    private val onTapped: (xPx: Float, yPx: Float) -> Unit,
 ) : UIView(frame = CGRectZero.readValue()) {
 
     private val metalLayer = CAMetalLayer().also {
@@ -207,6 +207,17 @@ private class MetalHostView(
     }
     private var attachedWidth = 0
     private var attachedHeight = 0
+
+    // Taps are recognised here, in UIKit. An interop view takes its own touches, so a
+    // Compose pointerInput on the UIKitView never saw one and nothing could be picked.
+    init {
+        addGestureRecognizer(UITapGestureRecognizer(target = this, action = NSSelectorFromString("tapped:")))
+    }
+
+    @ObjCAction
+    fun tapped(sender: UITapGestureRecognizer) {
+        sender.locationInView(this).useContents { onTapped((x * scale).toFloat(), (y * scale).toFloat()) }
+    }
 
     override fun layoutSubviews() {
         super.layoutSubviews()

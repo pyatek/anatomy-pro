@@ -1,7 +1,7 @@
 # State of play — 2026-10-06
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–31 there are the running record of what was actually built and why. This file is
+sections 20–32 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -46,15 +46,16 @@ Not verified, in rough order of how much it matters:
    iPhone and a `TEAM_ID` in `iosApp/Configuration/Config.xcconfig`.
 2. **No mid-range Android device**, which is what §16 actually specifies. A flagship is the
    only hardware this has seen.
-3. **Screens 01, 05, 06, 20 and the bottom bar have never been run at all.**
+3. ~~Screens 01, 05, 06, 20 and the bottom bar have never been run at all.~~ Run on the
+   Android emulator and, on 2026-10-06, on the iOS simulator in both languages (§32).
 4. **Screen-reader speech on screen 21 was never heard.** TalkBack queued the announcement on
    the emulator, but its speech engine was not ready. The live region and custom action are
    wired, not heard.
 5. **iOS has drawn real packs only on the simulator, and only since 2026-10-06.** Before that
-   its on-screen canvas drew nothing at all: `UIKitView.onResize` had become a no-op, so the
-   Metal layer was never attached (§28.1). Screens 07 and 21 have not been exercised on iOS
-   against a real pack, picking has not been tapped there, and the iOS shim still creates the
-   new swap chain before destroying the old one, the order that failed on Android.
+   its on-screen canvas drew nothing at all (§28.1) and could not be tapped (§32.2); both are
+   fixed and seen working there. Screen 07 has not been exercised on iOS against a real
+   pack, and the iOS shim still creates the new swap chain before destroying the old one, the
+   order that failed on Android.
 
 What is verified since: screen 07 was hand-checked on the emulator with the real pack, and
 screen 21 with `skeletal-trunk`. A ghost reads as a pale shell, not a dark smear — on the
@@ -84,6 +85,10 @@ and packs are currently bundled in the APK.
 - **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
   objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
   drops them silently. Fixing it will move the performance numbers for those systems.
+- **The atlas has roots that are not anatomy** — `1: Skeletal system` beside `Skeletal system`,
+  and `Visceral systems` in a skeletal pack. The pipeline promotes Z-Anatomy's numbered
+  visibility layers to structures (§32.3).
+- **Left and right look identical in search and on the detail screen.**
 - **No Polish names.** The pipeline emits Latin and English. The schema holds more; nothing
   fills it. The settings picker lists only what packs can render.
 - **The bundled default pack is stale.** `trunk-all-systems` (2026-09-07) predates group

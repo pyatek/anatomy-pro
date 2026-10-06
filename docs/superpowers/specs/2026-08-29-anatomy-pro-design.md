@@ -1790,3 +1790,57 @@ Not verified:
 - **No pack has been regenerated from the atlas.** The summariser has only met definitions
   through the rewrite of existing manifests.
 - The extracts keep Wikipedia's artefacts, such as the femur's "(, pl. femurs or femora )".
+
+## 32. Addendum — 2026-10-06: the first run of the remaining screens on iOS
+
+State-of-play listed screens 01, 05, 06, 20 and the bottom bar as never run. Android was
+checked earlier; this is the iOS simulator, driven by taps through Appium's XCUITest driver,
+which had to be installed for it — nothing on the machine could tap a simulator before.
+
+### 32.1 What was opened
+
+On the iPhone 17 simulator, with the `skeletal-trunk` pack:
+
+- **01 language selection** in Polish and English.
+- **04 atlas** in both languages, and **21 tree mode** in Polish.
+- **05 structure detail** for a group with a definition and for a leaf without one. The
+  definition's credit line reads "Źródło: Wikipedia · CC BY-SA 3.0 · niezweryfikowane".
+- **06 search**: "cost" finds 29 results, each badged with the language that matched, and
+  the Polish plural is right.
+- **20 settings**: switching the interface language changes the screen in place and stays
+  on the settings tab.
+- **The bottom bar** and the three placeholder tabs. Returning to the atlas tab restores
+  the detail screen it was left on.
+
+Upgrading the installed app also ran §31.4's migration on a real version 2 database: 531
+definitions moved, and the bundled pack's were replaced by cut and attributed ones on the
+next install.
+
+### 32.2 Picking never worked on screen on iOS
+
+Tapping the model selected nothing. The tap handler was a Compose `pointerInput` on the
+`UIKitView`; an interop view takes its own touches, so Compose never saw one. §28.1 found the
+layer was never attached; with that fixed, this was the next thing behind it.
+
+Taps are now recognised by a `UITapGestureRecognizer` on the view that owns the Metal layer.
+On the simulator a tap on the lumbar spine selects and highlights `Vertebra lumborum V`, and
+one on the rib cage selects `Third rib`: real structure ids the tree knows.
+
+### 32.3 Defects found and not fixed
+
+- **Roots that are not anatomy** — `1: Skeletal system`, an empty duplicate of
+  `Skeletal system`, and `Visceral systems` at the top of a skeletal pack. Z-Anatomy's
+  numbered visibility layers are being promoted to structures. A pipeline defect.
+- **Left and right are indistinguishable in search and on the detail screen.** "Costa prima"
+  appears twice in a row with nothing to tell the two apart, and the detail screen does not
+  say which side it is showing.
+- **The bottom bar rides up above the keyboard** on the search screen and takes a row of
+  results with it.
+- **The atlas list shows every installed pack's structures, while the canvas draws one
+  pack.** Seen because the measurement runs of §28 installed three packs into one database.
+
+### 32.4 Status
+
+Verified on the simulator only; no hardware. Not checked on iOS: screen 07, the search
+screen in English, screen-reader behaviour on any screen, and rotation.
+
