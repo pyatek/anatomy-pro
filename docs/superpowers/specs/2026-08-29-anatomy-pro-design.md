@@ -1917,12 +1917,14 @@ run in 34.4 carries them.
 
 In debug builds, from the installed atlas, through `AtlasQuizSource`: a topic is a group with
 at least four non-group children. This is **without §7's verified-only gate** — an unreviewed
-atlas would leave nothing to ask. It is a harness, not §8.1's generator. The tests use the
-fixture source, which keeps the gate.
+atlas would leave nothing to ask. It is a harness, not §8.1's generator. Most tests use the
+fixture source, which keeps the gate. `AtlasQuizSourceTest`, and the
+tests of the mirror-side answer (34.3), use the atlas source.
 
 Debug has no quiz until the pack is installed (`NotBuiltQuizRepository`, so the placeholder),
-and then exactly one `FakeQuizRepository` over the atlas, shared with the fake daily
-repository. The reason: the session ViewModel is app-scoped, and built early it captured the
+and then one `FakeQuizRepository` per composition of the debug entry, over the atlas and
+shared with the fake daily repository. An Activity recreation (rotation) rebuilds it while
+the retained ViewModels keep the old one; that was not exercised. The reason: the session ViewModel is app-scoped, and built early it captured the
 fixture quiz, so the debug quiz could not start. Built once with the final repository, nothing
 in the shell needs to know. The cost is that the Test tab shows "not built" for the first
 moments of a debug launch; that moment was not seen on Android (34.4).
@@ -1934,8 +1936,20 @@ moments of a debug launch; that moment was not seen on Android (34.4).
   its answer. `QuizRoute.Feedback` is therefore unused and kept, as is `Question.index`.
 - **The clock runs only while the question is on screen and the app is in front.** The route
   ties it to the lifecycle (`LifecycleResumeEffect`), not just composition, so a timed
-  question cannot expire behind a backgrounded app. A system dialog or the notification shade
-  also pauses it, which is the kinder error.
+  question cannot expire behind a backgrounded app. It pauses whenever the screen's
+  lifecycle leaves RESUMED: the app in the background, another tab, a dialog that pauses the
+  activity. Which system surfaces do that was not checked.
+- **A timer or examination-language change made mid-session applies from the next session.**
+  `start` takes both when the session begins.
+- **The other side of a paired structure is the same answer.** `AtlasQuizSource` offers one
+  structure per name, because two options reading the same cannot both be shown, but the
+  model draws both sides and both can be tapped. Comparing ids marked the mirror wrong, with
+  "The answer" and "You chose" naming the same thing (two of the five `skeletal-trunk`
+  topics). `QuizSource.sameAnswer` now decides: the same structure, or, in the atlas source,
+  two non-group structures with the same name in the examination locale under the same
+  parent. The same name under another group stays wrong. For a right answer through the
+  mirror, `AnswerResult.expected` is the structure tapped, so the model marks that one right.
+  The fixture source keeps plain id equality.
 - **Elapsed time is read from a clock, not counted in ticks.** The plan's loop ticked every
   100 ms for as long as an untimed question was on screen and never ended, so any test that
   left one on screen hung (both targets, over ten minutes). An untimed question now runs no
@@ -1984,8 +1998,12 @@ odpowiedzi były poprawne."); the Android "not built" moment at cold start; whet
 is exactly where it was across a tab switch (it did not run during the visit, but the
 readings came from slow screenshots); that a transition from question to feedback shows no
 blank (only stills before and after). Nothing was run on a physical device, and nothing with
-a screen reader. The closing `./gradlew allTests` of the plan's Step 7 was not run in the hand
-run.
+a screen reader. Also not seen: rotation or any Activity recreation, process death, and a
+mirror-side tap on a device (covered by a unit test only). The hand-run record of item 12 says
+the topic list appeared in English with only the examination language changed; the code should
+not do that (titles load in the interface locale, falling back to Latin). It is unexplained and
+was not re-checked. The closing `./gradlew allTests` was run afterwards, at commit ee9fc90:
+327 on the iOS simulator and 297 on the JVM host, none failing.
 
 ### 34.5 What is left
 
@@ -2015,8 +2033,11 @@ run.
   instantly while fading out; the topic grid's format resets on an interface-language change;
   the topic grid loads once, so a pack installed later does not refresh it; a subscriber may
   see topics locked before the entitlements flow emits; a failed retry leaves the old cells
-  showing; `AtlasQuizSource` calls `atlas.detail` once per group and silently drops a group
-  whose id is not a valid slug.
+  showing; `AtlasQuizSource` calls `atlas.detail` once per group.
+- **The topic lock is checked only in the route** (`QuizTab.kt`), not in
+  `QuizSessionViewModel.start`, so the daily plan's practice mode must gate before it calls
+  `start`.
+- **A failed start or finish message stays on the grid** until the next start.
 - The fake pack and progress repositories still entitle and report mastery under ids the
   profile plan will change.
 

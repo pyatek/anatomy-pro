@@ -39,11 +39,11 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**262 tests pass on the iOS simulator and 232 on the JVM host** (measured 2026-10-06, before
-the quiz) — common tests run on both, so those figures overlap rather than sum. The quiz
-module adds 53 per target, on both the JVM host and the iOS simulator: 8 for the topic grid,
-32 for the session, 13 for the canvas rules. The project-wide totals have not been re-run
-since. Android's renderer contract and
+**327 tests pass on the iOS simulator and 297 on the JVM host, none failing** (`./gradlew
+allTests` at commit ee9fc90) — common tests run on both, so those figures overlap rather than
+sum. The quiz module has 53 per target, on both the JVM host and the iOS simulator: 8 for the
+topic grid, 32 for the session, 13 for the canvas rules. The fake module has 76 per target,
+five of them added with the mirror-side answer (§34.3). Android's renderer contract and
 database wiring have their own instrumented tests, which need a device. The
 `:shared:renderer-filament` module's instrumented suite is 30 tests, measured on the API 36
 emulator after the several-highlights change. An earlier figure of 24 instrumented tests
@@ -99,8 +99,8 @@ emulator, `IsolationPolicy` has its production caller, and screen 07 exists. Wha
 had is a hardware measurement; §25.4's interleaved-variants method is how that will happen.
 §12 needs shaders, plus `matc`, which is not on this machine.
 
-Dashed waits for Phase 2 to need it. Until §12 lands,
-highlighting is colour and luminance only and the quiz must not be built on it.
+Dashed waits for Phase 2 to need it. The quiz exists and stands on colour and luminance
+only; screen 12 stays unfinished until §12's outlines land.
 
 **The quiz needs its real question generator.** Design §8.1's generator, and §7's
 verified-only gate in front of it, are what turn the canned harness into a product. Until
@@ -153,8 +153,10 @@ and packs are currently bundled in the APK.
 - **Focusing a group in tree mode moves no camera**, because groups draw nothing.
 - **The eight Latin system names in `SystemNames.kt` are unverified.** They go on the
   reviewer's list.
-- **UI strings are Polish literals**, not extracted for localisation. §13's mechanism does
-  not exist.
+- **Some fake data is still Polish literals**: the plan names and prices, the payment-declined
+  message, and the system and pack labels in `FakeEntitlementRepository`, `FakePackRepository`
+  and `FakeProgressRepository`. Screen strings are resources (`values` and `values-pl` in each
+  feature module); this is data that real repositories will supply.
 
 ### Found by the quiz hand run (§34.4)
 
