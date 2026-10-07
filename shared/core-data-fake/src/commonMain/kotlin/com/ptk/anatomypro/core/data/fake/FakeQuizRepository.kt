@@ -96,10 +96,16 @@ class FakeQuizRepository(
                 is QuizQuestion.TapTheStructure -> question.target
             }
 
+            val chosen = answer.chosen
+            val correct = chosen != null && source.sameAnswer(expectedId, chosen, held.locale)
+            // Right through the mirror: the model must mark what the student tapped as right,
+            // not its twin, so that is the structure reported as expected.
+            val expectedShown = if (correct && chosen != expectedId) chosen else expectedId
+
             val result = AnswerResult(
                 questionId = answer.questionId,
-                correct = answer.chosen == expectedId,
-                expected = requireNotNull(source.summary(expectedId, held.locale)),
+                correct = correct,
+                expected = requireNotNull(source.summary(expectedShown, held.locale)),
                 // A tap can land on a structure outside the topic, or outside the source
                 // altogether; then there is a wrong answer and nothing to name it with.
                 chosen = answer.chosen?.let { source.summary(it, held.locale) },

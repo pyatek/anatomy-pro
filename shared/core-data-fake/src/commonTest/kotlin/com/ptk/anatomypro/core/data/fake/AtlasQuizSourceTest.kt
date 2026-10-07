@@ -2,12 +2,18 @@ package com.ptk.anatomypro.core.data.fake
 
 import com.ptk.anatomypro.core.data.model.QuizFormat
 import com.ptk.anatomypro.core.data.model.QuizQuestion
+import com.ptk.anatomypro.core.data.model.SearchHit
+import com.ptk.anatomypro.core.data.model.StructureDetail
+import com.ptk.anatomypro.core.data.model.StructureSummary
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.Laterality
 import com.ptk.anatomypro.core.model.QuizTopicId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AtlasQuizSourceTest {
@@ -64,4 +70,104 @@ class AtlasQuizSourceTest {
         assertEquals("pl", source.nameLocale(StructureId("costa-i"), "pl"))
         assertEquals("la", source.nameLocale(StructureId("costa-i"), "xx"))
     }
+
+    @Test
+    fun the_mirror_of_the_expected_structure_is_the_same_answer() = runTest {
+        val paired = AtlasQuizSource(PairedAtlas())
+
+        assertTrue(paired.sameAnswer(StructureId("femur-left"), StructureId("femur-right"), "la"))
+        assertTrue(paired.sameAnswer(StructureId("femur-left"), StructureId("femur-left"), "la"))
+    }
+
+    @Test
+    fun a_structure_with_another_name_is_not_the_same_answer() = runTest {
+        val paired = AtlasQuizSource(PairedAtlas())
+
+        assertFalse(paired.sameAnswer(StructureId("femur-left"), StructureId("tibia"), "la"))
+    }
+
+    @Test
+    fun the_same_name_under_another_group_is_not_the_same_answer() = runTest {
+        val paired = AtlasQuizSource(PairedAtlas())
+
+        assertFalse(paired.sameAnswer(StructureId("femur-left"), StructureId("femur-elsewhere"), "la"))
+    }
+
+    @Test
+    fun the_fixture_source_accepts_only_the_structure_itself() = runTest {
+        assertTrue(FixtureQuizSource.sameAnswer(StructureId("costa-i"), StructureId("costa-i"), "la"))
+        assertFalse(FixtureQuizSource.sameAnswer(StructureId("costa-i"), StructureId("costa-ii"), "la"))
+    }
+}
+
+/**
+ * The smallest atlas with a paired structure: "bones" holds two groups; "limb" has five
+ * distinct names, one carried by a left and a right femur, and "rest" has a femur of its own.
+ */
+internal class PairedAtlas : AtlasRepository {
+
+    private class Node(val id: String, val name: String, val parent: String?, val isGroup: Boolean = false)
+
+    private val nodes = listOf(
+        Node("bones", "Bones", null, isGroup = true),
+        Node("limb", "Limb", "bones", isGroup = true),
+        Node("rest", "Rest", "bones", isGroup = true),
+        Node("femur-left", "Femur", "limb"),
+        Node("femur-right", "Femur", "limb"),
+        Node("tibia", "Tibia", "limb"),
+        Node("fibula", "Fibula", "limb"),
+        Node("patella", "Patella", "limb"),
+        Node("femur-elsewhere", "Femur", "rest"),
+    )
+
+    private fun Node.summary() = StructureSummary(
+        id = StructureId(id),
+        name = name,
+        latinName = name,
+        laterality = when {
+            id.endsWith("-left") -> Laterality.LEFT
+            id.endsWith("-right") -> Laterality.RIGHT
+            else -> Laterality.MEDIAN
+        },
+        isGroup = isGroup,
+        hasChildren = nodes.any { it.parent == id },
+    )
+
+    private fun find(id: StructureId) = nodes.firstOrNull { it.id == id.value }
+
+    override suspend fun roots(locale: String) = nodes.filter { it.parent == null }.map { it.summary() }
+
+    override suspend fun children(parent: StructureId, locale: String) =
+        nodes.filter { it.parent == parent.value }.map { it.summary() }
+
+    override suspend fun summary(id: StructureId, locale: String) = find(id)?.summary()
+
+    override suspend fun detail(id: StructureId, locale: String): StructureDetail? {
+        val node = find(id) ?: return null
+        val ancestors = generateSequence(node.parent) { parent -> nodes.first { it.id == parent }.parent }
+            .map { parent -> nodes.first { it.id == parent }.summary() }
+            .toList()
+            .reversed()
+        return StructureDetail(
+            id = id,
+            names = mapOf("la" to node.name),
+            definition = null,
+            definitionLocale = null,
+            definitionSource = null,
+            definitionLicence = null,
+            systemId = "skeletal-system",
+            regionId = null,
+            laterality = node.summary().laterality,
+            isGroup = node.isGroup,
+            ancestors = ancestors,
+        )
+    }
+
+    override suspend fun search(query: String, limit: Int): List<SearchHit> = emptyList()
+
+    override suspend fun systems() = emptyList<SystemId>()
+
+    override suspend fun structuresIn(system: SystemId) = emptySet<StructureId>()
+
+    override suspend fun allStructures() = nodes.map { StructureId(it.id) }.toSet()
 }

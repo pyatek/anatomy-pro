@@ -31,6 +31,15 @@ interface QuizSource {
 
     /** The locale [id]'s name is really in when asked for [locale]: Latin when untranslated. */
     suspend fun nameLocale(id: StructureId, locale: String): String
+
+    /**
+     * Whether [chosen] answers a question that expects [expected].
+     *
+     * The same structure always does. A source whose atlas draws a left and a right
+     * structure under one name says its mirror does too: the question names no side, so
+     * neither side can be the wrong one.
+     */
+    suspend fun sameAnswer(expected: StructureId, chosen: StructureId, locale: String): Boolean = expected == chosen
 }
 
 /**
@@ -133,6 +142,20 @@ class AtlasQuizSource(private val atlas: AtlasRepository) : QuizSource {
 
     override suspend fun nameLocale(id: StructureId, locale: String): String =
         if (atlas.detail(id, locale)?.names?.containsKey(locale) == true) locale else "la"
+
+    /**
+     * [answersAmong] offers one structure per name, but the model draws both sides, so the
+     * mirror counts: the same name in [locale] under the same parent. The same name under
+     * another group is a different structure.
+     */
+    override suspend fun sameAnswer(expected: StructureId, chosen: StructureId, locale: String): Boolean {
+        if (expected == chosen) return true
+        val one = atlas.detail(expected, locale) ?: return false
+        val other = atlas.detail(chosen, locale) ?: return false
+        if (one.isGroup || other.isGroup) return false
+        return atlas.summary(expected, locale)?.name == atlas.summary(chosen, locale)?.name &&
+            one.ancestors.lastOrNull()?.id == other.ancestors.lastOrNull()?.id
+    }
 
     private companion object {
         const val MAX_DEPTH = 8

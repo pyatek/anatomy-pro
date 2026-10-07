@@ -183,4 +183,27 @@ class FakeQuizRepositoryTest {
         assertEquals(4, session.questions.size)
         assertEquals(-123L, session.seed)
     }
+
+    @Test
+    fun tapping_the_other_side_of_a_paired_structure_is_right() = runTest {
+        val paired = FakeQuizRepository(source = AtlasQuizSource(PairedAtlas()))
+        val limb = QuizTopicId("limb")
+        val mirrors = mapOf(StructureId("femur-left") to StructureId("femur-right"), StructureId("femur-right") to StructureId("femur-left"))
+
+        // Only four names are offered, one per name, so the femur is always asked, by
+        // whichever side the source kept.
+        val session = paired.startSession(limb, QuizFormat.TAP_THE_STRUCTURE, questionCount = 5, seed = 3L, locale = "la")
+        val question = session.questions
+            .filterIsInstance<QuizQuestion.TapTheStructure>()
+            .first { it.target in mirrors }
+        val tapped = mirrors.getValue(question.target)
+
+        val result = paired.submit(session.id, QuizAnswer(question.id, tapped, elapsedMillis = 800))
+
+        assertTrue(result.correct)
+        assertEquals(tapped, result.expected.id)
+        val summary = paired.finish(session.id)
+        assertEquals(1, summary.correct)
+        assertTrue(summary.needsReview.isEmpty())
+    }
 }
