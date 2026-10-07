@@ -55,6 +55,16 @@ abstract class AnatomyRendererContract {
      */
     protected open suspend fun settle(renderer: AnatomyRenderer) = Unit
 
+    /**
+     * How many pixels of the last drawn frame are [argb]'s colour.
+     *
+     * A real renderer reads its frame back; the fake answers from what it recorded. The
+     * default fails, so a renderer that has not been taught to look cannot pass an outline
+     * case by accident.
+     */
+    protected open suspend fun countPixels(renderer: AnatomyRenderer, argb: Int): Int =
+        throw AssertionError("this renderer cannot report what it drew")
+
     suspend fun verifyLoadingAPackSignalsReadyThenLoaded() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
@@ -232,6 +242,71 @@ abstract class AnatomyRendererContract {
         assertEquals(null, error, "an error was reported resolving highlight over ghost")
     }
 
+    suspend fun verifyAHighlightDrawsAnOutlineInItsColour() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+        assertEquals(0, countPixels(renderer, OUTLINE_ARGB), "outline-coloured pixels before any highlight")
+
+        renderer.highlight(setOf(hitStructure), OUTLINE_THIN)
+        settle(renderer)
+        assertPositive(countPixels(renderer, OUTLINE_ARGB), "pixels of the outline colour around a highlighted structure")
+
+        // Restyled: the outline follows, and the first colour leaves nothing behind.
+        renderer.highlight(setOf(hitStructure), OUTLINE_OTHER)
+        settle(renderer)
+        assertEquals(0, countPixels(renderer, OUTLINE_ARGB), "pixels of the first colour after a restyle")
+        assertPositive(countPixels(renderer, OTHER_OUTLINE_ARGB), "pixels of the second colour after a restyle")
+
+        renderer.highlight(emptyMap())
+        settle(renderer)
+        assertEquals(0, countPixels(renderer, OTHER_OUTLINE_ARGB), "outline-coloured pixels after the highlight was cleared")
+    }
+
+    suspend fun verifyAWiderOutlineCoversMorePixels() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        // The fill does not change with the width, so whatever grows is the outline.
+        renderer.highlight(setOf(hitStructure), OUTLINE_THIN)
+        settle(renderer)
+        val thin = countPixels(renderer, OUTLINE_ARGB)
+        renderer.highlight(setOf(hitStructure), OUTLINE_WIDE)
+        settle(renderer)
+        val wide = countPixels(renderer, OUTLINE_ARGB)
+
+        if (wide <= thin) {
+            throw AssertionError("a wider outline should cover more pixels: thin <$thin>, wide <$wide>")
+        }
+    }
+
+    suspend fun verifyAHiddenStructureHasNoOutline() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+
+        renderer.highlight(setOf(hitStructure), OUTLINE_THIN)
+        renderer.setVisibility(setOf(hitStructure), visible = false)
+        settle(renderer)
+        assertEquals(0, countPixels(renderer, OUTLINE_ARGB), "outline-coloured pixels around a hidden structure")
+
+        renderer.setVisibility(setOf(hitStructure), visible = true)
+        settle(renderer)
+        assertPositive(countPixels(renderer, OUTLINE_ARGB), "pixels of the outline colour once it is shown again")
+    }
+
+    suspend fun verifyUnloadingAPackRemovesItsOutline() = withRenderer { renderer ->
+        renderer.loadPack(pack, source)
+        settle(renderer)
+        renderer.highlight(setOf(hitStructure), OUTLINE_THIN)
+        settle(renderer)
+
+        renderer.unloadPack(pack)
+        settle(renderer)
+
+        assertEquals(0, countPixels(renderer, OUTLINE_ARGB), "outline-coloured pixels after the pack was unloaded")
+        val error = awaitEventOrNull(renderer) { it is RendererEvent.Error }
+        assertEquals(null, error, "an error was reported unloading a pack with a highlight")
+    }
+
     suspend fun verifyUnloadingAPackForgetsIt() = withRenderer { renderer ->
         renderer.loadPack(pack, source)
         settle(renderer)
@@ -320,6 +395,10 @@ abstract class AnatomyRendererContract {
         }
     }
 
+    private fun assertPositive(count: Int, what: String) {
+        if (count <= 0) throw AssertionError("$what: expected some but there were <$count>")
+    }
+
     private companion object {
         const val TIMEOUT_MS = 15_000L
         const val ABSENCE_TIMEOUT_MS = 2_000L
@@ -349,5 +428,23 @@ abstract class AnatomyRendererContract {
             fillArgb = 0xFF5B8DEF.toInt(),
             fillLuminanceShift = 0.10f,
         )
+
+        /** Pure magenta: no lit surface in a fixture comes out as exactly this. */
+        const val OUTLINE_ARGB = 0xFFFF00FF.toInt()
+        const val OTHER_OUTLINE_ARGB = 0xFF00FFFF.toInt()
+
+        /**
+         * The fill is darkened by half, so the tinted surface itself — which takes its colour
+         * from the outline colour — never reaches the outline's own bytes.
+         */
+        val OUTLINE_THIN = HighlightStyle(
+            outlineArgb = OUTLINE_ARGB,
+            outlineWidthDp = 4f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = OUTLINE_ARGB,
+            fillLuminanceShift = -0.5f,
+        )
+        val OUTLINE_WIDE = OUTLINE_THIN.copy(outlineWidthDp = 12f)
+        val OUTLINE_OTHER = OUTLINE_THIN.copy(outlineArgb = OTHER_OUTLINE_ARGB, fillArgb = OTHER_OUTLINE_ARGB)
     }
 }

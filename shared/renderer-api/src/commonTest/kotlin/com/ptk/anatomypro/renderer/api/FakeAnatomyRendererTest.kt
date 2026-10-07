@@ -38,6 +38,9 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
         fake.emitPick(fake.focused ?: hitStructure)
     }
 
+    override suspend fun countPixels(renderer: AnatomyRenderer, argb: Int): Int =
+        (renderer as FakeAnatomyRenderer).outlinePixels(argb)
+
     @Test fun centres_a_focused_structure() = runTest { verifyFocusingTheCameraCentresAStructure() }
     @Test fun returns_to_the_whole_model() = runTest { verifyFramingAllReturnsTheCentreToTheWholeModel() }
     @Test fun signals_ready_then_pack_loaded() = runTest { verifyLoadingAPackSignalsReadyThenLoaded() }
@@ -51,6 +54,10 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun shows_a_hidden_structure_again() = runTest { verifyShowingAHiddenStructureRestoresPicking() }
     @Test fun keeps_a_ghosted_structure_pickable() = runTest { verifyAGhostedStructureStaysPickable() }
     @Test fun does_not_fault_when_highlight_and_ghost_interleave() = runTest { verifyDoesNotFaultWhenHighlightAndGhostInterleave() }
+    @Test fun draws_an_outline_in_the_styles_colour() = runTest { verifyAHighlightDrawsAnOutlineInItsColour() }
+    @Test fun draws_a_wider_outline_over_more_pixels() = runTest { verifyAWiderOutlineCoversMorePixels() }
+    @Test fun draws_no_outline_for_a_hidden_structure() = runTest { verifyAHiddenStructureHasNoOutline() }
+    @Test fun removes_the_outline_with_the_pack() = runTest { verifyUnloadingAPackRemovesItsOutline() }
 }
 
 /** Behaviour that belongs to the fake specifically, rather than to the interface. */
@@ -172,5 +179,21 @@ class FakeAnatomyRendererTest {
 
         renderer.unloadPack(pack)
         assertTrue(renderer.loadedPacks.isEmpty())
+    }
+
+    @Test
+    fun reports_outline_only_for_the_colour_asked_and_only_while_a_pack_is_loaded() = runTest {
+        val renderer = FakeAnatomyRenderer()
+        val magenta = 0xFFFF00FF.toInt()
+
+        renderer.highlight(setOf(rib), style(0xFFFF00FF))
+        assertEquals(0, renderer.outlinePixels(magenta))
+
+        renderer.loadPack(pack, source)
+        assertEquals(300, renderer.outlinePixels(magenta))
+        assertEquals(0, renderer.outlinePixels(0xFF00FFFF.toInt()))
+
+        renderer.setVisibility(setOf(rib), visible = false)
+        assertEquals(0, renderer.outlinePixels(magenta))
     }
 }

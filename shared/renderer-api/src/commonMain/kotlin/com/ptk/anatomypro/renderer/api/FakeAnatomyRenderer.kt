@@ -104,4 +104,19 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         val reported = if (structure in hidden) null else structure
         _events.emit(RendererEvent.Picked(reported))
     }
+
+    /**
+     * Test hook: how much outline of colour [argb] a real renderer would have on screen.
+     *
+     * Not a pixel count — the fake draws nothing — but it moves the way one does: zero with
+     * no pack, zero for a hidden structure, more for a wider outline, and only for the
+     * colour asked about. That is all the contract's outline cases compare.
+     */
+    fun outlinePixels(argb: Int): Int {
+        if (loadedPacks.isEmpty()) return 0
+        return highlights
+            .filter { (structure, style) -> structure !in hidden && style.outlineArgb == argb }
+            .values
+            .sumOf { (it.outlineWidthDp * 100).toInt() }
+    }
 }
