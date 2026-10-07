@@ -39,10 +39,10 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**327 tests pass on the iOS simulator and 297 on the JVM host, none failing** (`./gradlew
-allTests` at commit ee9fc90) — common tests run on both, so those figures overlap rather than
+**330 tests pass on the iOS simulator and 300 on the JVM host, none failing** (`./gradlew
+allTests` at commit 9c11dec) — common tests run on both, so those figures overlap rather than
 sum. The quiz module has 53 per target, on both the JVM host and the iOS simulator: 8 for the
-topic grid, 32 for the session, 13 for the canvas rules. The fake module has 76 per target,
+topic grid, 32 for the session, 13 for the canvas rules. The fake module has 78 per target,
 five of them added with the mirror-side answer (§34.3). Android's renderer contract and
 database wiring have their own instrumented tests, which need a device. The
 `:shared:renderer-filament` module's instrumented suite is 30 tests, measured on the API 36
