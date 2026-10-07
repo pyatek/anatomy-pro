@@ -1,7 +1,7 @@
-# State of play — 2026-10-06
+# State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–32 there are the running record of what was actually built and why. This file is
+sections 20–34 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -11,23 +11,39 @@ commits, `phase0/ios-filament-host` holds nothing `main` lacks, and `origin/main
 
 ## What exists
 
-Eleven modules. `core-model`, `core-data` (Room), `core-designsystem`, `renderer-api`,
-`renderer-filament`, `feature-atlas`, `feature-search`, `feature-settings`, the `shared`
+Twelve modules. `core-model`, `core-data` (Room), `core-designsystem`, `renderer-api`,
+`renderer-filament`, `feature-atlas`, `feature-search`, `feature-settings`, `feature-quiz`, the `shared`
 umbrella, `androidApp`, and `ios-renderer` (the Objective-C++ Filament host).
 
 Plus `pipeline/`, a separate Python build that converts the Z-Anatomy Blender atlas into
 content packs. It needs Blender installed and reaches `gltfpack` through `npx`.
 
-**Seven of the prototype's 21 screens are real**: 01 language selection, 04 atlas viewer,
-05 structure detail, 06 search, 07 layer panel, 20 settings, 21 structure tree mode. Three
-bottom-bar tabs are honest placeholders.
+**Seven of the prototype's 21 screens are real everywhere**: 01 language selection, 04 atlas
+viewer, 05 structure detail, 06 search, 07 layer panel, 20 settings, 21 structure tree mode.
+Three bottom-bar tabs are honest placeholders.
+
+**Screens 08 to 13 are real, with qualifications** (§34): topic selection, a question in two
+formats (name the structure, find the structure), right-answer and wrong-answer feedback, and
+the session summary. They run in `:shared:feature-quiz`.
+
+- The questions are canned: a fake repository draws them from the installed atlas. There is
+  no question generator.
+- Android debug build only. Production and iOS keep the "not built" placeholder, because no
+  quiz repository stands behind them.
+- The default bundled Android pack, `trunk-all-systems`, has no groups, so the Test tab is
+  empty on it. Run with `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`.
+- Screen 12 (wrong answer) is unfinished: no outlines, and the camera frames only one of the
+  two structures.
 
 The renderer can now frame things: `focusCamera` and `frameAll` exist on both platforms and
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**262 tests pass on the iOS simulator and 232 on the JVM host** — common tests run on both, so
-those figures overlap rather than sum. Android's renderer contract and
+**262 tests pass on the iOS simulator and 232 on the JVM host** (measured 2026-10-06, before
+the quiz) — common tests run on both, so those figures overlap rather than sum. The quiz
+module adds 53 per target, on both the JVM host and the iOS simulator: 8 for the topic grid,
+32 for the session, 13 for the canvas rules. The project-wide totals have not been re-run
+since. Android's renderer contract and
 database wiring have their own instrumented tests, which need a device. The
 `:shared:renderer-filament` module's instrumented suite is 30 tests, measured on the API 36
 emulator after the several-highlights change. An earlier figure of 24 instrumented tests
@@ -59,9 +75,16 @@ Not verified, in rough order of how much it matters:
    pack, and the iOS shim still creates the new swap chain before destroying the old one, the
    order that failed on Android.
 
+**The quiz, by hand, on the Android emulator with `skeletal-trunk`** (§34.4). Seen: five
+topics, both formats, right and wrong feedback, a timeout, the summary, the timer turned off,
+the examination language, the interface language, "End session", system back on a question,
+and a tab switch that kept the question. Not seen: a locked topic and its route to the
+paywall placeholder (the pack has only free skeletal topics; a unit test covers it); the
+perfect-score summary; anything on a physical device; anything with a screen reader.
+
 Two highlight styles at once are accepted by both renderers (the contract passes on the fake,
-the iOS simulator and the Android emulator) and have not been seen: no screen asks for them
-until screen 12 exists.
+the iOS simulator and the Android emulator) and were not seen when that was written; screen 12 now
+asks for them, and the hand run saw the two colours, with the defects below.
 
 What is verified since: screen 07 was hand-checked on the emulator with the real pack, and
 screen 21 with `skeletal-trunk`. A ghost reads as a pale shell, not a dark smear — on the
@@ -79,16 +102,24 @@ had is a hardware measurement; §25.4's interleaved-variants method is how that 
 Dashed waits for Phase 2 to need it. Until §12 lands,
 highlighting is colour and luminance only and the quiz must not be built on it.
 
-**Then the quiz (Phase 2).** The data is ready. §8.1's three difficulty tiers are each one
+**The quiz needs its real question generator.** Design §8.1's generator, and §7's
+verified-only gate in front of it, are what turn the canned harness into a product. Until
+then the debug quiz asks about whatever the installed atlas holds, verified or not.
+
+**The daily plan must take the same clock fix before it is run.** Its `DailyViewModel` has
+the never-ending tick loop that hung the quiz's first tests; the quiz replaced it by reading
+elapsed time from a clock (§34.3).
+
+**The quiz's data.** The data is ready. §8.1's three difficulty tiers are each one
 predicate over one indexed column, and the synthesised taxonomy gives the hard tier real
 siblings — `Thoracic vertebrae` (12), `Cervical vertebrae` (7), `Ribs` (14).
 
 **The remaining screens are planned, not built.** `docs/superpowers/plans/` holds one plan
-per step of the all-screens spec, written 2026-10-06 and none of them executed:
+per step of the all-screens spec, written 2026-10-06 and the renderer and quiz plans have since been executed:
 
 1. `…-onboarding-goals-and-first-download.md` — screens 02 and 03.
-2. `…-renderer-several-highlights.md` — two highlight styles at once; the quiz needs it.
-3. `…-quiz-flow.md` — screens 08 to 13, after the renderer plan.
+2. `…-renderer-several-highlights.md` — two highlight styles at once; done (§33).
+3. `…-quiz-flow.md` — screens 08 to 13. Executed 2026-10-07 on canned questions (§34).
 4. `…-daily-and-leaderboard.md` — screens 14 to 16, after the quiz plan.
 5. `…-profile-paywall-and-packs.md` — screens 17 to 19.
 
@@ -124,6 +155,18 @@ and packs are currently bundled in the APK.
   reviewer's list.
 - **UI strings are Polish literals**, not extracted for localisation. §13's mechanism does
   not exist.
+
+### Found by the quiz hand run (§34.4)
+
+- **Screen 12 frames only the expected structure**, so the chosen one is often mostly out of
+  frame, and the two differ by colour and darkness with no outline.
+- **The question highlight is faint** (mauve on ivory bone) with no visible frame.
+- **"Find the structure" draws the whole model small**; ribs are hard to tap.
+- **The canvas stayed black for 10 to 20 s** at a session's first question and after
+  returning from another tab. Emulator only; not confirmed on a device.
+- **System back on a question recreates the canvas** (the session survives).
+- **System back on the summary cannot leave it**; only "Back to topics" does.
+- **The paywall placeholder is pushed on the Test tab's stack while the bar shows Profile.**
 
 ## Decisions that are yours, not the code's
 

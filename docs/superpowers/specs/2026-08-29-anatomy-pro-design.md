@@ -1888,3 +1888,137 @@ Known divergence, older than this change: iOS sets `baseColorFactor` as sRGB and
 converts it to linear; Android calls the plain four-float `setParameter`, which converts
 nothing. The ghost material differs the same way. The darkening added here is therefore
 stronger on iOS than on Android. It has to be closed before screen 12's colours are judged.
+
+## 34. Addendum — 2026-10-07: the quiz runs, on canned questions
+
+Screens 08 to 13 exist and were run by hand on the Android emulator. They ask canned
+questions from a fake repository; there is no generator behind them, and production and iOS
+still show the "not built" placeholder.
+
+### 34.1 What was built
+
+Screens 08 (topic selection), 09 to 12 (a question in two formats, right-answer feedback,
+wrong-answer feedback) and 13 (session summary) live in `:shared:feature-quiz`.
+
+The session is a state machine: `QuizSessionViewModel` holds a `QuizStage` — `Idle`,
+`Starting`, `Asking`, `Feedback`, `Finished`, `Failed` (during start or finish). What the
+canvas shows (`quizCanvasFor`) and where navigation should be (`destinationOf`) are pure
+functions of the stage, with their own tests; so is `quizIsBuilt`, which tells a refusing
+repository from a real one.
+
+`QuizTab.kt` holds the routes. The session is the truth and the back stack follows it: a
+`FollowSession` effect in each route sends the stack to wherever `destinationOf(stage)` says.
+The tests for this module are 53 per target, on the JVM host and the iOS simulator: 8 for the
+topic grid, 32 for the session, 13 for the canvas rules. The Compose screens and the routes
+have no automated test (the all-screens spec §10 decided against Compose UI tests); the hand
+run in 34.4 carries them.
+
+### 34.2 Where the questions come from
+
+In debug builds, from the installed atlas, through `AtlasQuizSource`: a topic is a group with
+at least four non-group children. This is **without §7's verified-only gate** — an unreviewed
+atlas would leave nothing to ask. It is a harness, not §8.1's generator. The tests use the
+fixture source, which keeps the gate.
+
+Debug has no quiz until the pack is installed (`NotBuiltQuizRepository`, so the placeholder),
+and then exactly one `FakeQuizRepository` over the atlas, shared with the fake daily
+repository. The reason: the session ViewModel is app-scoped, and built early it captured the
+fixture quiz, so the debug quiz could not start. Built once with the final repository, nothing
+in the shell needs to know. The cost is that the Test tab shows "not built" for the first
+moments of a debug launch; that moment was not seen on Android (34.4).
+
+### 34.3 Decisions
+
+- **Question and feedback share one destination.** The canvas reloads its pack when
+  recreated; two destinations would make the model vanish and return between a question and
+  its answer. `QuizRoute.Feedback` is therefore unused and kept, as is `Question.index`.
+- **The clock runs only while the question is on screen and the app is in front.** The route
+  ties it to the lifecycle (`LifecycleResumeEffect`), not just composition, so a timed
+  question cannot expire behind a backgrounded app. A system dialog or the notification shade
+  also pauses it, which is the kinder error.
+- **Elapsed time is read from a clock, not counted in ticks.** The plan's loop ticked every
+  100 ms for as long as an untimed question was on screen and never ended, so any test that
+  left one on screen hung (both targets, over ten minutes). An untimed question now runs no
+  coroutine; a timed one runs a countdown that ends by itself. The daily plan's
+  `DailyViewModel` has the same loop and needs the same change before it is executed.
+- **One tracked job for session work**, cancelled by `abandon()` and `start()`, with an
+  active-check after every repository call, so a late result cannot undo an abandon or a new
+  start. The latest start wins (the old `Starting` guard is gone: a double tap on a topic now
+  makes two `startSession` calls, the first cancelled). A second `next()` while finishing is
+  ignored, so the last question finishes and records once.
+- **Recording the session is not cancelled by leaving the summary.** It runs outside that job.
+- **Only the route on screen navigates.** `FollowSession` waits until its own entry is at least
+  `STARTED`; a route fading out is still composed and would otherwise push onto another tab's
+  stack.
+- **The verdict is announced to a screen reader; the countdown is not.** The live region is on
+  the verdict line and the submit-failed message only. The announcement itself was never
+  heard (34.4).
+- **`FREE_SYSTEMS` now names `skeletal-system`**, the id real data carries.
+- **The hand run used `-Panatomypro.pack=skeletal-trunk`** rather than changing the default
+  pack or teaching the quiz source to invent topics from a flat pack.
+
+### 34.4 What was seen, and what was not
+
+Run 1, on the default bundled pack `trunk-all-systems` (Android emulator): the Test tab showed
+"Nie ma jeszcze z czego się sprawdzić." and no topic, however long it waited or however it was
+relaunched. The pack has 599 structures, none a group, every `parentId` null, and a topic
+needs a group. A session was unreachable. The iOS simulator showed "TEST — not built yet", as
+expected, with no crash.
+
+Run 2, `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`, Android
+emulator (API 36, 2 GB RAM; it froze once with a system "not responding" dialog and was
+restarted). No crash and no start-failed message. Seen: five topics (Cartilagines costales,
+Vertebrae cervicales, thoracicae, lumbales, Costae), none locked; the format toggle; "name
+the structure" with four options and a countdown from 30 s; right-answer feedback;
+wrong-answer feedback with both structures marked and "Obie należą do: Vertebrae cervicales.";
+a timeout, with "Nie wybrano żadnej struktury z tego tematu."; the summary with its review
+list, "same topic again" and "back to topics"; the timer turned off ("Bez limitu czasu", still
+there 40 s later); examination language English (options in English, the question sentence
+stayed in the interface language); interface language English; "End session"; system back on
+a question (same question); and a tab switch that kept the question. "Find the structure":
+tapping empty space did nothing, tapping a rib answered.
+
+Not seen: a locked topic and its route to the paywall placeholder (the pack has only free
+skeletal topics; covered only by a unit test); the perfect-score summary ("Wszystkie
+odpowiedzi były poprawne."); the Android "not built" moment at cold start; whether the clock
+is exactly where it was across a tab switch (it did not run during the visit, but the
+readings came from slow screenshots); that a transition from question to feedback shows no
+blank (only stills before and after). Nothing was run on a physical device, and nothing with
+a screen reader. The closing `./gradlew allTests` of the plan's Step 7 was not run in the hand
+run.
+
+### 34.5 What is left
+
+- **Screen 12 is unfinished.** The camera frames only the expected structure, so the chosen
+  one is often mostly out of frame, and the two differ by colour and darkness alone. Framing
+  both, and outlines (§12), are what it needs.
+- **The question highlight is faint** (pale mauve on ivory bone) with no visible frame. In
+  "find the structure" the whole model is small and structures are hard to tap.
+- **The canvas stayed black for 10 to 20 s** at a session's first question and after
+  returning from another tab, on the emulator; unconfirmed on a device.
+- **Accessibility:** the two format options are not a `selectableGroup()`; the start-failed
+  and finish-failed messages have no live region; a selected format differs by colour and
+  weight only; a locked row's description may be read twice by TalkBack (unchecked); "End
+  session" has no guaranteed 44 dp width; the bottom panel does not scroll, so large fonts
+  or long options may squeeze the canvas (unchecked).
+- **Timing and failure:** a failed finish carries no session, so it cannot be retried and the
+  answers are lost; a failed submit resets elapsed time on untimed questions too; the
+  countdown can lag by up to a tick, a timeout fire up to 99 ms late; the first question's
+  clock starts about 700 ms late (in the student's favour).
+- **Back handling:** system back on a question keeps the session but recreates the canvas
+  (reload, fade through the grid); tapping the Test tab does the same. System back on the
+  summary cannot leave it. Android predictive back may make `FollowSession` navigate
+  mid-gesture (unchecked). A back handler in the session route would address these.
+- **The paywall and the tab bar:** the paywall placeholder is pushed on the Test tab's stack
+  while the bar shows Profile; for the commerce plan.
+- **Smaller:** the summary's time is raw seconds ("125 s"), not mm:ss; the summary blanks
+  instantly while fading out; the topic grid's format resets on an interface-language change;
+  the topic grid loads once, so a pack installed later does not refresh it; a subscriber may
+  see topics locked before the entitlements flow emits; a failed retry leaves the old cells
+  showing; `AtlasQuizSource` calls `atlas.detail` once per group and silently drops a group
+  whose id is not a valid slug.
+- The fake pack and progress repositories still entitle and report mastery under ids the
+  profile plan will change.
+
+Notes on test coverage gaps (name de-duplication, the depth guard, a pool below four, some
+guards in the canvas rules) are in the review record.
