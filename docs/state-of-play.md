@@ -1,7 +1,7 @@
 # State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–35 there are the running record of what was actually built and why. This file is
+sections 20–36 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -36,21 +36,22 @@ the session summary. They run in `:shared:feature-quiz`.
   quiz repository stands behind them.
 - The default bundled Android pack, `trunk-all-systems`, has no groups, so the Test tab is
   empty on it. Run with `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`.
-- Screen 12 (wrong answer) is unfinished. It now has outlines (§35); what remains is that
-  the camera frames only one of the two structures, and that its colours wait on 5D17.
+- Screen 12 (wrong answer) is unfinished. It has outlines (§35) and the two platforms now
+  draw a style in the same colour (§36); what remains is that the camera frames only one of
+  the two structures, and that its colours have not been judged.
 
 The renderer can now frame things: `focusCamera` and `frameAll` exist on both platforms and
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**353 tests pass on the iOS simulator and 317 on the JVM host, none failing** (`./gradlew
-allTests` at commit 2b68bfb) — common tests run on both, so those figures overlap rather than
+**355 tests pass on the iOS simulator and 317 on the JVM host, none failing** (`./gradlew
+allTests` at commit 43f6efb) — common tests run on both, so those figures overlap rather than
 sum. The quiz module has 53 per target, on both the JVM host and the iOS simulator: 8 for the
 topic grid, 32 for the session, 13 for the canvas rules. The fake module has 78 per target,
 five of them added with the mirror-side answer (§34.3). Android's renderer contract and
 database wiring have their own instrumented tests, which need a device. The
-`:shared:renderer-filament` module's instrumented suite is 49 tests, measured on the API 36
-emulator at commit 2b68bfb.
+`:shared:renderer-filament` module's instrumented suite is 51 tests, measured on the API 36
+emulator at commit 43f6efb.
 
 ## What is verified, and what is not
 
@@ -110,7 +111,7 @@ on real packs passed every test on the bare toy material (§35.3). Anything new 
 renderers should be seen on a real pack before it is believed.
 
 The quiz exists; screen 12 stays unfinished until its camera frames both structures and
-5D17 closes the colour-space divergence.
+its colours are judged. They can be now: both platforms read a style's colour alike (§36).
 
 **The quiz needs its real question generator.** Design §8.1's generator, and §7's
 verified-only gate in front of it, are what turn the canned harness into a product. Until
@@ -142,11 +143,9 @@ and packs are currently bundled in the APK.
 
 ## Known defects
 
-- **The two renderers read a highlight's colour differently.** iOS sets the base colour as
-  sRGB; Android passes it through unconverted. The same style, and the darkening of a negative
-  luminance shift in particular, is not identical on the two. The ghost material differs the
-  same way. This predates the several-highlights change and has to be closed before screen
-  12's colours are judged.
+- **The ghost is dimmer on Android than when it was approved.** Its "pale shell" look was
+  judged on a colour Android read wrongly; read as sRGB, as on iOS, it is a dim grey shell at
+  30 % (§36). Whether that is still what is wanted is not decided.
 - **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
   objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
   drops them silently. Fixing it will move the performance numbers for those systems.
@@ -161,7 +160,7 @@ and packs are currently bundled in the APK.
   ghosts no neighbours and tree mode has one level. `skeletal-trunk` is fine. Regenerating it
   is tracked separately.
 - **The selection's outline is hard to see against bone.** Pale pink (`FFD3CB`) on ivory,
-  where the selected bone is surrounded by others (§35.5). A token change, after 5D17.
+  where the selected bone is surrounded by others (§35.5). A token change.
 - **Focusing a group in tree mode moves no camera**, because groups draw nothing.
 - **The eight Latin system names in `SystemNames.kt` are unverified.** They go on the
   reviewer's list.

@@ -1893,6 +1893,8 @@ converts it to linear; Android calls the plain four-float `setParameter`, which 
 nothing. The ghost material differs the same way. The darkening added here is therefore
 stronger on iOS than on Android. It has to be closed before screen 12's colours are judged.
 
+Closed in §36.
+
 ## 34. Addendum — 2026-10-07: the quiz runs, on canned questions
 
 Screens 08 to 13 exist and were run by hand on the Android emulator. They ask canned
@@ -2168,3 +2170,40 @@ The line is the same colour on both platforms, by exact bytes in the screenshots
 - **The Vulkan variant of the material.** Compiled, never run; Android uses OpenGL ES here.
 - `DASHED` draws solid. Screen 12 is still unfinished: its camera frames only the expected
   structure, and its colours wait on 5D17.
+
+## 36. Addendum — 2026-10-07: one colour space for the tint and the ghost
+
+§33 recorded that iOS sets `baseColorFactor` as sRGB and Android passed it through
+unconverted. Android now sets it as sRGB too (`Colors.RgbaType.SRGB`), for the highlight
+tint and for the ghost. Emissive was already set alike on both and is unchanged.
+
+Measured before the change, at the middle of the toy fixture's centre cube, in frame bytes:
+
+| | iOS | Android |
+|---|---|---|
+| Nothing highlighted | 188, 186, 184 | 188, 186, 184 |
+| Tinted `FF808080`, no luminance shift | 96, 97, 98 | 155, 155, 155 |
+| Ghosted at alpha 0.5 | 76, 74, 73 | 140, 138, 137 |
+
+The untouched cube was already identical, so lighting and tone mapping agree and the
+difference was only in how the colour was read. After the change Android draws the iOS
+numbers within the tests' tolerance of 6.
+
+Verified: `reads_a_highlight_tint_as_srgb` and `reads_the_ghost_colour_as_srgb` on each
+platform, both naming the same reference pixels (`ReferenceColours`, in `commonTest`); they
+failed on Android before the change and passed on iOS. At commit 43f6efb: 355 tests on the iOS
+simulator, 317 on the JVM host, 51 instrumented on the API 36 emulator, none failing. By
+hand on the Android emulator with `skeletal-trunk`: the selected bone is a little darker and
+pinker than before, and beside the iOS simulator's screenshot of the same bone the two now
+look alike.
+
+**The ghost on Android is darker than it was.** §26.8 and §27 recorded the ghost as a pale
+shell, checked by eye on the Android emulator — that is, checked on the unconverted colour.
+At 30 % it is now a dim grey translucent skeleton: still a shell and not a smear, but no
+longer pale. This is what iOS has drawn all along. If it is too dim, the ghost colour
+(0.82, 0.80, 0.78) or the default opacity is what to change, on both platforms at once.
+
+Not verified: the ghost on the iOS simulator by eye; any of this on hardware. The reference
+pixels are measurements of one fixture under one light, so a change to the fixture's
+material, the sun or the tone mapping moves them on both platforms together and they have
+to be measured again.
