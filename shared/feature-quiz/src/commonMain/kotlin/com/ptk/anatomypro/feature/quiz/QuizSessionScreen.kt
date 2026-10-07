@@ -96,9 +96,8 @@ fun QuizSessionScreen(
 
         canvas(Modifier.weight(1f).fillMaxWidth())
 
-        // Announced as it changes: the verdict is the most important thing this screen says.
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             when (stage) {
@@ -150,7 +149,14 @@ private fun AskingPanel(stage: QuizStage.Asking, onAnswer: (StructureId) -> Unit
     Text(status, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
 
     if (stage.submitFailed) {
-        Text(stringResource(Res.string.question_submit_failed), style = MaterialTheme.typography.bodyMedium, color = IncorrectAmber)
+        // Announced when it appears. The countdown beside it is not: read aloud every second
+        // it would drown the question.
+        Text(
+            stringResource(Res.string.question_submit_failed),
+            style = MaterialTheme.typography.bodyMedium,
+            color = IncorrectAmber,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
     }
 }
 
@@ -159,13 +165,15 @@ private fun FeedbackPanel(stage: QuizStage.Feedback, onNext: () -> Unit) {
     val result = stage.result
     val marks = answerMarks(result)
 
-    // A glyph and a word as well as a colour (§12).
+    // A glyph and a word as well as a colour (§12). Announced as it appears: the verdict is
+    // the most important thing this screen says.
     Text(
         text = if (result.correct) "✓  " + stringResource(Res.string.feedback_correct)
         else "✕  " + stringResource(Res.string.feedback_incorrect),
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.SemiBold,
         color = if (result.correct) CorrectGreen else IncorrectAmber,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
 
     for (mark in marks) {
