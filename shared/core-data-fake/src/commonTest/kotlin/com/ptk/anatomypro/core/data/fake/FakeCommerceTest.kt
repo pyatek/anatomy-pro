@@ -68,6 +68,14 @@ class FakeCommerceTest {
     }
 
     @Test
+    fun a_paid_pack_names_its_system_by_the_id_packs_carry() = runTest {
+        val gated = FakePackRepository().packs.first().mapNotNull { it.entitlement?.value }
+
+        // The pipeline's `system` values (design spec §22), not short names.
+        assertEquals(listOf("muscular-system", "nervous-system-sense-organs"), gated)
+    }
+
+    @Test
     fun the_free_pack_is_installed_and_a_paid_one_is_merely_available() = runTest {
         val packs = FakePackRepository().packs.first()
 

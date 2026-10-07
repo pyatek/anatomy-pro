@@ -1,5 +1,7 @@
 package com.ptk.anatomypro.core.data.model
 
+import com.ptk.anatomypro.core.data.PackIngest
+import com.ptk.anatomypro.core.data.SAMPLE_MANIFEST
 import com.ptk.anatomypro.core.model.SystemId
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -31,6 +33,14 @@ class EntitlementsTest {
         val none = Entitlements(subscribed = false, ownedSystems = emptySet())
 
         assertFalse(none.allows(SystemId("skeletal")))
+    }
+
+    @Test
+    fun every_free_system_is_one_a_pack_manifest_carries() {
+        val inPacks = PackIngest.parse(SAMPLE_MANIFEST, version = 1, meshUri = null)
+            .structures.mapNotNull { it.systemId }.map(::SystemId).toSet()
+
+        assertTrue(inPacks.containsAll(FREE_SYSTEMS), "free: $FREE_SYSTEMS, in the manifest: $inPacks")
     }
 
     @Test

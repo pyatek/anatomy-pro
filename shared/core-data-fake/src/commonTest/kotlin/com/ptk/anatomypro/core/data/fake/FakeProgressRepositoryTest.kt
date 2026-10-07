@@ -28,6 +28,13 @@ class FakeProgressRepositoryTest {
     }
 
     @Test
+    fun mastery_is_keyed_by_the_system_ids_the_atlas_carries() = runTest {
+        val systems = FakeAtlasRepository().systems().toSet()
+
+        assertTrue(systems.containsAll(FakeProgressRepository().masteryBySystem("pl").map { it.system }))
+    }
+
+    @Test
     fun mastery_titles_follow_the_requested_locale() = runTest {
         val repository = FakeProgressRepository()
 

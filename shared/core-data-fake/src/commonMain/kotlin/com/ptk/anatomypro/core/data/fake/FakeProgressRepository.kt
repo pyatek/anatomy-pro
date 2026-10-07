@@ -35,8 +35,8 @@ class FakeProgressRepository(
 
     override suspend fun masteryBySystem(locale: String): List<SystemMastery> = behaviour.respond {
         listOf(
-            SystemMastery(SystemId("skeletal"), title("skeletal", locale), structuresSeen = 14, structuresTotal = 19),
-            SystemMastery(SystemId("muscular"), title("muscular", locale), structuresSeen = 0, structuresTotal = 24),
+            SystemMastery(SKELETAL, title(SKELETAL, locale), structuresSeen = 14, structuresTotal = 19),
+            SystemMastery(MUSCULAR, title(MUSCULAR, locale), structuresSeen = 0, structuresTotal = 24),
         )
     }
 
@@ -67,15 +67,19 @@ class FakeProgressRepository(
     }
 
     /** Latin is the canonical key, so it is the fallback for a locale with no title. */
-    private fun title(system: String, locale: String): String {
+    private fun title(system: SystemId, locale: String): String {
         val names = SYSTEM_TITLES.getValue(system)
         return names[locale] ?: names.getValue("la")
     }
 
     private companion object {
+        // The ids packs carry, so mastery lines up with the atlas and with entitlements.
+        val SKELETAL = SystemId("skeletal-system")
+        val MUSCULAR = SystemId("muscular-system")
+
         val SYSTEM_TITLES = mapOf(
-            "skeletal" to mapOf("la" to "Systema skeletale", "pl" to "Układ kostny", "en" to "Skeletal system"),
-            "muscular" to mapOf("la" to "Systema musculare", "pl" to "Układ mięśniowy", "en" to "Muscular system"),
+            SKELETAL to mapOf("la" to "Systema skeletale", "pl" to "Układ kostny", "en" to "Skeletal system"),
+            MUSCULAR to mapOf("la" to "Systema musculare", "pl" to "Układ mięśniowy", "en" to "Muscular system"),
         )
     }
 }

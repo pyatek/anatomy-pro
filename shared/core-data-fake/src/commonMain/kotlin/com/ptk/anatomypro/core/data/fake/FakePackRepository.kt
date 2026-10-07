@@ -45,7 +45,7 @@ class FakePackRepository(
                 label = "Układ mięśniowy",
                 byteSize = 112_700_000,
                 checksum = "sha256:9b4e17",
-                entitlement = SystemId("muscular"),
+                entitlement = SystemId("muscular-system"),
                 status = PackStatus.Available,
             ),
             PackState(
@@ -54,7 +54,7 @@ class FakePackRepository(
                 label = "Układ nerwowy",
                 byteSize = 67_400_000,
                 checksum = "sha256:c30d82",
-                entitlement = SystemId("nervous"),
+                entitlement = SystemId("nervous-system-sense-organs"),
                 status = PackStatus.Available,
             ),
         ),
