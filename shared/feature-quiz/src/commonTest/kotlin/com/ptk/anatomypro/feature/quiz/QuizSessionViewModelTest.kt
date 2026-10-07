@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.feature.quiz
 
+import androidx.lifecycle.viewModelScope
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeProgressRepository
 import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
@@ -14,9 +15,11 @@ import com.ptk.anatomypro.core.model.QuizTopicId
 import com.ptk.anatomypro.core.model.StructureId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -29,6 +32,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class QuizSessionViewModelTest {
@@ -140,10 +144,10 @@ class QuizSessionViewModelTest {
         val model = model()
         started(model, timed = false)
 
-        assertEquals(0, testScheduler.currentTime)
-        testScheduler.advanceUntilIdle()
-
-        assertEquals(0, testScheduler.currentTime, "something was still scheduled for an untimed question")
+        assertTrue(
+            model.viewModelScope.coroutineContext.job.children.none(),
+            "a coroutine is still running for an untimed question",
+        )
     }
 
     @Test
@@ -323,12 +327,32 @@ class QuizSessionViewModelTest {
 
         model.next()
         runCurrent()
-        model.onQuestionShown()
+        assertEquals(1, assertIs<QuizStage.Asking>(model.stage.value).index)
+
+        // A second into the second question it has used one second, not eight.
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(QUESTION_MILLIS - 1_000, assertIs<QuizStage.Asking>(model.stage.value).remainingMillis)
+    }
+
+    @Test
+    fun each_answer_is_timed_from_when_its_own_question_appeared() = runTest(dispatcher) {
+        val model = model()
+        val first = started(model)
+        advanceTimeBy(3_000)
+        runCurrent()
+        model.answer(first.rightAnswer())
+        runCurrent()
+        model.next()
+        runCurrent()
+        val second = assertIs<QuizStage.Asking>(model.stage.value)
+
+        advanceTimeBy(2_000)
+        runCurrent()
+        model.answer(second.rightAnswer())
         runCurrent()
 
-        val second = assertIs<QuizStage.Asking>(model.stage.value)
-        assertEquals(1, second.index)
-        assertEquals(QUESTION_MILLIS, second.remainingMillis)
+        assertEquals(2_000L, assertIs<QuizStage.Feedback>(model.stage.value).result.elapsedMillis)
     }
 
     @Test
@@ -402,6 +426,115 @@ class QuizSessionViewModelTest {
 
         assertEquals(QuizStage.Idle, model.stage.value)
         assertTrue(progress.recorded.isEmpty())
+    }
+
+    // --- results that arrive late -----------------------------------------------------
+
+    /** A repository that takes a second over everything, so a call can be caught in flight. */
+    private fun slowQuiz() = FakeQuizRepository(FakeBehaviour(delay = 1.seconds))
+
+    @Test
+    fun abandoning_while_a_session_is_starting_stays_abandoned() = runTest(dispatcher) {
+        val model = model(quiz = slowQuiz())
+        model.start(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = false)
+        runCurrent()
+        assertEquals(QuizStage.Starting, model.stage.value)
+
+        model.abandon()
+        advanceUntilIdle()
+
+        assertEquals(QuizStage.Idle, model.stage.value)
+    }
+
+    @Test
+    fun abandoning_while_an_answer_is_being_checked_stays_abandoned() = runTest(dispatcher) {
+        val model = model(quiz = slowQuiz())
+        model.start(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = true)
+        advanceTimeBy(1_000)
+        runCurrent()
+        model.onQuestionShown()
+        val asking = assertIs<QuizStage.Asking>(model.stage.value)
+        model.answer(asking.rightAnswer())
+        runCurrent()
+
+        model.abandon()
+        advanceUntilIdle()
+
+        // Not Feedback from the late answer, and no countdown restarted on a dead session.
+        assertEquals(QuizStage.Idle, model.stage.value)
+    }
+
+    @Test
+    fun abandoning_while_the_session_is_finishing_records_nothing() = runTest(dispatcher) {
+        val progress = FakeProgressRepository()
+        val model = model(quiz = slowQuiz(), progress = progress)
+        model.start(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = false)
+        advanceTimeBy(1_000)
+        runCurrent()
+        model.onQuestionShown()
+        repeat(QUESTIONS_PER_SESSION) {
+            model.answer(assertIs<QuizStage.Asking>(model.stage.value).rightAnswer())
+            advanceTimeBy(1_000)
+            runCurrent()
+            if (!assertIs<QuizStage.Feedback>(model.stage.value).isLast) model.next()
+        }
+        model.next()
+        runCurrent()
+
+        model.abandon()
+        advanceUntilIdle()
+
+        assertEquals(QuizStage.Idle, model.stage.value)
+        assertTrue(progress.recorded.isEmpty())
+    }
+
+    @Test
+    fun a_new_session_started_while_an_answer_is_being_checked_is_the_one_that_shows() = runTest(dispatcher) {
+        val model = model(quiz = slowQuiz())
+        model.start(ribs, QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = false)
+        advanceTimeBy(1_000)
+        runCurrent()
+        model.onQuestionShown()
+        model.answer(assertIs<QuizStage.Asking>(model.stage.value).rightAnswer())
+        runCurrent()
+
+        model.start(QuizTopicId("vertebrae-cervicales"), QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = false)
+        advanceUntilIdle()
+
+        val asking = assertIs<QuizStage.Asking>(model.stage.value)
+        assertEquals("vertebrae-cervicales", asking.session.topic.value)
+        assertEquals(0, asking.index)
+    }
+
+    @Test
+    fun pressing_next_twice_on_the_last_question_finishes_and_records_once() = runTest(dispatcher) {
+        val progress = FakeProgressRepository()
+        val model = model(progress = progress)
+        answerEverything(model, rightly = true)
+
+        model.next()
+        model.next()
+        runCurrent()
+
+        assertIs<QuizStage.Finished>(model.stage.value)
+        assertEquals(1, progress.recorded.size)
+    }
+
+    @Test
+    fun leaving_the_summary_does_not_cancel_the_record_of_the_session() = runTest(dispatcher) {
+        // The summary's "back to topics" abandons. A slow store must still be written.
+        val progress = FakeProgressRepository(FakeBehaviour(delay = 1.seconds))
+        val model = model(progress = progress)
+        answerEverything(model, rightly = true)
+        model.next()
+        runCurrent()
+        assertIs<QuizStage.Finished>(model.stage.value)
+
+        model.abandon()
+        advanceUntilIdle()
+
+        assertEquals(QuizStage.Idle, model.stage.value)
+        assertEquals(1, progress.recorded.size)
     }
 
     /** Answers every question, leaving the model on the last question's feedback. */

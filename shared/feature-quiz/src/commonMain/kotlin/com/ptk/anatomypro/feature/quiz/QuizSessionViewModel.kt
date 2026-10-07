@@ -14,7 +14,9 @@ import com.ptk.anatomypro.core.model.QuizTopicId
 import com.ptk.anatomypro.core.model.StructureId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +34,7 @@ const val QUESTION_MILLIS = 30_000L
 const val TICK_MILLIS = 100L
 
 /** A clock that only goes forwards, in milliseconds from when it was made. */
-fun monotonicMillis(): () -> Long {
+internal fun monotonicMillis(): () -> Long {
     val origin = TimeSource.Monotonic.markNow()
     return { origin.elapsedNow().inWholeMilliseconds }
 }
@@ -101,18 +103,29 @@ class QuizSessionViewModel(
     private var shownAt: Long? = null
     private var countdown: Job? = null
 
+    /**
+     * The one piece of session work in flight: starting, checking an answer, or finishing.
+     * Cancelled by [abandon] and by a new [start], so a result that arrives late cannot
+     * undo either.
+     */
+    private var work: Job? = null
+
+    /** Starts a session. A session already starting or under way is dropped: the latest start wins. */
     fun start(topic: QuizTopicId, format: QuizFormat, locale: String, timed: Boolean) {
-        if (_stage.value == QuizStage.Starting) return
+        work?.cancel()
         stopCountdown()
+        shownAt = null
         this.timed = timed
         _stage.value = QuizStage.Starting
-        viewModelScope.launch {
+        work = viewModelScope.launch {
             try {
                 val session = quiz.startSession(topic, format, QUESTIONS_PER_SESSION, nextSeed(), locale)
+                ensureActive()
                 if (session.questions.isEmpty()) finish(session) else ask(session, index = 0)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
+                ensureActive()
                 // A topic too small to ask about, or anything else: the grid says so.
                 _stage.value = QuizStage.Failed(FailedDuring.START)
             }
@@ -136,15 +149,19 @@ class QuizSessionViewModel(
 
     fun next() {
         val feedback = _stage.value as? QuizStage.Feedback ?: return
-        if (feedback.isLast) {
-            viewModelScope.launch { finish(feedback.session) }
-        } else {
+        if (!feedback.isLast) {
             ask(feedback.session, feedback.index + 1)
+            return
         }
+        // Already finishing: a second tap must not finish, or record, twice.
+        if (work?.isActive == true) return
+        work = viewModelScope.launch { finish(feedback.session) }
     }
 
-    /** Ends the session without a summary. Nothing is recorded. */
+    /** Ends the session without a summary. Nothing is recorded, and nothing in flight can undo it. */
     fun abandon() {
+        work?.cancel()
+        work = null
         stopCountdown()
         shownAt = null
         _stage.value = QuizStage.Idle
@@ -163,13 +180,15 @@ class QuizSessionViewModel(
         val elapsed = elapsed()
         pauseTiming()
         _stage.value = asking.copy(submitting = true, submitFailed = false)
-        viewModelScope.launch {
+        work = viewModelScope.launch {
             try {
                 val result = quiz.submit(asking.session.id, QuizAnswer(asking.question.id, chosen, elapsed))
+                ensureActive()
                 _stage.value = QuizStage.Feedback(asking.session, asking.index, result)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
+                ensureActive()
                 // The question is still there. A timed question gets its time back rather
                 // than expiring on a failure the student did not cause.
                 elapsedBefore = 0
@@ -185,21 +204,28 @@ class QuizSessionViewModel(
     }
 
     private suspend fun finish(session: QuizSession) {
-        try {
-            val summary = quiz.finish(session.id)
-            _stage.value = QuizStage.Finished(summary, session.topic, session.format)
+        val summary = try {
+            quiz.finish(session.id)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
+            _stage.value = QuizStage.Failed(FailedDuring.FINISH)
+            return
+        }
+        currentCoroutineContext().ensureActive()
+        _stage.value = QuizStage.Finished(summary, session.topic, session.format)
+
+        // On its own, not part of the session's work: once the summary is showing the
+        // session is finished, and leaving the summary must not cancel its record.
+        viewModelScope.launch {
             try {
                 progress.recordSession(summary)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                // The summary is already on screen. A store that cannot be written is not
-                // something to interrupt it with.
+                // A store that cannot be written is not something to interrupt the summary with.
             }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            _stage.value = QuizStage.Failed(FailedDuring.FINISH)
         }
     }
 
