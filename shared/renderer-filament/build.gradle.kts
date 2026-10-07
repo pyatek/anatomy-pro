@@ -54,7 +54,11 @@ kotlin {
     }
 
     sourceSets {
-        commonMain.dependencies { api(project(":shared:renderer-api")) }
+        commonMain {
+            // The outline material, compiled by :renderer-materials and written as Kotlin.
+            kotlin.srcDir(rootProject.layout.projectDirectory.dir("renderer-materials/build/generated/kotlin"))
+            dependencies { api(project(":shared:renderer-api")) }
+        }
         androidMain.dependencies {
             // Google's own Filament artifacts, pinned to the same version the iOS host
             // links. SceneView was rejected because it keeps its own scene graph, and §4
@@ -106,4 +110,11 @@ tasks.withType<KotlinNativeSimulatorTest>().configureEach {
     device.set(simulatorDevice)
     standalone.set(false)
     dependsOn(bootIosSimulator)
+}
+
+// The generated material source is an input of every compilation of this module. As with
+// the staged native libraries above, the producing task lives in another project, so the
+// dependency is declared by path.
+tasks.matching { it.name.startsWith("compile") || it.name.endsWith("SourcesJar") }.configureEach {
+    dependsOn(":renderer-materials:generateMaterialSource")
 }

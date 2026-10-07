@@ -31,6 +31,7 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":ios-renderer")
+include(":renderer-materials")
 include(":shared")
 include(":shared:core-model")
 include(":shared:core-data")

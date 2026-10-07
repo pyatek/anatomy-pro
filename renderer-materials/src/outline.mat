@@ -1,0 +1,47 @@
+// The outline of whatever a mask holds, drawn outside it.
+//
+// Drawn on a full-screen triangle over the main view. For each pixel it reads the mask at
+// the pixel and on two rings around it; a pixel outside the mask whose rings touch the mask
+// gets the outline colour. Two rings because one, at the full width, steps over a feature
+// thinner than the outline.
+material {
+    name : outline,
+    shadingModel : unlit,
+    blending : transparent,
+    vertexDomain : device,
+    depthWrite : false,
+    depthCulling : false,
+    culling : none,
+    parameters : [
+        { type : sampler2d, name : mask },
+        // Straight alpha, and written unconverted so that a frame holds these bytes.
+        { type : float4, name : color },
+        // The outline width as a fraction of the surface, per axis.
+        { type : float2, name : reach }
+    ]
+}
+
+fragment {
+    const int TAPS = 12;
+    const vec2 RING[12] = vec2[12](
+        vec2( 1.000,  0.000), vec2( 0.866,  0.500), vec2( 0.500,  0.866),
+        vec2( 0.000,  1.000), vec2(-0.500,  0.866), vec2(-0.866,  0.500),
+        vec2(-1.000,  0.000), vec2(-0.866, -0.500), vec2(-0.500, -0.866),
+        vec2( 0.000, -1.000), vec2( 0.500, -0.866), vec2( 0.866, -0.500)
+    );
+
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec2 uv = uvToRenderTargetUV(getNormalizedViewportCoord().xy);
+        float inside = texture(materialParams_mask, uv).a;
+        float near = 0.0;
+        for (int i = 0; i < TAPS; i++) {
+            vec2 step = RING[i] * materialParams.reach;
+            near = max(near, texture(materialParams_mask, uv + step).a);
+            near = max(near, texture(materialParams_mask, uv + step * 0.5).a);
+        }
+        float alpha = smoothstep(0.05, 0.5, near) * (1.0 - smoothstep(0.05, 0.5, inside))
+            * materialParams.color.a;
+        material.baseColor = vec4(materialParams.color.rgb * alpha, alpha);
+    }
+}

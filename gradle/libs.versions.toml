@@ -18,6 +18,9 @@ coroutines = "1.10.2"
 # Android, so it is the ceiling for both.
 filament = "1.75.1"
 filamentIosSha256 = "afdfdccfb0870a667c73400d9e81e5ec69c8604d867fc4430b9fbfe72934ade3"
+# The macOS release carries the host tools; matc compiles our materials. Same version as
+# the runtimes: a compiled material only loads in the Filament that made it.
+filamentMacSha256 = "703afaa7068af98a47b505f02a35ed30aae83bbcbfd6ca138d0b62fa1e38da88"
 junit = "4.13.2"
 kotlin = "2.4.10"
 ksp = "2.3.11"

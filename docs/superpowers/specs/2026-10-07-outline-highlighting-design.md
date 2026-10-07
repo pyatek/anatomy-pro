@@ -58,6 +58,8 @@ that renders it with the main camera into an off-screen colour target at half th
 size, cleared to transparent. The structures keep the materials they already have; only
 the alpha they leave behind is read. Post-processing is off on mask views. The mask view
 uses the main view's visible-layer mask, so a hidden structure leaves nothing in it.
+The renderer's clear colour has alpha 0 so that a mask starts transparent; the swap chain
+is opaque on both platforms, so the screen is unaffected.
 
 **Then the main view**, exactly as today.
 
@@ -111,16 +113,17 @@ appearance, so visibility, ghosting and highlighting stay decided in one pass.
 
 ### 4.3 The C seam
 
-`ar_add_highlight` gains the outline colour as four floats and a width in pixels. A group
-of nodes in the seam's sense is already "nodes painted alike"; the shim merges groups with
-the same outline into one mask. `ar_attach_layer` gains pixels-per-dp. No callback is
-added.
+`ar_add_highlight` gains the outline colour as four floats and a width in pixels. The shim
+merges groups with the same outline into one mask. `ar_set_outline_material` hands the
+compiled material to the shim once, after `ar_create`. `ar_capture_frame` exists for tests:
+it renders a frame and copies its pixels out. `ar_attach_layer` does not change: widths
+cross the seam in pixels, so the density stays in Kotlin. No callback is added.
 
 ### 4.4 Density
 
-`attachSurface` on Android and `ar_attach_layer` on iOS take pixels-per-dp from the host
-(`resources.displayMetrics.density`; the layer's `contentsScale`). Headless attachment
-uses 1.
+`attachSurface` on Android and `attachLayer` on iOS (the Kotlin function, not the seam) take
+pixels-per-dp from the host (`resources.displayMetrics.density`; the screen's scale).
+Headless attachment uses 1.
 
 ### 4.5 `:renderer-materials`, the build stage
 
@@ -131,10 +134,11 @@ A Gradle project with no Kotlin plugin, like `:ios-renderer`.
   follows `FetchFilament` in `ios-renderer/build.gradle.kts`.
 - **Compile.** A task runs `matc` on `outline.mat` for the mobile platform and the OpenGL,
   Vulkan and Metal backends, producing one `outline.filamat`.
-- **Android** takes it as an asset of `:shared:renderer-filament`.
-- **iOS** takes it as a generated header holding a byte array, compiled into the
-  `AnatomyRenderer` static library. The simulator tests run as a bare binary with no app
-  bundle to read a resource from.
+- **Generate.** A task writes `OutlineMaterialData.kt`, the compiled material as base64 in
+  a Kotlin object, into a generated source directory that `:shared:renderer-filament`
+  compiles into `commonMain`. Both platforms read the same bytes. An Android asset would
+  need a `Context` the renderer is not constructed with, and the iOS simulator tests have
+  no app bundle to read a resource from.
 
 The stage runs on macOS. So does the rest of the build; a Linux job would need the Linux
 tools archive and a second checksum.
@@ -183,14 +187,10 @@ unmeasured and added to task CF82, with §25.4's interleaved method.
 
 ## 7. Order of work
 
-1. **Spike, thrown away.** On the iOS simulator and the Android emulator, answer:
-   - does a `.filamat` from the fetched `matc` load on both;
-   - can an entity be in two scenes at once and be drawn by both views;
-   - does the mask's alpha survive the render target with post-processing off;
-   - is a half-resolution mask clean enough to the eye.
-
-   If an entity cannot be in two scenes, work stops and the technique is reopened with the
-   owner before anything else is built.
+1. **The gate is the Android pass**, not a throwaway spike: a probe that answers the four
+   questions is the same code as the pass. It is built test-first, and the plan says which
+   assumption each failing test disproves. If an entity cannot be in two scenes, work stops
+   and the technique is reopened with the owner before anything else is built.
 2. `:renderer-materials`: fetch, compile, deliver to both platforms.
 3. `OutlinePlan` and its tests.
 4. Android `OutlinePass`, density, wiring.
