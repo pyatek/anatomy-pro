@@ -498,9 +498,16 @@ class QuizSessionViewModelTest {
         model.answer(assertIs<QuizStage.Asking>(model.stage.value).rightAnswer())
         runCurrent()
 
+        // Half a second into the check, the student starts something else.
+        advanceTimeBy(500)
         model.start(QuizTopicId("vertebrae-cervicales"), QuizFormat.NAME_THE_HIGHLIGHTED, locale = "la", timed = false)
-        advanceUntilIdle()
 
+        // The old answer comes back while the new session is still starting. It must not show.
+        advanceTimeBy(600)
+        runCurrent()
+        assertEquals(QuizStage.Starting, model.stage.value)
+
+        advanceUntilIdle()
         val asking = assertIs<QuizStage.Asking>(model.stage.value)
         assertEquals("vertebrae-cervicales", asking.session.topic.value)
         assertEquals(0, asking.index)
