@@ -22,3 +22,6 @@ node_modules/
 pipeline/build/
 __pycache__/
 .pytest_cache/
+
+# The Z-Anatomy source the pipeline reads; fetched, never committed (see pipeline/README.md).
+pipeline/source/

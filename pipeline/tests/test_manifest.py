@@ -196,6 +196,21 @@ def test_the_report_names_the_roots_and_any_leaf_left_without_a_parent():
     assert report["taxonomy"]["parentless_leaves"] == ["s-x-median"]
 
 
+def test_a_root_that_has_a_mesh_of_its_own_is_not_a_stray_leaf():
+    # Z-Anatomy has a small `.g` object named for a whole system. It resolves to the
+    # system's id, so the root is drawable; it is still the root, with everything under it.
+    root = record("352__systema_skeletale__M__g", "skeleton-median", 450)
+    rib = record("r__x__L", "r-x-left", 900)
+    rib["parent_structure"] = "ribs-median"
+    _, report = manifest.build(
+        "p",
+        [root, rib],
+        groups=[group("skeleton-median", "Skeleton"), group("ribs-median", "Ribs", parent="skeleton-median")],
+    )
+    assert report["taxonomy"]["roots"] == ["skeleton-median"]
+    assert report["taxonomy"]["parentless_leaves"] == []
+
+
 def test_a_definition_goes_out_as_its_lead_with_its_source_beside_it():
     article = "AORTA\n\n\nThe main artery.\n\n\n== History ==\n\nLong.\n\n\nhttps://en.wikipedia.org/wiki/Aorta"
     entry = dict(record("a__b__M", "a-b-median", 10), definition=article)

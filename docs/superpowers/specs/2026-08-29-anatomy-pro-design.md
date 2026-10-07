@@ -2207,3 +2207,93 @@ Not verified: the ghost on the iOS simulator by eye; any of this on hardware. Th
 pixels are measurements of one fixture under one light, so a change to the fixture's
 material, the sun or the tone mapping moves them on both platforms together and they have
 to be measured again.
+
+## 37. Addendum — 2026-10-07: what a structure is part of, and where the source comes from
+
+§32.3 recorded atlas roots that were not anatomy. This section records why, what the
+pipeline does now, and the packs that came out of it.
+
+### 37.1 Five faults in one rule
+
+§25.1 made a collection a group when it held geometry in the pack and its name resolved to a
+term, and parented each structure to the deepest such group it was linked into. Read against
+the manifests and then against the source, that was wrong five ways:
+
+- **The term table has rows for the numbered layers.** `1: Skeletal system` resolves, so the
+  visibility layers became structures.
+- **An object is linked into other systems' collections, and one of those can be the
+  deepest.** The thyroid cartilage hung under Digestive system. In the trunk's muscles, 30
+  structures were parented to the nerves that supply them: the pectoralis major's heads under
+  Lateral pectoral nerve, the rhomboids under Dorsal scapular nerve.
+- **Groups with nothing drawable under them were written.** Rib, Head of rib, Talus, Malleus
+  and others in the skeleton: collections whose name resolves but which hold nothing the pack
+  draws.
+- **An object and a collection of one name resolve to one id.** The mandible was parented to
+  itself, which was dropped, and the manifest carried the id twice.
+- **A structure linked into its layer and nothing else had no parent.** The ethmoid cells.
+
+### 37.2 The rules now
+
+A numbered layer is never a group. A structure's parent is the deepest group inside its own
+system's tree — the collection named as its layer is, without the number — and only failing
+that the deepest group anywhere; a structure in no group hangs from its system. A structure
+is not its own parent, and an object and a collection of one name are written once, the
+drawable taking the collection's place in the tree. A group with nothing drawable beneath it
+is left out. `report.json` lists the roots, any leaf left without a parent, and what was
+pruned. The rules are pure Python and pinned by eleven tests (`pipeline/tests`, 68 in all).
+
+### 37.3 The source
+
+The Z-Anatomy source had gone from the machine and nothing recorded where it came from.
+`pipeline/fetch-source.sh` now fetches `TA2.csv` and `Z-Anatomy.zip` from
+`Z-Anatomy/Models-of-human-anatomy` at commit `c7010a9`, checks both against recorded SHA-256
+sums, and unpacks `Startup.blend`. Those two files were byte-identical upstream from
+2026-09-06 to 2026-10-06. That they are what the first packs were built from was checked,
+not assumed: `skeletal-trunk` regenerated from them with the code as it was reproduced the
+existing manifest's 115 rows in every field but triangle counts.
+
+### 37.4 The packs
+
+All six packs with a definition in `pipeline/packs` were regenerated; the previous build is
+kept beside them as `pipeline/build/packs-backup-2026-10-07` (not committed, like the build).
+
+| Pack | Structures | Groups | Roots | Parentless leaves |
+|---|---|---|---|---|
+| `skeletal-trunk` | 104 (was 115) | 18 (29) | 1: Skeletal system | 0 |
+| `skeletal-body` | 302 (347) | 24 (69) | 1: Skeletal system | 0 |
+| `muscular-trunk` | 229 (247) | 24 (42) | 1: Muscular system | 0 |
+| `visceral-trunk` | 62 (50) | 12 (0) | 1: Visceral systems | 0 |
+| `joints-trunk` | 134 (105) | 29 (0) | 5 | 0 |
+| `trunk-all-systems` | 691 (599) | 92 (0) | 124 | 114 |
+
+No drawn structure was lost or gained in any pack, and no id changed. Every group pruned from
+the three packs compared had no drawn structure beneath it in the old tree, except the ones
+the thyroid cartilage and the 30 muscles moved out of.
+
+**The packs are now at 1,200 triangles a structure.** §25.4 decided that target and the pack
+definitions have said it since, but the builds on disk were the 5,000 ones made minutes
+before. `skeletal-trunk` went from 293,645 triangles to 100,747, `skeletal-body` from 523,180
+to 243,268, `muscular-trunk` from 516,287 to 209,634. `trunk-all-systems` had never been
+decimated at all and went from 1,292,999 to 564,764. The apps bundle these, so what they draw
+is coarser than yesterday, as decided on 2026-09-09.
+
+Seen on the Android emulator: with `skeletal-trunk`, one root, "Systema skeletale", and the
+quiz's five topics plus Cartilagines (four structures; the thyroid cartilage is among its
+kind now). With the default `trunk-all-systems`, a grouped atlas and a Test tab full of
+topics, all locked but Cartilagines — the first time a locked topic has been seen.
+
+Left as they are:
+
+- **`trunk-all-systems` has 114 leaves with no parent**: the body-surface regions, whose only
+  collections are on the region axis that §25.1 keeps out of the taxonomy, and some lymph
+  nodes, whose layer's name matches no group. They are what its 124 roots mostly are.
+- **`joints-trunk` has five roots.** Nothing above the five joint groups resolves to a term.
+- **A mesh named "Skeletal system" is drawn.** `skeletal-body` contains one of Z-Anatomy's
+  `.g` group objects, 450 triangles, which resolves to the system's id. It is the root and it
+  can be tapped. It was there before; the report made it visible.
+- **The teeth.** The lower teeth hang from the mandible rather than from Teeth, because the
+  mandible's collection is the deeper one. Defensible, and not looked at further.
+
+Not verified: the regenerated packs on iOS (they are bundled at the next build; not run);
+any frame time for the packs as they now are, except `skeletal-trunk`'s 7.6 ms from §25.4;
+isolating a rib on the all-systems pack and seeing its neighbours ghost.

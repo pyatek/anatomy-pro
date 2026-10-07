@@ -162,8 +162,11 @@ def build(
         # parent, in a pack that has groups, is a fault in the rules rather than anatomy.
         "taxonomy": {
             "roots": sorted(e["structure_id"] for e in drawable + grouped if e["parent_id"] is None),
+            # A drawable with children is a root, not a stray: some systems have a small
+            # mesh of their own name.
             "parentless_leaves": sorted(
-                e["structure_id"] for e in drawable if e["parent_id"] is None
+                e["structure_id"] for e in drawable
+                if e["parent_id"] is None and e["structure_id"] not in parents
             ) if grouped else [],
             "pruned_groups": sorted(pruned),
         },

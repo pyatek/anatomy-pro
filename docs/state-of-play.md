@@ -1,7 +1,7 @@
 # State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–36 there are the running record of what was actually built and why. This file is
+sections 20–37 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -20,7 +20,8 @@ for `matc`, compiles the outline material, and writes it as Kotlin for `renderer
 (§35.2). macOS only.
 
 Plus `pipeline/`, a separate Python build that converts the Z-Anatomy Blender atlas into
-content packs. It needs Blender installed and reaches `gltfpack` through `npx`.
+content packs. It needs Blender installed and reaches `gltfpack` through `npx`. Its source is
+fetched, pinned and checksummed, by `pipeline/fetch-source.sh` (§37).
 
 **Seven of the prototype's 21 screens are real everywhere**: 01 language selection, 04 atlas
 viewer, 05 structure detail, 06 search, 07 layer panel, 20 settings, 21 structure tree mode.
@@ -34,8 +35,9 @@ the session summary. They run in `:shared:feature-quiz`.
   no question generator.
 - Android debug build only. Production and iOS keep the "not built" placeholder, because no
   quiz repository stands behind them.
-- The default bundled Android pack, `trunk-all-systems`, has no groups, so the Test tab is
-  empty on it. Run with `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`.
+- The default bundled Android pack, `trunk-all-systems`, has groups since it was regenerated
+  (§37), so the Test tab lists topics on it, most of them locked. For the free skeletal
+  topics alone, run with `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`.
 - Screen 12 (wrong answer) is unfinished. It has outlines (§35) and the two platforms now
   draw a style in the same colour (§36); what remains is that the camera frames only one of
   the two structures, and that its colours have not been judged.
@@ -58,6 +60,11 @@ emulator at commit 43f6efb.
 Verified on a Pixel 10: both renderers, picking to the right `StructureId`, and the §6.1
 budget at region scope — `skeletal-trunk` 8.3 ms, `muscular-trunk` ~13 ms, `skeletal-body`
 16.8 ms against a 16.7 ms frame.
+
+**Those three figures are for packs that are no longer the ones on disk.** They were measured
+on the 5,000-triangle builds. §25.4 decided the target is 1,200, and the packs regenerated on
+2026-10-07 are at 1,200 (§37): about a third of the triangles. Only `skeletal-trunk` has a
+figure at 1,200 (7.6 ms, §25.4). The other two have not been measured as they now are.
 
 Not verified, in rough order of how much it matters:
 
@@ -149,16 +156,15 @@ and packs are currently bundled in the APK.
 - **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
   objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
   drops them silently. Fixing it will move the performance numbers for those systems.
-- **The atlas has roots that are not anatomy** — `1: Skeletal system` beside `Skeletal system`,
-  and `Visceral systems` in a skeletal pack. The pipeline promotes Z-Anatomy's numbered
-  visibility layers to structures (§32.3).
+- **The all-systems pack still has 114 structures with no parent**: the body-surface regions
+  and some lymph nodes (§37.4). The single-system packs have one root each and none.
+- **`joints-trunk` has five roots**, the five joint groups; the source has no one group above
+  them that resolves to a term.
+- **A small mesh named "Skeletal system" is drawn and can be tapped** in `skeletal-body`: one
+  of Z-Anatomy's `.g` group objects, 450 triangles (§37.4).
 - **Left and right look identical in search and on the detail screen.**
 - **No Polish names.** The pipeline emits Latin and English. The schema holds more; nothing
   fills it. The settings picker lists only what packs can render.
-- **The bundled default pack is stale.** `trunk-all-systems` (2026-09-07) predates group
-  synthesis: all 599 structures are parentless, so on it the atlas tree is flat, isolation
-  ghosts no neighbours and tree mode has one level. `skeletal-trunk` is fine. Regenerating it
-  is tracked separately.
 - **The selection's outline is hard to see against bone.** Pale pink (`FFD3CB`) on ivory,
   where the selected bone is surrounded by others (§35.5). A token change.
 - **Focusing a group in tree mode moves no camera**, because groups draw nothing.

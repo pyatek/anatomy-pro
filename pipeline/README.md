@@ -7,11 +7,12 @@ content packs. A separate build system in the same repository (design spec §20.
 
 ```sh
 brew install --cask blender
+./fetch-source.sh        # Z-Anatomy's Startup.blend and TA2.csv, pinned, into source/z-anatomy
 
-blender --background /path/to/Z-Anatomy/Startup.blend \
+blender --background --disable-autoexec source/z-anatomy/Startup.blend \
   --python anatomypro_pipeline/blender_export.py -- \
   --pack packs/skeletal-trunk.json \
-  --ta2 /path/to/TA2.csv \
+  --ta2 source/z-anatomy/TA2.csv \
   --out build/packs
 ```
 
@@ -23,9 +24,10 @@ measurement against the §6.1 budget.
 its only root, and `parentless_leaves` should be empty; anything else is a fault in the
 grouping rules, to be looked at before the pack is used.
 
-The source is not in this repository and its location is not recorded: `Startup.blend` is
-Z-Anatomy's Blender file and `TA2.csv` its term table. Note the version you run against;
-structure ids are permanent.
+The source is not in this repository. `fetch-source.sh` downloads it from
+`Z-Anatomy/Models-of-human-anatomy` at a pinned commit and checks both files against
+recorded checksums. Change the pin deliberately: structure ids are permanent, and a new
+source version has to be shown to reproduce the old ids before its packs replace them.
 
 ## Testing
 

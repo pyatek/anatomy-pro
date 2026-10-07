@@ -40,26 +40,35 @@ its name in each shipped locale. The reviewer verifies, edits or disputes.
 
 ## 3. How much there is
 
-Counted from the packs in `pipeline/build`, generated 2026-09-08 to 09-09.
+Counted from the packs in `pipeline/build`, regenerated 2026-10-07 after the grouping rules
+were corrected (design spec §37). The figures before that are in brackets.
 
 | Pack | Structures | of which groups | Unique terms | Scope |
 |---|---|---|---|---|
-| `skeletal-body` | 347 | 69 | **215** | Whole body — the first milestone |
-| `skeletal-trunk` | 115 | 29 | 88 | Trunk |
-| `muscular-trunk` | 247 | 42 | 147 | Trunk |
-| `joints-trunk` | 105 | 0 | 82 | Trunk; predates group synthesis |
-| `visceral-trunk` | 50 | 0 | 44 | Trunk; predates group synthesis |
+| `skeletal-body` | 302 (347) | 24 (69) | **183** (215) | Whole body — the first milestone |
+| `skeletal-trunk` | 104 (115) | 18 (29) | 77 (88) | Trunk |
+| `muscular-trunk` | 229 (247) | 24 (42) | 129 (147) | Trunk |
+| `joints-trunk` | 134 (105) | 29 (0) | 108 (82) | Trunk |
+| `visceral-trunk` | 62 (50) | 12 (0) | 56 (44) | Trunk |
+
+The skeleton lost 32 terms and the trunk's muscles 18: groups that held nothing drawable, the
+numbered layers, and groups borrowed from other systems. The joints and viscera gained terms
+because their old packs predated groups altogether.
 
 **The whole atlas is nearer 2,400 terms than 16,000 decisions.** State-of-play's figure
 multiplied ~3,758 structures by three locales. But names are reviewed per term, and in the
 packs above terms are 62–67% of structures, which puts the atlas at roughly 2,400 terms.
-That is an extrapolation: only the skeleton has been counted for the whole body, and the
-other systems need a pipeline run against the Z-Anatomy source, which is not on the machine
-this was written on.
+That is an extrapolation: only the skeleton has been counted for the whole body. **It has
+not been recomputed for the corrected counts.** Terms are now 56–90% of structures in the
+packs above rather than 62–67%, and the structure total it multiplied has itself changed, so
+2,400 should be read as the old estimate. The source is on hand again
+(`pipeline/fetch-source.sh`), so the other systems can now be counted for the whole body
+instead of extrapolated.
 
 Two things will move these numbers. The pipeline drops about 950 vessel and nerve objects
-(state-of-play, known defects); fixing that adds terms to two systems. And a group shares its
-term with a leaf in 14 cases in the skeleton, so cards slightly outnumber terms.
+(state-of-play, known defects); fixing that adds terms to two systems. And a group can share its
+term with a drawn structure — once in the skeleton now, 14 times before the correction — so
+cards slightly outnumber terms.
 
 ## 4. Definitions cannot stay inside the verification
 
