@@ -26,7 +26,14 @@ sealed interface AtlasRoute {
     @Serializable data class Detail(val structureId: String) : AtlasRoute
 }
 
-/** Screens 08 to 13. */
+/**
+ * Screens 08 to 13.
+ *
+ * [Question] carries a whole session: every question and every answer's feedback are shown
+ * at that one destination, so the 3D canvas — which reloads its pack whenever it is
+ * recreated — survives between them. Its `index` is always 0 and [Feedback] is not
+ * navigated to; both are kept because removing a serialised route is its own change.
+ */
 @Serializable
 sealed interface QuizRoute {
     @Serializable data object Topics : QuizRoute

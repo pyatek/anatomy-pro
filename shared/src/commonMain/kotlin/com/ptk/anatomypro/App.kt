@@ -2,6 +2,7 @@ package com.ptk.anatomypro
 
 import anatomypro.shared.generated.resources.Res
 import anatomypro.shared.generated.resources.not_built_yet
+import anatomypro.shared.generated.resources.screen_paywall
 import anatomypro.shared.generated.resources.tab_ranking
 import anatomypro.shared.generated.resources.tab_test
 import anatomypro.shared.generated.resources.tab_today
@@ -43,6 +44,8 @@ import com.ptk.anatomypro.feature.settings.SettingsViewModel
 import com.ptk.anatomypro.navigation.AnatomyBottomBar
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
+import com.ptk.anatomypro.feature.quiz.QuizSessionViewModel
+import com.ptk.anatomypro.feature.quiz.quizIsBuilt
 import com.ptk.anatomypro.navigation.AtlasRoute
 import com.ptk.anatomypro.navigation.DailyRoute
 import com.ptk.anatomypro.navigation.ProfileRoute
@@ -135,6 +138,15 @@ private fun MainScaffold(
         viewModel(key = "atlas-scene") { AtlasSceneViewModel(atlas) }
     }
 
+    // App-scoped for the same reason as the scene: a question left for another tab is still
+    // there on the way back. Not constructed where there is no quiz to run.
+    val quizBuilt = quizIsBuilt(dependencies.quiz)
+    val quizSession: QuizSessionViewModel? = if (quizBuilt) {
+        viewModel(key = "quiz-session") { QuizSessionViewModel(dependencies.quiz, dependencies.progress) }
+    } else {
+        null
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
@@ -196,7 +208,28 @@ private fun MainScaffold(
                 // Plans 2-6 add their composable<Route> entries here. Until then each unbuilt
                 // tab's start route needs a screen, or selecting the tab crashes the NavHost.
                 composable<DailyRoute.Home> { NotBuilt(Res.string.tab_today) }
-                composable<QuizRoute.Topics> { NotBuilt(Res.string.tab_test) }
+                // Production has no quiz yet: its repository refuses (all-screens spec §6).
+                composable<QuizRoute.Topics> {
+                    if (quizSession == null) NotBuilt(Res.string.tab_test)
+                    else QuizTopicsRoute(dependencies, quizSession, state.settings, navController)
+                }
+                composable<QuizRoute.Question> { backStackEntry ->
+                    if (quizSession != null) {
+                        QuizSessionRoute(quizSession, backStackEntry.toRoute<QuizRoute.Question>().sessionId, navController)
+                    }
+                }
+                composable<QuizRoute.Summary> { backStackEntry ->
+                    if (quizSession != null) {
+                        QuizSummaryRoute(
+                            quizSession,
+                            backStackEntry.toRoute<QuizRoute.Summary>().sessionId,
+                            state.settings,
+                            navController,
+                        )
+                    }
+                }
+                // Screen 18 is the commerce plan's. A locked topic has to lead somewhere now.
+                composable<ProfileRoute.Paywall> { NotBuilt(Res.string.screen_paywall) }
                 composable<DailyRoute.Leaderboard> { NotBuilt(Res.string.tab_ranking) }
             }
         }

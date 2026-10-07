@@ -3,6 +3,8 @@ package com.ptk.anatomypro
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.ptk.anatomypro.core.data.AppDependencies
+import com.ptk.anatomypro.core.data.fake.AtlasQuizSource
+import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
 import com.ptk.anatomypro.core.data.fake.fakeAppDependencies
 
 /**
@@ -17,5 +19,15 @@ import com.ptk.anatomypro.core.data.fake.fakeAppDependencies
 internal fun appDependencies(): AppDependencies {
     val atlas = rememberAtlas()
     val fakes = remember { fakeAppDependencies() }
-    return remember(atlas, fakes) { fakes.copy(atlas = atlas?.repository) }
+    return remember(atlas, fakes) {
+        val installed = atlas?.repository
+        // The quiz asks about the atlas on screen, for the same reason the atlas itself is
+        // real here: fixture ids are not in the pack, so nothing the quiz highlighted could
+        // be seen and nothing tapped could be right. A harness — it skips §7's
+        // verified-only rule, which would leave an unreviewed atlas with nothing to ask.
+        fakes.copy(
+            atlas = installed,
+            quiz = installed?.let { FakeQuizRepository(source = AtlasQuizSource(it)) } ?: fakes.quiz,
+        )
+    }
 }

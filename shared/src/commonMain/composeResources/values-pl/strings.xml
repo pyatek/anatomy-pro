@@ -10,4 +10,5 @@
     <string name="atlas_stats">%1$s · struktury: %2$d · %3$d/%4$d fps · GPU %5$s ms</string>
     <string name="not_built_yet">%1$s — jeszcze nie zbudowane</string>
     <string name="atlas_layers">WARSTWY</string>
+    <string name="screen_paywall">SUBSKRYPCJA</string>
 </resources>
