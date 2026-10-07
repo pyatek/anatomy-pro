@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.ptk.anatomypro.core.data.AppDependencies
@@ -23,6 +25,7 @@ import com.ptk.anatomypro.feature.quiz.destinationOf
 import com.ptk.anatomypro.feature.quiz.quizCanvasFor
 import com.ptk.anatomypro.navigation.ProfileRoute
 import com.ptk.anatomypro.navigation.QuizRoute
+import kotlinx.coroutines.flow.first
 
 /** How long the camera takes to reach a question's structure. */
 private const val FOCUS_MILLIS = 400
@@ -36,12 +39,19 @@ private const val FOCUS_MILLIS = 400
  * (decision 4 — the way out of a session is "End session").
  *
  * Keyed on the destination, not the stage: the clock ticking is not a reason to navigate.
+ *
+ * Only a route that is on screen navigates. One that is fading out is still composed, and
+ * after a tab switch the Test tab's stack is not the live one: navigating from there would
+ * push a question onto another tab.
  */
 @Composable
 private fun FollowSession(stage: QuizStage, here: QuizDestination, navController: NavHostController) {
     val wanted = destinationOf(stage)
-    LaunchedEffect(wanted, here) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(wanted, here, lifecycle) {
         if (wanted == here) return@LaunchedEffect
+        // A route that has left never starts again; this effect ends with its composition.
+        lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.STARTED) }
         when (wanted) {
             QuizDestination.Topics -> navController.popBackStack(QuizRoute.Topics, inclusive = false)
             is QuizDestination.Session ->
