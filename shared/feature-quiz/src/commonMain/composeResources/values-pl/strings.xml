@@ -1,0 +1,45 @@
+<resources>
+    <string name="topics_title">Sprawdź się</string>
+    <string name="topics_format_name">Nazwij strukturę</string>
+    <string name="topics_format_tap">Znajdź strukturę</string>
+    <string name="topics_loading">Wczytywanie tematów…</string>
+    <string name="topics_failed">Nie udało się wczytać tematów.</string>
+    <string name="topics_retry">Spróbuj ponownie</string>
+    <string name="topics_empty">Nie ma jeszcze z czego się sprawdzić.</string>
+    <string name="topics_start_failed">Nie udało się rozpocząć testu. Wybierz inny temat albo spróbuj ponownie.</string>
+    <string name="topics_untouched">Nie rozpoczęto</string>
+    <string name="topics_mastery">Opanowano %1$d %</string>
+    <string name="topics_locked">ZABLOKOWANE · subskrypcja</string>
+    <string name="topics_locked_description">%1$s, zablokowane. Otwiera ekran subskrypcji.</string>
+    <plurals name="topics_count">
+        <item quantity="one">%1$d struktura</item>
+        <item quantity="few">%1$d struktury</item>
+        <item quantity="many">%1$d struktur</item>
+        <item quantity="other">%1$d struktury</item>
+    </plurals>
+    <string name="question_progress">Pytanie %1$d z %2$d</string>
+    <string name="question_end">Zakończ sesję</string>
+    <string name="question_tap_instruction">Wskaż tę strukturę na modelu</string>
+    <string name="question_name_instruction">Jak nazywa się podświetlona struktura?</string>
+    <string name="question_prompt_locale">język: %1$s</string>
+    <string name="question_time_left">Pozostało %1$d s</string>
+    <string name="question_untimed">Bez limitu czasu</string>
+    <string name="question_submitting">Sprawdzanie…</string>
+    <string name="question_submit_failed">Nie udało się sprawdzić odpowiedzi. Odpowiedz jeszcze raz.</string>
+    <string name="feedback_correct">Dobrze</string>
+    <string name="feedback_incorrect">Niezupełnie</string>
+    <string name="feedback_expected">Odpowiedź</string>
+    <string name="feedback_chosen">Twój wybór</string>
+    <string name="feedback_no_choice">Nie wybrano żadnej struktury z tego tematu.</string>
+    <string name="feedback_shared">Obie należą do: %1$s.</string>
+    <string name="feedback_next">Następne pytanie</string>
+    <string name="feedback_finish">Zobacz wynik</string>
+    <string name="summary_title">Sesja zakończona</string>
+    <string name="summary_score">Poprawnie: %1$d z %2$d</string>
+    <string name="summary_perfect">Wszystkie odpowiedzi były poprawne.</string>
+    <string name="summary_review">DO POWTÓRKI</string>
+    <string name="summary_again">Ten sam temat jeszcze raz</string>
+    <string name="summary_done">Wróć do tematów</string>
+    <string name="summary_time">Łącznie %1$d s</string>
+    <string name="finish_failed">Nie udało się obliczyć wyniku.</string>
+</resources>

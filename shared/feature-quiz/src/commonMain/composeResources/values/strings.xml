@@ -1,0 +1,43 @@
+<resources>
+    <string name="topics_title">Test yourself</string>
+    <string name="topics_format_name">Name the structure</string>
+    <string name="topics_format_tap">Find the structure</string>
+    <string name="topics_loading">Loading topics…</string>
+    <string name="topics_failed">The topics could not be loaded.</string>
+    <string name="topics_retry">Try again</string>
+    <string name="topics_empty">There is nothing to be tested on yet.</string>
+    <string name="topics_start_failed">That test could not be started. Choose another topic or try again.</string>
+    <string name="topics_untouched">Not started</string>
+    <string name="topics_mastery">%1$d % learned</string>
+    <string name="topics_locked">LOCKED · subscription</string>
+    <string name="topics_locked_description">%1$s, locked. Opens the subscription screen.</string>
+    <plurals name="topics_count">
+        <item quantity="one">%1$d structure</item>
+        <item quantity="other">%1$d structures</item>
+    </plurals>
+    <string name="question_progress">Question %1$d of %2$d</string>
+    <string name="question_end">End session</string>
+    <string name="question_tap_instruction">Tap this structure on the model</string>
+    <string name="question_name_instruction">What is the highlighted structure?</string>
+    <string name="question_prompt_locale">in %1$s</string>
+    <string name="question_time_left">%1$d s left</string>
+    <string name="question_untimed">No time limit</string>
+    <string name="question_submitting">Checking…</string>
+    <string name="question_submit_failed">The answer could not be checked. Answer again.</string>
+    <string name="feedback_correct">Correct</string>
+    <string name="feedback_incorrect">Not quite</string>
+    <string name="feedback_expected">The answer</string>
+    <string name="feedback_chosen">You chose</string>
+    <string name="feedback_no_choice">No structure from this topic was chosen.</string>
+    <string name="feedback_shared">Both belong to %1$s.</string>
+    <string name="feedback_next">Next question</string>
+    <string name="feedback_finish">See the result</string>
+    <string name="summary_title">Session finished</string>
+    <string name="summary_score">%1$d of %2$d correct</string>
+    <string name="summary_perfect">Every answer was right.</string>
+    <string name="summary_review">TO REVIEW</string>
+    <string name="summary_again">Same topic again</string>
+    <string name="summary_done">Back to topics</string>
+    <string name="summary_time">%1$d s in total</string>
+    <string name="finish_failed">The result could not be worked out.</string>
+</resources>
