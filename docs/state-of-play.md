@@ -145,7 +145,7 @@ and packs are currently bundled in the APK.
 
 - **The ghost is dimmer on Android than when it was approved.** Its "pale shell" look was
   judged on a colour Android read wrongly; read as sRGB, as on iOS, it is a dim grey shell at
-  30 % (§36). Whether that is still what is wanted is not decided.
+  30 % (§36). Decided 2026-10-07: it stays as it is.
 - **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
   objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
   drops them silently. Fixing it will move the performance numbers for those systems.
