@@ -8,6 +8,7 @@ import com.ptk.anatomypro.core.data.model.QuizFormat
 import com.ptk.anatomypro.core.data.model.SubscriptionPlan
 import com.ptk.anatomypro.core.data.repository.QuizRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -20,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TopicsViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
