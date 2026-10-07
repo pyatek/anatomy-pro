@@ -229,11 +229,16 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         resourceLoader = ResourceLoader(engine)
     }
 
-    /** Draws offscreen. Used by contract tests, which have no window. */
-    fun attachHeadless(width: Int, height: Int) {
+    /**
+     * Draws offscreen. Used by contract tests, which have no window.
+     *
+     * [pixelsPerDp] is 1 unless a test is asking what a denser display would draw.
+     */
+    fun attachHeadless(width: Int, height: Int, pixelsPerDp: Float = 1f) {
         // Offscreen rendering has no display to pace against; left at the default,
         // Filament drops most frames of a tight loop and a picking readback never lands.
         renderer.setDisplayInfo(Renderer.DisplayInfo().apply { refreshRate = 0.0f })
+        this.pixelsPerDp = pixelsPerDp
         releaseSwapChain()
         configureSurface(engine.createSwapChain(width, height, 0L), width, height)
     }

@@ -90,20 +90,60 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun draws_no_outline_for_a_hidden_structure() = runBlocking { verifyAHiddenStructureHasNoOutline() }
     @Test fun removes_the_outline_with_the_pack() = runBlocking { verifyUnloadingAPackRemovesItsOutline() }
 
-    /** Rotation and split screen hand the renderer a new surface while a structure is highlighted. */
+    /**
+     * Rotation and split screen hand the renderer a new surface while a structure is
+     * highlighted. Afterwards it must draw what a renderer given that surface from the start
+     * draws: masks and line widths still sized for the old surface give a line of the wrong
+     * weight, which a mere "some outline is there" would not notice.
+     */
     @Test fun keeps_the_outline_when_the_surface_changes_size() = runBlocking {
+        val resized = FilamentAnatomyRenderer()
+        val fresh = FilamentAnatomyRenderer()
+        try {
+            resized.attachHeadless(VIEWPORT, VIEWPORT / 4)
+            resized.loadPack(pack, source)
+            resized.highlight(setOf(hitStructure), OUTLINE)
+            settle(resized)
+            resized.attachHeadless(VIEWPORT, VIEWPORT)
+            settle(resized)
+
+            fresh.attachHeadless(VIEWPORT, VIEWPORT)
+            fresh.loadPack(pack, source)
+            fresh.highlight(setOf(hitStructure), OUTLINE)
+            settle(fresh)
+
+            val frame = resized.captureFrame()
+            assertEquals(VIEWPORT * VIEWPORT * 4, frame.size)
+            val afterResize = FramePixels.countMatching(frame, OUTLINE.outlineArgb)
+            val fromTheStart = FramePixels.countMatching(fresh.captureFrame(), OUTLINE.outlineArgb)
+            assertTrue(fromTheStart > 0)
+            assertTrue(
+                "after a resize <$afterResize> outline pixels, from the start <$fromTheStart>",
+                kotlin.math.abs(afterResize - fromTheStart) <= fromTheStart / 20,
+            )
+        } finally {
+            resized.dispose()
+            fresh.dispose()
+        }
+    }
+
+    /** Widths are given in dp. A renderer that ignored the density would draw a hairline on a phone. */
+    @Test fun draws_a_wider_outline_on_a_denser_display() = runBlocking {
         val renderer = FilamentAnatomyRenderer()
         try {
-            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.attachHeadless(VIEWPORT, VIEWPORT, pixelsPerDp = 1f)
             renderer.loadPack(pack, source)
             renderer.highlight(setOf(hitStructure), OUTLINE)
             settle(renderer)
-            renderer.attachHeadless(VIEWPORT, VIEWPORT / 2)
-            settle(renderer)
+            val atOne = FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb)
 
-            val frame = renderer.captureFrame()
-            assertEquals(VIEWPORT * (VIEWPORT / 2) * 4, frame.size)
-            assertTrue(FramePixels.countMatching(frame, OUTLINE.outlineArgb) > 0)
+            // The density arrives with a surface, after the highlight was set.
+            renderer.attachHeadless(VIEWPORT, VIEWPORT, pixelsPerDp = 3f)
+            settle(renderer)
+            val atThree = FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb)
+
+            assertTrue(atOne > 0)
+            assertTrue(atThree > atOne * 2)
         } finally {
             renderer.dispose()
         }

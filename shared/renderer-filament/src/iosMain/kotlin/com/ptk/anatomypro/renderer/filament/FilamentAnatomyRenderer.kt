@@ -144,13 +144,25 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         shot?.let { place(it) }
     }
 
-    /** Draws offscreen. Used by contract tests, which have no window. */
-    fun attachHeadless(width: Int, height: Int) {
+    /**
+     * Draws offscreen. Used by contract tests, which have no window.
+     *
+     * [pixelsPerDp] is 1 unless a test is asking what a denser display would draw.
+     */
+    fun attachHeadless(width: Int, height: Int, pixelsPerDp: Float = 1f) {
         surfaceWidth = width
         surfaceHeight = height
         ar_attach_headless(handle, width.toUInt(), height.toUInt())
         drain()
         keepCameraAcrossSurfaceChange()
+        densityIs(pixelsPerDp)
+    }
+
+    /** Outline widths cross the seam in pixels, so a new density means sending them again. */
+    private fun densityIs(pixelsPerDp: Float) {
+        if (pixelsPerDp == this.pixelsPerDp) return
+        this.pixelsPerDp = pixelsPerDp
+        highlight(highlights)
     }
 
     /**
@@ -170,10 +182,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         )
         drain()
         keepCameraAcrossSurfaceChange()
-        if (pixelsPerDp != this.pixelsPerDp) {
-            this.pixelsPerDp = pixelsPerDp
-            highlight(highlights)
-        }
+        densityIs(pixelsPerDp)
     }
 
     /**

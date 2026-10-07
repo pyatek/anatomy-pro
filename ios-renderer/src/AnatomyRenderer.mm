@@ -792,24 +792,46 @@ void ar_wait_for_gpu(ar_renderer_ref r) {
     r->engine->flushAndWait();
 }
 
+namespace {
+
+/*
+ * One frame being read back. On the heap and owned by whoever finishes last: Filament holds
+ * a pointer to `pixels` until the GPU answers, which can be after ar_capture_frame has given
+ * up, so neither the caller's buffer nor anything on its stack may be what Filament writes to.
+ */
+struct Capture {
+    enum State : int { kPending = 0, kDone = 1, kAbandoned = 2 };
+    std::vector<uint8_t> pixels;
+    std::atomic<int> state{kPending};
+};
+
+} // namespace
+
 bool ar_capture_frame(ar_renderer_ref r, uint8_t* out, size_t capacity) {
     if (!r || !r->engine || !r->swapChain || !out) return false;
     const size_t size = size_t(r->width) * size_t(r->height) * 4;
     if (size == 0 || capacity < size) return false;
 
-    // On the heap: if the GPU never answers, the callback may still fire after we return,
-    // and must not write to a dead stack frame. Leaked in that case, deliberately.
-    auto* done = new std::atomic<bool>(false);
+    auto* capture = new Capture();
+    capture->pixels.resize(size);
     bool asked = false;
-    for (int attempt = 0; attempt < 16 && !done->load(); ++attempt) {
+    for (int attempt = 0; attempt < 16 && capture->state.load() == Capture::kPending; ++attempt) {
         if (r->renderer->beginFrame(r->swapChain, 0)) {
             drawViews(r);
             if (!asked) {
                 backend::PixelBufferDescriptor descriptor(
-                    out, size, backend::PixelDataFormat::RGBA, backend::PixelDataType::UBYTE,
+                    capture->pixels.data(), size,
+                    backend::PixelDataFormat::RGBA, backend::PixelDataType::UBYTE,
                     &immediateHandler(),
-                    [](void*, size_t, void* user) { static_cast<std::atomic<bool>*>(user)->store(true); },
-                    done);
+                    [](void*, size_t, void* user) {
+                        auto* finished = static_cast<Capture*>(user);
+                        int expected = Capture::kPending;
+                        // Abandoned already: nobody is waiting, so this is the last owner.
+                        if (!finished->state.compare_exchange_strong(expected, Capture::kDone)) {
+                            delete finished;
+                        }
+                    },
+                    capture);
                 r->renderer->readPixels(0, 0, r->width, r->height, std::move(descriptor));
                 asked = true;
             }
@@ -817,9 +839,16 @@ bool ar_capture_frame(ar_renderer_ref r, uint8_t* out, size_t capacity) {
         }
         r->engine->flushAndWait();
     }
-    const bool ok = done->load();
-    if (ok) delete done;
-    return ok;
+
+    int expected = Capture::kPending;
+    if (capture->state.compare_exchange_strong(expected, Capture::kAbandoned)) {
+        // Never asked means Filament holds nothing and will never call back.
+        if (!asked) delete capture;
+        return false;
+    }
+    std::copy(capture->pixels.begin(), capture->pixels.end(), out);
+    delete capture;
+    return true;
 }
 
 bool ar_poll_event(ar_renderer_ref r, ar_event* out) {
