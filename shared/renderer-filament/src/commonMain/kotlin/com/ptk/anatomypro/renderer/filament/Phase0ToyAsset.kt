@@ -10,6 +10,12 @@ package com.ptk.anatomypro.renderer.filament
  * The names follow the sourcing convention exactly (model sourcing spec §2.2) — proving
  * the naming round-trips is as much a part of Phase 0 as proving the GPU works.
  *
+ * The material is the kind the pipeline's packs carry: double-sided, with
+ * `KHR_materials_specular` and `KHR_materials_ior`. Those select a different ubershader
+ * than a bare metallic-roughness material does, and a renderer feature proved only on the
+ * bare one was not proved: the outline mask came back opaque on real packs while every
+ * contract case passed on this fixture.
+ *
  * Layout, viewed down -Z: three unit cubes in a row, the median one at the origin. The
  * centre of a square viewport therefore hits [MEDIAN_NODE], and a corner hits nothing.
  */
@@ -66,7 +72,10 @@ object Phase0ToyAsset {
             {"name":"$MEDIAN_NODE","mesh":0,"translation":[0,0,0]},
             {"name":"$RIGHT_NODE","mesh":0,"translation":[$SPACING,0,0]}],
             "meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":1},"indices":2,"material":0}]}],
-            "materials":[{"pbrMetallicRoughness":{"baseColorFactor":[0.8,0.8,0.8,1.0],"metallicFactor":0.0,"roughnessFactor":0.8}}],
+            "extensionsUsed":["KHR_materials_specular","KHR_materials_ior"],
+            "materials":[{"doubleSided":true,
+            "extensions":{"KHR_materials_specular":{"specularColorFactor":[1.0,1.0,1.0]},"KHR_materials_ior":{"ior":1.45}},
+            "pbrMetallicRoughness":{"baseColorFactor":[0.8,0.8,0.8,1.0],"metallicFactor":0.0,"roughnessFactor":0.8}}],
             "accessors":[
             {"bufferView":0,"componentType":5126,"count":24,"type":"VEC3","min":[${-HALF},${-HALF},${-HALF}],"max":[$HALF,$HALF,$HALF]},
             {"bufferView":1,"componentType":5126,"count":24,"type":"VEC3"},

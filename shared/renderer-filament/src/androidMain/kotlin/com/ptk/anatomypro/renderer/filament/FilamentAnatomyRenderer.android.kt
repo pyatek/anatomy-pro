@@ -10,6 +10,7 @@ import com.google.android.filament.MaterialInstance
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.SwapChain
+import com.google.android.filament.Texture
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.gltfio.AssetLoader
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.tan
 
 /**
@@ -88,6 +90,53 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
     private var ghostMaterial: MaterialInstance? = null
 
+    private var pixelsPerDp = 1f
+    private var outline: OutlinePass? = null
+    private var outlineFailed = false
+
+    /**
+     * The outline pass, made the first time something is highlighted.
+     *
+     * A material that will not load is reported once and the renderer goes on without
+     * outlines: the tint still draws, and a missing line must not take the model with it.
+     */
+    private fun outlinePass(): OutlinePass? {
+        outline?.let { return it }
+        if (outlineFailed) return null
+        return try {
+            OutlinePass(engine, OutlineMaterialData.bytes, camera, LAYER_MASK, LAYER_VISIBLE)
+                .also { it.resize(width, height); outline = it }
+        } catch (failure: RuntimeException) {
+            outlineFailed = true
+            _events.tryEmit(RendererEvent.Error("outline-unavailable", failure.message ?: "the outline material did not load"))
+            null
+        }
+    }
+
+    /** Tells the outline pass what the highlight map means in entities and pixels. */
+    private fun applyOutline() {
+        val groups = OutlinePlan.of(highlights, pixelsPerDp)
+        if (groups.isEmpty()) {
+            outline?.setGroups(emptyList())
+            return
+        }
+        val pass = outlinePass() ?: return
+        pass.setGroups(
+            groups.map { group ->
+                OutlinePass.Spec(
+                    entities = group.structures
+                        .flatMap { (entitiesByStructure[it] ?: NO_ENTITIES).asIterable() }
+                        .toIntArray(),
+                    red = group.red,
+                    green = group.green,
+                    blue = group.blue,
+                    alpha = group.alpha,
+                    widthPx = group.widthPx,
+                )
+            }
+        )
+    }
+
     /**
      * The one blended instance every ghosted primitive shares.
      *
@@ -120,6 +169,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         const val LAYER_MASK = LAYER_VISIBLE or LAYER_HIDDEN
 
         val NO_ENTITIES = IntArray(0)
+        const val CAPTURE_ATTEMPTS = 16
 
         /** A neutral bone-pale shell — deliberately not the structure's own colour (§26.3). */
         const val GHOST_RED = 0.82f
@@ -141,9 +191,11 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         // that is invisible; once the camera moves or structures are hidden, every earlier
         // frame shows through around the model — an isolated sternum sat on top of the
         // ribcage that had just been hidden.
+        // Alpha 0: an outline mask is cleared with this colour too, and must start
+        // transparent. The swap chain is opaque, so the screen is black either way.
         renderer.clearOptions = Renderer.ClearOptions().apply {
             clear = true
-            clearColor = doubleArrayOf(0.0, 0.0, 0.0, 1.0)
+            clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0)
         }
         scene = engine.createScene()
         view = engine.createView()
@@ -192,11 +244,14 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * [refreshHz] must be the display's actual refresh rate. Filament paces against it, so
      * leaving it at the 60 Hz default on a 120 Hz panel silently caps the frame rate at a
      * fraction of what the hardware can do, and the result looks like a rendering cost.
+     *
+     * [pixelsPerDp] is the display's density; outline widths are given in dp.
      */
-    fun attachSurface(surface: Any, width: Int, height: Int, refreshHz: Float) {
+    fun attachSurface(surface: Any, width: Int, height: Int, refreshHz: Float, pixelsPerDp: Float) {
         renderer.setDisplayInfo(
             Renderer.DisplayInfo().apply { refreshRate = if (refreshHz > 0f) refreshHz else 60.0f }
         )
+        this.pixelsPerDp = pixelsPerDp
         releaseSwapChain()
         configureSurface(engine.createSwapChain(surface), width, height)
     }
@@ -222,6 +277,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         this.height = height
         view.viewport = Viewport(0, 0, width, height)
         fitCameraToSurface()
+        outline?.resize(width, height)
+        // The density may have come with the surface.
+        applyOutline()
         _events.tryEmit(RendererEvent.Ready)
     }
 
@@ -240,9 +298,44 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         val chain = swapChain ?: return false
         stepCamera(frameTimeNanos)
         if (!renderer.beginFrame(chain, frameTimeNanos)) return false
-        renderer.render(view)
+        drawViews()
         renderer.endFrame()
         return true
+    }
+
+    /** Masks first, so the overlay reads this frame's; the overlay last, over the model. */
+    private fun drawViews() {
+        outline?.renderMasks(renderer)
+        renderer.render(view)
+        outline?.renderOverlay(renderer)
+    }
+
+    /**
+     * Test-only: draws a frame and returns it, four bytes a pixel (R, G, B, A), bottom row
+     * first. Blocks until the GPU has handed the pixels back.
+     */
+    fun captureFrame(): ByteArray {
+        val chain = swapChain ?: return ByteArray(0)
+        val storage = ByteBuffer.allocateDirect(width * height * 4)
+        val done = AtomicBoolean(false)
+        val descriptor = Texture.PixelBufferDescriptor(
+            storage, Texture.Format.RGBA, Texture.Type.UBYTE, 1, 0, 0, width, inlineExecutor,
+        ) { done.set(true) }
+        var asked = false
+        var attempts = 0
+        while (!done.get() && attempts++ < CAPTURE_ATTEMPTS) {
+            if (renderer.beginFrame(chain, System.nanoTime())) {
+                drawViews()
+                if (!asked) {
+                    renderer.readPixels(0, 0, width, height, descriptor)
+                    asked = true
+                }
+                renderer.endFrame()
+            }
+            engine.flushAndWait()
+        }
+        check(done.get()) { "the frame was not read back after $CAPTURE_ATTEMPTS attempts" }
+        return ByteArray(storage.capacity()).also { storage.rewind(); storage.get(it) }
     }
 
     private val frameInfoHistory = Array(8) { Renderer.FrameInfo() }
@@ -285,6 +378,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         if (disposed) return
         disposed = true
         releaseAsset()
+        outline?.destroy()
+        outline = null
         resourceLoader.destroy()
         assetLoader.destroy()
         materialProvider.destroy()
@@ -452,6 +547,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
                 }
             }
         }
+        applyOutline()
     }
 
     override fun focusCamera(structure: StructureId, durationMs: Int) {

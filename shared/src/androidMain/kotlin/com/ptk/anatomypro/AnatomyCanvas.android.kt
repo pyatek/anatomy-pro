@@ -79,7 +79,9 @@ actual fun AnatomyCanvas(
                         width: Int,
                         height: Int,
                     ) {
-                        renderer.attachSurface(holder.surface, width, height, refreshHz)
+                        renderer.attachSurface(
+                            holder.surface, width, height, refreshHz, resources.displayMetrics.density,
+                        )
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) = Unit

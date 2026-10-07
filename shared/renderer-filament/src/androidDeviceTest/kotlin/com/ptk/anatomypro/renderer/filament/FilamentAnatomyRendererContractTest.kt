@@ -1,16 +1,22 @@
 package com.ptk.anatomypro.renderer.filament
 
+import android.graphics.PixelFormat
+import android.media.ImageReader
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.renderer.api.AnatomyRenderer
 import com.ptk.anatomypro.renderer.api.AnatomyRendererContract
+import com.ptk.anatomypro.renderer.api.HighlightStyle
 import com.ptk.anatomypro.renderer.api.MeshSource
+import com.ptk.anatomypro.renderer.api.OutlineStyle
 import com.ptk.anatomypro.renderer.api.RendererEvent
+import com.ptk.anatomypro.renderer.api.highlight
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -65,6 +71,9 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    override suspend fun countPixels(renderer: AnatomyRenderer, argb: Int): Int =
+        FramePixels.countMatching((renderer as FilamentAnatomyRenderer).captureFrame(), argb)
+
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runBlocking { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runBlocking { verifyPickingEmptySpaceReportsNothing() }
@@ -76,6 +85,29 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun shows_a_hidden_structure_again() = runBlocking { verifyShowingAHiddenStructureRestoresPicking() }
     @Test fun keeps_a_ghosted_structure_pickable() = runBlocking { verifyAGhostedStructureStaysPickable() }
     @Test fun does_not_fault_when_highlight_and_ghost_interleave() = runBlocking { verifyDoesNotFaultWhenHighlightAndGhostInterleave() }
+    @Test fun draws_an_outline_in_the_styles_colour() = runBlocking { verifyAHighlightDrawsAnOutlineInItsColour() }
+    @Test fun draws_a_wider_outline_over_more_pixels() = runBlocking { verifyAWiderOutlineCoversMorePixels() }
+    @Test fun draws_no_outline_for_a_hidden_structure() = runBlocking { verifyAHiddenStructureHasNoOutline() }
+    @Test fun removes_the_outline_with_the_pack() = runBlocking { verifyUnloadingAPackRemovesItsOutline() }
+
+    /** Rotation and split screen hand the renderer a new surface while a structure is highlighted. */
+    @Test fun keeps_the_outline_when_the_surface_changes_size() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+            renderer.attachHeadless(VIEWPORT, VIEWPORT / 2)
+            settle(renderer)
+
+            val frame = renderer.captureFrame()
+            assertEquals(VIEWPORT * (VIEWPORT / 2) * 4, frame.size)
+            assertTrue(FramePixels.countMatching(frame, OUTLINE.outlineArgb) > 0)
+        } finally {
+            renderer.dispose()
+        }
+    }
     @Test fun centres_a_focused_structure() = runBlocking { verifyFocusingTheCameraCentresAStructure() }
     @Test fun returns_to_the_whole_model() = runBlocking { verifyFramingAllReturnsTheCentreToTheWholeModel() }
 
@@ -142,6 +174,30 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    /**
+     * The headless swap chain is not what the app draws to: the app attaches a window's
+     * surface, which is opaque, and passes a density. An opaque `ImageReader` surface stands
+     * in for the app's `SurfaceView`, so the path the app takes is drawn at least once.
+     */
+    @Test fun draws_the_outline_on_a_window_surface() = runBlocking {
+        val reader = ImageReader.newInstance(VIEWPORT, VIEWPORT, PixelFormat.RGBX_8888, 2)
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachSurface(reader.surface, VIEWPORT, VIEWPORT, refreshHz = 0f, pixelsPerDp = 1f)
+            renderer.loadPack(pack, source)
+            settle(renderer)
+            assertEquals(0, FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb))
+
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+
+            assertTrue(FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb) > 0)
+        } finally {
+            renderer.dispose()
+            reader.close()
+        }
+    }
+
     /** What a pick at the middle of a [VIEWPORT]-wide, [height]-tall surface reports. */
     private suspend fun structureAtCentre(renderer: FilamentAnatomyRenderer, height: Int): StructureId? {
         settle(renderer)
@@ -157,5 +213,13 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         const val FLIGHT_MS = 600
         const val FLIGHT_START_NANOS = 1_000_000_000L
         const val PICK_TIMEOUT_MS = 15_000L
+
+        val OUTLINE = HighlightStyle(
+            outlineArgb = 0xFFFF00FF.toInt(),
+            outlineWidthDp = 4f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = 0xFFFF00FF.toInt(),
+            fillLuminanceShift = -0.5f,
+        )
     }
 }
