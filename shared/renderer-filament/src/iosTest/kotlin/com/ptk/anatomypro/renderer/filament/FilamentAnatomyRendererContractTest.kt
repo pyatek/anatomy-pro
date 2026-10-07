@@ -211,6 +211,43 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    /**
+     * The same style must be the same colour on both platforms. Each platform's copy of
+     * these tests names the same reference pixels (see [ReferenceColours]).
+     */
+    @Test fun reads_a_highlight_tint_as_srgb() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            settle(renderer)
+            val plain = ReferenceColours.centreOf(renderer.captureFrame(), VIEWPORT, VIEWPORT)
+            assertTrue(ReferenceColours.matches(plain, ReferenceColours.PLAIN), "an untouched cube drew ${plain.toList()}")
+
+            renderer.highlight(setOf(hitStructure), MID_GREY)
+            settle(renderer)
+            val tinted = ReferenceColours.centreOf(renderer.captureFrame(), VIEWPORT, VIEWPORT)
+            assertTrue(ReferenceColours.matches(tinted, ReferenceColours.MID_GREY_TINT), "a mid-grey tint drew ${tinted.toList()}")
+        } finally {
+            renderer.dispose()
+        }
+    }
+
+    @Test fun reads_the_ghost_colour_as_srgb() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            renderer.setOpacity(setOf(hitStructure), alpha = 0.5f)
+            settle(renderer)
+
+            val ghost = ReferenceColours.centreOf(renderer.captureFrame(), VIEWPORT, VIEWPORT)
+            assertTrue(ReferenceColours.matches(ghost, ReferenceColours.HALF_GHOST), "a half ghost drew ${ghost.toList()}")
+        } finally {
+            renderer.dispose()
+        }
+    }
+
     /** What a pick at the middle of a [VIEWPORT]-wide, [height]-tall surface reports. */
     private suspend fun structureAtCentre(renderer: FilamentAnatomyRenderer, height: Int): StructureId? {
         settle(renderer)
@@ -226,6 +263,15 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         const val FLIGHT_MS = 600
         const val FLIGHT_START_NANOS = 1_000_000_000L
         const val PICK_TIMEOUT_MS = 15_000L
+
+        /** A tint with no luminance shift, so the pixel is the tint and nothing else. */
+        val MID_GREY = HighlightStyle(
+            outlineArgb = 0xFF808080.toInt(),
+            outlineWidthDp = 1f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = 0xFF808080.toInt(),
+            fillLuminanceShift = 0f,
+        )
 
         val OUTLINE = HighlightStyle(
             outlineArgb = 0xFFFF00FF.toInt(),

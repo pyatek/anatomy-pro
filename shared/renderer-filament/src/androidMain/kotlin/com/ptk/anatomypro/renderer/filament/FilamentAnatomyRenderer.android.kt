@@ -2,6 +2,7 @@ package com.ptk.anatomypro.renderer.filament
 
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
+import com.google.android.filament.Colors
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
@@ -511,7 +512,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
         val ghost = if (ghosted.isEmpty()) null else ghostMaterial()
         if (ghost != null) {
-            ghost.setParameter("baseColorFactor", GHOST_RED, GHOST_GREEN, GHOST_BLUE, ghostAlpha)
+            // As sRGB, which Filament converts: the plain four-float setter passes the numbers
+            // through as linear light, and the same style then came out far brighter here
+            // than on iOS, which has always said sRGB.
+            ghost.setParameter(
+                "baseColorFactor", Colors.RgbaType.SRGB, GHOST_RED, GHOST_GREEN, GHOST_BLUE, ghostAlpha,
+            )
             // Highlight beats ghost, whatever style the structure is highlighted in.
             for (structure in ghosted - highlights.keys) {
                 for (entity in (entitiesByStructure[structure] ?: NO_ENTITIES)) {
@@ -536,7 +542,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
                     val replacement = MaterialInstance.duplicate(original, null)
                     val material = original.material
                     if (material.hasParameter("baseColorFactor")) {
-                        replacement.setParameter("baseColorFactor", paint.red, paint.green, paint.blue, paint.alpha)
+                        replacement.setParameter(
+                            "baseColorFactor", Colors.RgbaType.SRGB, paint.red, paint.green, paint.blue, paint.alpha,
+                        )
                     }
                     if (material.hasParameter("emissiveFactor")) {
                         replacement.setParameter(
