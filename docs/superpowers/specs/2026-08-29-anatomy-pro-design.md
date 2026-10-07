@@ -661,6 +661,8 @@ Phase 0 honours neither, because outline geometry needs a second render pass. Un
 does, the accessibility guarantee in §12 is not met, and the quiz's correct/wrong
 distinction must not be built on highlight styling alone.
 
+Superseded for outlines by §35: solid outlines are drawn on both platforms.
+
 ### 21.6 Status
 
 Green: the six contract tests and a Metal smoke test, run against real Filament on the iOS
@@ -1378,6 +1380,8 @@ missing is `matc` and a build stage that runs it for two platforms.
 Until then §21.5 stands unchanged: highlighting is colour and luminance only, §12's
 guarantee is unmet, and the quiz must not be built on highlight styling alone.
 
+Landed as §35, solid only.
+
 ### 26.8 Status
 
 `setVisibility` and `setOpacity` are implemented on both platforms. On iOS they are verified
@@ -2043,3 +2047,107 @@ was not re-checked. The closing `./gradlew allTests` was run afterwards, at comm
 
 Notes on test coverage gaps (name de-duplication, the depth guard, a pool below four, some
 guards in the canvas rules) are in the review record.
+
+## 35. Addendum — 2026-10-07: solid outlines
+
+§12's outline is drawn. The design is `2026-10-07-outline-highlighting-design.md`; this
+section records what was built, what the plan assumed that Filament did differently, and
+what was and was not seen.
+
+### 35.1 What is drawn
+
+Structures whose styles share an outline colour and width form a group (`OutlinePlan`, shared
+Kotlin, beside `HighlightPaint`). Each group's entities are added to a second, small scene,
+and a view renders that scene with the main camera into a target half the surface's size:
+the mask. After the main view, an overlay view draws one full-screen triangle per group with
+a material of our own, which colours every pixel that is outside the mask but within the
+outline's width of it. Nothing else is in a mask's scene, so the outline shows through
+whatever stands in front of the structure. With nothing highlighted no extra view is rendered
+and no target is held.
+
+The outline colour is written without tone mapping and unconverted, so a frame holds the
+style's own bytes; the contract matches on them. `AnatomyRenderer` did not change. The
+renderers learn the display's density from `attachSurface` and `attachLayer`; the C seam
+gained `ar_set_outline_material`, two arguments on `ar_add_highlight`, and
+`ar_capture_frame` for tests. `HighlightStyle.outlineStyle` is still not read: `DASHED`
+draws solid.
+
+### 35.2 The build stage
+
+`:renderer-materials` fetches the Filament macOS release for the pinned version
+(`filamentMacSha256` in `libs.versions.toml`), runs its `matc` on `outline.mat` for OpenGL
+ES, Vulkan and Metal, and writes the result as a generated Kotlin object,
+`OutlineMaterialData`, which `:shared:renderer-filament` compiles into `commonMain`. Both
+platforms read the same bytes; iOS hands them across the seam. An Android asset was the
+first design and was dropped: the renderer is constructed without a `Context`. The stage
+runs on macOS only, as the rest of the build does.
+
+### 35.3 What the plan assumed and what Filament did
+
+- The fetched `matc`'s output loads in both runtimes: held.
+- An entity can be in two scenes and is drawn by both views: held. This was the assumption
+  whose failure would have stopped the work.
+- A colour-only render target is accepted: held.
+- The overlay view draws over the main view without wiping it: held.
+- The line is not mirrored against the model: held on both platforms, seen in the apps.
+- **A mask starts transparent and stays so: not held as designed.** With the packs'
+  materials — double-sided, with `KHR_materials_specular` and `KHR_materials_ior` — a mask
+  rendered by an opaque view came back with alpha 1 everywhere, so every pixel counted as
+  inside the structure and no line was drawn. With a bare metallic-roughness material it
+  did not. Mask views are therefore translucent (`View.BlendMode.TRANSLUCENT`), which keeps
+  the alpha that was drawn. Why the material makes the difference was not established.
+- The renderer's clear colour has alpha 0 on both platforms. Whether that is still needed
+  now that the mask views are translucent was not checked.
+
+That fault passed all 47 instrumented tests, because the toy fixture's material was the bare
+one. It was found by looking at the app, then reproduced headless with `skeletal-trunk`.
+`Phase0ToyAsset` now carries the material extensions the packs do; on it the five outline
+cases fail without the translucent mask and pass with it.
+
+One change to the material after it was first seen: the line begins under the structure's
+soft edge (`1 - smoothstep(0.5, 0.95, inside)`), not beside it. At half resolution the first
+version left a dark seam of background between the bone and its outline.
+
+### 35.4 Verified
+
+Tests, at commit 87cebe0: 352 on the iOS simulator and 317 on the JVM host, none failing
+(`./gradlew allTests --rerun-tasks`); 48 instrumented on the API 36 emulator
+(`:shared:renderer-filament:connectedAndroidDeviceTest`). The contract looks at pixels for
+the first time: a highlight draws pixels of its outline colour and a restyle leaves none of
+the first colour; a wider outline covers more; a hidden structure has none; unloading a pack
+leaves none and reports no error. Each real renderer also keeps the outline across a change
+of surface size, and Android draws it once through `attachSurface` on an opaque surface.
+
+By hand, with `skeletal-trunk`:
+
+| | Android emulator | iOS simulator |
+|---|---|---|
+| A selected bone is tinted and outlined in `FFD3CB` | seen | seen |
+| The line moves with the selection and leaves nothing behind | seen | seen |
+| Tapping empty canvas removes it | seen | seen |
+| The line continues where the bone is behind another | seen (hip behind sacrum; a vertebra's hidden parts) | seen (hip behind sacrum) |
+| Screen 07: system hidden, no line; shown, the line is back | seen | not tried |
+| Screen 07: system ghosted, the selected bone solid and outlined | seen | not tried |
+| Screen 12: expected and chosen each outlined, in two colours | seen (green and amber) | not reachable: the quiz is Android debug only |
+
+The line is the same colour on both platforms, by exact bytes in the screenshots.
+
+### 35.5 Not verified
+
+- **Frame cost on hardware.** No device was attached. Each group adds a half-size pass and a
+  full-screen pass, and the mask views are translucent. Unmeasured; it goes with task CF82.
+- **A physical device of either kind.**
+- **The outline across a device rotation in the app.** Rotating recreates the activity and
+  reloads the atlas, so the selection is gone; that is the app's behaviour, older than this
+  work. The renderers keep the outline across a surface resize under the contract.
+- **Width on a near and a far structure**, side by side. The atlas has no camera gesture. The
+  line looked the same weight in the whole-model view and in the quiz's close view; not
+  measured.
+- **Screen 07 on iOS** with an outline.
+- **The pale selection line against bone.** `FFD3CB` on ivory is hard to see where the
+  selected bone is surrounded by others (the sternum among the ribs). A matter for the
+  tokens, with 5D17.
+- **Thin features.** The material samples two rings; a feature much thinner than the line can
+  fall between them. Not seen to fail; not tested.
+- `DASHED` draws solid. Screen 12 is still unfinished: its camera frames only the expected
+  structure, and its colours wait on 5D17.

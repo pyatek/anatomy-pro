@@ -1,7 +1,7 @@
 # State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–34 there are the running record of what was actually built and why. This file is
+sections 20–35 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -14,6 +14,10 @@ commits, `phase0/ios-filament-host` holds nothing `main` lacks, and `origin/main
 Twelve modules. `core-model`, `core-data` (Room), `core-designsystem`, `renderer-api`,
 `renderer-filament`, `feature-atlas`, `feature-search`, `feature-settings`, `feature-quiz`, the `shared`
 umbrella, `androidApp`, and `ios-renderer` (the Objective-C++ Filament host).
+
+Plus `renderer-materials`, a build-only project: it fetches the pinned Filament macOS release
+for `matc`, compiles the outline material, and writes it as Kotlin for `renderer-filament`
+(§35.2). macOS only.
 
 Plus `pipeline/`, a separate Python build that converts the Z-Anatomy Blender atlas into
 content packs. It needs Blender installed and reaches `gltfpack` through `npx`.
@@ -32,22 +36,21 @@ the session summary. They run in `:shared:feature-quiz`.
   quiz repository stands behind them.
 - The default bundled Android pack, `trunk-all-systems`, has no groups, so the Test tab is
   empty on it. Run with `./gradlew :androidApp:installDebug -Panatomypro.pack=skeletal-trunk`.
-- Screen 12 (wrong answer) is unfinished: no outlines, and the camera frames only one of the
-  two structures.
+- Screen 12 (wrong answer) is unfinished. It now has outlines (§35); what remains is that
+  the camera frames only one of the two structures, and that its colours wait on 5D17.
 
 The renderer can now frame things: `focusCamera` and `frameAll` exist on both platforms and
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**330 tests pass on the iOS simulator and 300 on the JVM host, none failing** (`./gradlew
-allTests` at commit 9c11dec) — common tests run on both, so those figures overlap rather than
+**352 tests pass on the iOS simulator and 317 on the JVM host, none failing** (`./gradlew
+allTests` at commit 87cebe0) — common tests run on both, so those figures overlap rather than
 sum. The quiz module has 53 per target, on both the JVM host and the iOS simulator: 8 for the
 topic grid, 32 for the session, 13 for the canvas rules. The fake module has 78 per target,
 five of them added with the mirror-side answer (§34.3). Android's renderer contract and
 database wiring have their own instrumented tests, which need a device. The
-`:shared:renderer-filament` module's instrumented suite is 30 tests, measured on the API 36
-emulator after the several-highlights change. An earlier figure of 24 instrumented tests
-predates that work and was not re-measured.
+`:shared:renderer-filament` module's instrumented suite is 48 tests, measured on the API 36
+emulator at commit 87cebe0.
 
 ## What is verified, and what is not
 
@@ -69,7 +72,10 @@ Not verified, in rough order of how much it matters:
 4. **Screen-reader speech on screen 21 was never heard.** TalkBack queued the announcement on
    the emulator, but its speech engine was not ready. The live region and custom action are
    wired, not heard.
-5. **iOS has drawn real packs only on the simulator, and only since 2026-10-06.** Before that
+5. **Outlines have not been measured on hardware.** Each outline group adds a half-size pass
+   and a full-screen pass (§35.5). Unmeasured on any device; it goes with the transparency
+   measurement.
+6. **iOS has drawn real packs only on the simulator, and only since 2026-10-06.** Before that
    its on-screen canvas drew nothing at all (§28.1) and could not be tapped (§32.2); both are
    fixed and seen working there. Screen 07 has not been exercised on iOS against a real
    pack, and the iOS shim still creates the new swap chain before destroying the old one, the
@@ -93,14 +99,18 @@ end to end on Android.
 
 ## What to do next
 
-**Outline highlighting, §12 — solid outlines first.** Transparency is done on both platforms:
-`setVisibility` and `setOpacity` pass the shared contract on the iOS simulator and the Android
-emulator, `IsolationPolicy` has its production caller, and screen 07 exists. What it has not
-had is a hardware measurement; §25.4's interleaved-variants method is how that will happen.
-§12 needs shaders, plus `matc`, which is not on this machine.
+**Solid outlines are drawn, on both platforms (§35).** A highlighted structure has a line in
+its style's colour and width, which shows through whatever is in front. The renderer
+contract checks it by reading pixels back. What §12 still lacks is the dashed outline, which
+waits until something needs a second non-colour channel. What the outline costs on hardware
+is unmeasured.
 
-Dashed waits for Phase 2 to need it. The quiz exists and stands on colour and luminance
-only; screen 12 stays unfinished until §12's outlines land.
+**The contract's fixture now has the packs' kind of material.** A fault that drew no outline
+on real packs passed every test on the bare toy material (§35.3). Anything new in the
+renderers should be seen on a real pack before it is believed.
+
+The quiz exists; screen 12 stays unfinished until its camera frames both structures and
+5D17 closes the colour-space divergence.
 
 **The quiz needs its real question generator.** Design §8.1's generator, and §7's
 verified-only gate in front of it, are what turn the canned harness into a product. Until
@@ -150,6 +160,8 @@ and packs are currently bundled in the APK.
   synthesis: all 599 structures are parentless, so on it the atlas tree is flat, isolation
   ghosts no neighbours and tree mode has one level. `skeletal-trunk` is fine. Regenerating it
   is tracked separately.
+- **The selection's outline is hard to see against bone.** Pale pink (`FFD3CB`) on ivory,
+  where the selected bone is surrounded by others (§35.5). A token change, after 5D17.
 - **Focusing a group in tree mode moves no camera**, because groups draw nothing.
 - **The eight Latin system names in `SystemNames.kt` are unverified.** They go on the
   reviewer's list.
@@ -161,7 +173,7 @@ and packs are currently bundled in the APK.
 ### Found by the quiz hand run (§34.4)
 
 - **Screen 12 frames only the expected structure**, so the chosen one is often mostly out of
-  frame, and the two differ by colour and darkness with no outline.
+  frame. (Both are outlined since §35.)
 - **The question highlight is faint** (mauve on ivory bone) with no visible frame.
 - **"Find the structure" draws the whole model small**; ribs are hard to tap.
 - **The canvas stayed black for 10 to 20 s** at a session's first question and after
