@@ -101,3 +101,81 @@ def test_the_nearest_enclosing_group_becomes_the_parent():
 
 def test_an_object_in_no_known_group_has_no_parent():
     assert selection.nearest_group({"Stray"}, {}, {"Bones of thorax": "x"}) is None
+
+
+def test_a_numbered_visibility_layer_is_not_taxonomy():
+    # `1: Skeletal system` is a switch in the add-on's layer panel, not a thing a bone is
+    # part of. Z-Anatomy's own term table has rows for the layers, so "does the name
+    # resolve to a term" let them through as structures: the atlas grew a second, empty
+    # "1: Systema skeletale" beside the real one.
+    assert selection.is_layer("1: Skeletal system")
+    assert selection.is_layer("7: Nervous system & Sense organs")
+    assert not selection.is_layer("Skeletal system")
+    assert not selection.is_layer("Vertebra C1")
+
+
+def test_the_home_of_an_object_is_its_layer_s_name_without_the_number():
+    assert selection.taxonomy_home({"1: Skeletal system", "Ribs", "Trunk"}) == "Skeletal system"
+    # Lowest-numbered, as system_for chooses, so the two cannot disagree.
+    assert selection.taxonomy_home({"4: Muscular system", "1: Skeletal system"}) == "Skeletal system"
+    assert selection.taxonomy_home({"Bonus collection"}) is None
+
+
+CLOSURE = {
+    "Skeletal system": {"Skeletal system"},
+    "Cartilages": {"Cartilages", "Skeletal system"},
+    "Visceral systems": {"Visceral systems"},
+    "Digestive system": {"Digestive system", "Visceral systems"},
+    "Larynx": {"Larynx", "Digestive system", "Visceral systems"},
+}
+GROUPS = {
+    "Skeletal system": "352-systema-skeletale-median",
+    "Cartilages": "7217-cartilagines-median",
+    "Visceral systems": "2772-systemata-visceralia-median",
+    "Digestive system": "2773-systema-digestorium-median",
+    "Larynx": "3000-larynx-median",
+}
+DEPTH = {name: len(above) for name, above in CLOSURE.items()}
+
+
+def test_a_structure_is_parented_inside_its_own_system_even_when_another_nests_deeper():
+    # The thyroid cartilage is linked under Cartilages and under Larynx. Larynx is the
+    # deeper collection, so "the deepest group wins" hung a cartilage of the skeletal
+    # layer under Digestive system and made Visceral systems a root of a skeletal pack.
+    thyroid = {"1: Skeletal system", "Cartilages", "Skeletal system", "Larynx", "Digestive system", "Visceral systems"}
+    assert (
+        selection.nearest_group(thyroid, DEPTH, GROUPS, home="Skeletal system", closure=CLOSURE)
+        == "7217-cartilagines-median"
+    )
+
+
+def test_a_structure_with_no_group_in_its_own_system_takes_the_nearest_one_anywhere():
+    stray = {"1: Skeletal system", "Larynx", "Digestive system", "Visceral systems"}
+    groups = {name: sid for name, sid in GROUPS.items() if name not in {"Skeletal system", "Cartilages"}}
+    assert selection.nearest_group(stray, DEPTH, groups, home="Skeletal system", closure=CLOSURE) == "3000-larynx-median"
+
+
+def test_a_structure_in_no_group_at_all_hangs_from_its_system():
+    # The ethmoid cells are linked into the skeletal layer and nothing else. They are
+    # still part of the skeleton.
+    ethmoid_cells = {"1: Skeletal system", "Head"}
+    assert (
+        selection.nearest_group(ethmoid_cells, DEPTH, GROUPS, home="Skeletal system", closure=CLOSURE)
+        == "352-systema-skeletale-median"
+    )
+
+
+def test_a_structure_is_never_its_own_parent():
+    # The mandible is an object and a collection of the same name, so both resolve to one
+    # structure id. Parenting the object to "its nearest group" parented it to itself,
+    # which was then dropped: a parentless bone with the lower teeth hanging from it.
+    closure = {"Mandible": {"Mandible", "Skeletal system"}, "Skeletal system": {"Skeletal system"}}
+    groups = {"Mandible": "835-mandibula-median", "Skeletal system": "352-systema-skeletale-median"}
+    depth = {"Mandible": 2, "Skeletal system": 1}
+    assert (
+        selection.nearest_group(
+            {"1: Skeletal system", "Mandible", "Skeletal system"}, depth, groups,
+            own="835-mandibula-median", home="Skeletal system", closure=closure,
+        )
+        == "352-systema-skeletale-median"
+    )

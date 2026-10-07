@@ -81,6 +81,34 @@ def build(
         for g in groups
     ]
 
+    # An object and a collection of one name resolve to one id — the mandible is a mesh,
+    # and a collection holding the lower teeth. It is written once: the drawable keeps its
+    # mesh and takes the collection's place in the tree.
+    merged = []
+    for g in grouped:
+        twin = structures.get(g["structure_id"])
+        if twin is None:
+            merged.append(g)
+        elif twin["parent_id"] is None and g["parent_id"] in present and g["parent_id"] != twin["structure_id"]:
+            twin["parent_id"] = g["parent_id"]
+    grouped = merged
+
+    # A group is there to hold what can be seen. One with nothing drawable beneath it —
+    # a nerve's collection in a pack of muscles — is left out, and so is whatever then
+    # holds only such groups.
+    pruned = []
+    while True:
+        parents = {e["parent_id"] for e in drawable} | {g["parent_id"] for g in grouped}
+        empty = [g for g in grouped if g["structure_id"] not in parents]
+        if not empty:
+            break
+        pruned += [g["structure_id"] for g in empty]
+        grouped = [g for g in grouped if g["structure_id"] in parents]
+    kept = {e["structure_id"] for e in drawable} | {g["structure_id"] for g in grouped}
+    for g in grouped:
+        if g["parent_id"] not in kept:
+            g["parent_id"] = None
+
     ordered = drawable
     total_triangles = sum(e["triangles"] for e in ordered)
     matched = sum(1 for e in ordered if e["ta2_id"])
@@ -129,6 +157,15 @@ def build(
             "max": max((r.get("source_triangles", 0) for r in records), default=0),
             "median": int(statistics.median([r.get("source_triangles", 0) for r in records] or [0])),
             "over_100k": sum(1 for r in records if r.get("source_triangles", 0) > 100_000),
+        },
+        # A pack of one system should have that system as its one root. A leaf with no
+        # parent, in a pack that has groups, is a fault in the rules rather than anatomy.
+        "taxonomy": {
+            "roots": sorted(e["structure_id"] for e in drawable + grouped if e["parent_id"] is None),
+            "parentless_leaves": sorted(
+                e["structure_id"] for e in drawable if e["parent_id"] is None
+            ) if grouped else [],
+            "pruned_groups": sorted(pruned),
         },
         "unmatched_terms": sorted(e["english"] for e in ordered if not e["ta2_id"]),
         "deferred": list(DEFERRED),

@@ -149,10 +149,14 @@ def collection_groups(table, closure, present_collections):
     A collection qualifies when it holds geometry in this pack and its name resolves to a
     Terminologia term. That join doubles as the filter: `Bonus collection` and
     `Cross section planes` do not resolve, so they never become structures, and their
-    children attach to the next collection that does.
+    children attach to the next collection that does. It is not the whole filter: the
+    numbered visibility layers do resolve, and are excluded by name.
     """
     groups = {}
     for name in present_collections:
+        # A numbered layer resolves — the term table has rows for them — and is not taxonomy.
+        if selection.is_layer(name):
+            continue
         if closure.get(name, {name}) & _REGION_AXIS:
             continue
         entry = table.lookup(name)
@@ -328,7 +332,12 @@ def main():
             "definition": definition_of(parsed.core),
             "system": selection.system_for(collections),
             "region": selection.region_for(collections, preferred=region),
-            "parent_structure": selection.nearest_group(collections, depth, group_ids),
+            "parent_structure": selection.nearest_group(
+                collections, depth, group_ids,
+                own=naming.structure_id(code, slug, parsed.laterality),
+                home=selection.taxonomy_home(collections),
+                closure=closure,
+            ),
             "laterality": parsed.laterality,
             "discriminator": parsed.discriminator,
             "triangles": triangles,
@@ -360,7 +369,7 @@ def main():
     for name, structure in group_ids.items():
         entry = table.lookup(name)
         parent = selection.nearest_group(
-            closure.get(name, {name}) - {name}, depth, group_ids
+            closure.get(name, {name}) - {name}, depth, group_ids, own=structure
         )
         group_rows.append({
             "structure_id": structure,

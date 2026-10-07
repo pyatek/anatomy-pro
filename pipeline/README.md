@@ -19,6 +19,14 @@ Each run writes `mesh.glb`, `manifest.json`, and `report.json` under
 `build/packs/<pack-id>/`. Read `report.json` first: it carries the join rate and the
 measurement against the §6.1 budget.
 
+`report.json` also has a `taxonomy` block. A pack of one system should list that system as
+its only root, and `parentless_leaves` should be empty; anything else is a fault in the
+grouping rules, to be looked at before the pack is used.
+
+The source is not in this repository and its location is not recorded: `Startup.blend` is
+Z-Anatomy's Blender file and `TA2.csv` its term table. Note the version you run against;
+structure ids are permanent.
+
 ## Testing
 
 ```sh
@@ -47,6 +55,13 @@ sourcing spec assumed:
   layers are flat visibility groups, while `Bonus collection` holds anatomical
   containment. One object belongs to both at once, plus to regional groupings, so
   membership is a set rather than a path.
+- **The term table has rows for the numbered layers** (`1: Skeletal system` resolves), so
+  "the collection's name resolves to a term" is not enough to make it a group.
+- **An object is linked into other systems' collections too.** The thyroid cartilage is
+  under `Cartilages` and under the larynx; a muscle is in the collections of the nerves that
+  supply it. A structure is parented inside its own system's tree first, and a group that
+  ends up with nothing drawable under it is left out of the manifest.
+- **Some names are an object and a collection at once** (`Mandible`). They are one structure.
 - **Definitions are text datablocks** (`bpy.data.texts`) keyed by the term, not object
   custom properties.
 - `TA2.csv` numbers enumerated structures — ribs, vertebrae, teeth — as `1113*8`. The

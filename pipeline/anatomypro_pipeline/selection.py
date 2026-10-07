@@ -81,10 +81,38 @@ def pack_region(spec: PackSpec) -> Optional[str]:
     return None
 
 
+def is_layer(name: str) -> bool:
+    """Whether a collection is one of the numbered visibility layers.
+
+    A layer is a switch in the add-on's panel, not a thing a structure is part of, so it
+    is never a group — even though Z-Anatomy's term table has a row for each of them.
+    """
+    return bool(_NUMBERED_SYSTEM.match(name))
+
+
+def taxonomy_home(collections: AbstractSet[str]) -> Optional[str]:
+    """The collection an object's own system is rooted at: its layer's name, unnumbered.
+
+    `1: Skeletal system` is the layer; `Skeletal system` is the anatomical tree. The
+    lowest-numbered layer is used, as in `system_for`, so the two cannot disagree. A layer
+    whose tree goes by another name simply has no group of this name, and the callers fall
+    back to the nearest group anywhere.
+    """
+    numbered = []
+    for name in collections:
+        match = _NUMBERED_SYSTEM.match(name)
+        if match:
+            numbered.append((int(match.group(1)), match.group(2)))
+    return min(numbered)[1] if numbered else None
+
+
 def nearest_group(
     collections: AbstractSet[str],
     depth: "dict[str, int]",
     groups: "dict[str, str]",
+    own: Optional[str] = None,
+    home: Optional[str] = None,
+    closure: "Optional[dict[str, AbstractSet[str]]]" = None,
 ) -> Optional[str]:
     """The structure id of the innermost group collection containing this object.
 
@@ -92,11 +120,26 @@ def nearest_group(
     through collections instead, with `.g` objects standing in for them as structures.
     Depth is how many collections enclose a collection, so the deepest match is the
     nearest.
+
+    Three things narrow "innermost", each learned from a pack that came out wrong:
+
+    - [own] is the object's own structure id. An object and a collection of one name are
+      one structure, and a structure is not its own parent.
+    - [home] is the collection the object's system is rooted at, and [closure] maps a
+      collection to itself and everything above it. A group inside the home tree is
+      preferred to a deeper one outside it: an object is linked into other systems'
+      collections too, and those are not what it is part of.
+    - An object in no group at all hangs from its home, if the home is a group.
     """
-    candidates = [(depth.get(name, 0), name) for name in collections if name in groups]
+    candidates = [name for name in collections if name in groups and groups[name] != own]
+    if home and closure is not None:
+        at_home = [name for name in candidates if home in closure.get(name, {name})]
+        if at_home:
+            candidates = at_home
     if not candidates:
-        return None
-    return groups[max(candidates)[1]]
+        fallback = groups.get(home) if home else None
+        return fallback if fallback != own else None
+    return groups[max((depth.get(name, 0), name) for name in candidates)[1]]
 
 
 def system_for(collections: AbstractSet[str]) -> Optional[str]:
