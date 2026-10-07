@@ -13,7 +13,7 @@ if(NOT FILAMENT_SDK)
     message(FATAL_ERROR "FILAMENT_SDK must point at the unpacked Filament release")
 endif()
 
-add_library(AnatomyRenderer STATIC src/AnatomyRenderer.mm)
+add_library(AnatomyRenderer STATIC src/AnatomyRenderer.mm src/OutlinePass.mm)
 
 target_include_directories(AnatomyRenderer
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

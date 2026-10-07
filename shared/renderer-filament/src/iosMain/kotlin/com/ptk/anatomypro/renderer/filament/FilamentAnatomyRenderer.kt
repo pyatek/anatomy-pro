@@ -17,6 +17,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_PICKED
 import com.ptk.anatomypro.renderer.filament.cinterop.AR_EVENT_READY
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_attach_headless
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_attach_layer
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_capture_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_hidden
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_clear_opacity
@@ -38,6 +39,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_camera
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_add_highlight
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_hidden
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_opacity
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_outline_material
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_set_picking_enabled
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_unload_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_wait_for_gpu
@@ -47,6 +49,10 @@ import kotlinx.cinterop.CPointed
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.FloatVar
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.get
 import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.objcPtr
@@ -81,6 +87,18 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private val handle: ar_renderer_ref = requireNotNull(ar_create()) {
         "Filament host could not be created"
     }
+
+    init {
+        val material = OutlineMaterialData.bytes
+        material.usePinned { ar_set_outline_material(handle, it.addressOf(0).reinterpret(), material.size.convert()) }
+    }
+
+    private var pixelsPerDp = 1f
+    private var surfaceWidth = 0
+    private var surfaceHeight = 0
+
+    /** Held so the outline widths can be sent again when the density arrives with a surface. */
+    private var highlights: Map<StructureId, HighlightStyle> = emptyMap()
 
     private val _events = MutableSharedFlow<RendererEvent>(replay = 64, extraBufferCapacity = 64)
     override val events: Flow<RendererEvent> = _events.asSharedFlow()
@@ -128,13 +146,21 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
     /** Draws offscreen. Used by contract tests, which have no window. */
     fun attachHeadless(width: Int, height: Int) {
+        surfaceWidth = width
+        surfaceHeight = height
         ar_attach_headless(handle, width.toUInt(), height.toUInt())
         drain()
         keepCameraAcrossSurfaceChange()
     }
 
-    /** Draws into a `CAMetalLayer` owned by the host app. */
-    fun attachLayer(layer: CAMetalLayer, width: Int, height: Int, refreshHz: Float) {
+    /**
+     * Draws into a `CAMetalLayer` owned by the host app.
+     *
+     * [pixelsPerDp] is the screen's scale; outline widths are given in dp.
+     */
+    fun attachLayer(layer: CAMetalLayer, width: Int, height: Int, refreshHz: Float, pixelsPerDp: Float) {
+        surfaceWidth = width
+        surfaceHeight = height
         ar_attach_layer(
             handle,
             interpretCPointer<CPointed>(layer.objcPtr()),
@@ -144,6 +170,10 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         )
         drain()
         keepCameraAcrossSurfaceChange()
+        if (pixelsPerDp != this.pixelsPerDp) {
+            this.pixelsPerDp = pixelsPerDp
+            highlight(highlights)
+        }
     }
 
     /**
@@ -183,6 +213,21 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     fun waitForGpu() {
         ar_wait_for_gpu(handle)
         drain()
+    }
+
+    /**
+     * Test-only: draws a frame and returns it, four bytes a pixel (R, G, B, A), bottom row
+     * first. Blocks until the GPU has handed the pixels back.
+     */
+    fun captureFrame(): ByteArray {
+        val frame = ByteArray(surfaceWidth * surfaceHeight * 4)
+        if (frame.isEmpty()) return frame
+        val captured = frame.usePinned {
+            ar_capture_frame(handle, it.addressOf(0).reinterpret(), frame.size.convert())
+        }
+        drain()
+        check(captured) { "the frame was not read back" }
+        return frame
     }
 
     /** Reports a tap in view coordinates, origin top-left. Result arrives as [RendererEvent.Picked]. */
@@ -227,9 +272,12 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         ghostAlpha = 1f
         shot = null
         flight = null
+        highlights = emptyMap()
     }
 
     override fun highlight(styles: Map<StructureId, HighlightStyle>) {
+        highlights = styles.toMap()
+        val outlines = OutlinePlan.of(styles, pixelsPerDp)
         // Clear, then one group per style. No frame is drawn in between: this runs to
         // completion on the thread that renders.
         ar_clear_highlight(handle)
@@ -237,11 +285,15 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             val nodes = structures.flatMap { nodesByStructure[it].orEmpty() }
             if (nodes.isEmpty()) continue // groups, and structures this pack does not draw
             val paint = HighlightPaint.of(style)
+            // Every structure of one style is in one outline group; the shim merges styles
+            // that share an outline.
+            val outline = outlines.first { structures.first() in it.structures }
             passNodes(nodes) { names, count ->
                 memScoped {
                     val tint = allocArrayOf(paint.red, paint.green, paint.blue, paint.alpha)
                     val emissive = allocArrayOf(paint.emissiveRed, paint.emissiveGreen, paint.emissiveBlue)
-                    ar_add_highlight(handle, names, count, tint, emissive)
+                    val line = allocArrayOf(outline.red, outline.green, outline.blue, outline.alpha)
+                    ar_add_highlight(handle, names, count, tint, emissive, line, outline.widthPx)
                 }
             }
         }

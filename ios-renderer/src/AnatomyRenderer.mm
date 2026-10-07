@@ -1,6 +1,9 @@
 #include "anatomy_renderer.h"
 
+#include "OutlinePass.h"
+
 #include <backend/CallbackHandler.h>
+#include <backend/PixelBufferDescriptor.h>
 #include <filament/Box.h>
 #include <filament/Camera.h>
 #include <filament/Engine.h>
@@ -29,6 +32,7 @@
 #include <mach/mach.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <deque>
@@ -90,6 +94,8 @@ struct HighlightGroup {
     std::vector<std::string> nodes;
     float4 tint;
     float3 emissive;
+    float4 outline;
+    float outlineWidthPx;
 };
 
 std::string pathFromUri(const char* uri) {
@@ -161,6 +167,9 @@ struct ar_renderer {
     std::vector<HighlightGroup> highlights;
     float ghostAlpha = 1.0f;
     MaterialInstance* ghostMaterial = nullptr;
+    std::vector<uint8_t> outlineMaterial;
+    anatomy::OutlinePass* outline = nullptr;
+    bool outlineFailed = false;
 
     bool pickingEnabled = true;
     uint32_t width = 0;
@@ -207,6 +216,7 @@ void configureSurface(ar_renderer* r, SwapChain* swapChain, uint32_t width, uint
     r->width = width;
     r->height = height;
     r->view->setViewport({0, 0, width, height});
+    if (r->outline) r->outline->resize(width, height);
     // Layer 1 is neither drawn nor picked; ar_set_hidden moves renderables onto it.
     r->view->setVisibleLayers(kLayerMask, kLayerVisible);
     // A ghost is context the user can still tap (§26.2: the ghosted set is the isolated
@@ -271,6 +281,47 @@ bool isHighlighted(const ar_renderer* r, const std::string& name) {
         if (contains(group.nodes, name)) return true;
     }
     return false;
+}
+
+/*
+ * The outline pass, made the first time something is highlighted. A material that is
+ * missing or will not load is reported once; highlights go on being tinted without it.
+ */
+anatomy::OutlinePass* outlinePass(ar_renderer* r) {
+    if (r->outline) return r->outline;
+    if (r->outlineFailed) return nullptr;
+    r->outline = anatomy::OutlinePass::create(r->engine, r->outlineMaterial.data(),
+                                              r->outlineMaterial.size(), r->camera,
+                                              kLayerMask, kLayerVisible);
+    if (!r->outline) {
+        r->outlineFailed = true;
+        r->fail("outline-unavailable", "the outline material did not load");
+        return nullptr;
+    }
+    r->outline->resize(r->width, r->height);
+    return r->outline;
+}
+
+/* Tells the outline pass what the highlight groups mean in entities. Same outline, same mask. */
+void applyOutline(ar_renderer* r) {
+    std::vector<anatomy::OutlineSpec> specs;
+    for (const auto& group : r->highlights) {
+        auto entities = entitiesFor(r, group.nodes);
+        if (entities.empty()) continue;
+        auto same = std::find_if(specs.begin(), specs.end(), [&](const anatomy::OutlineSpec& spec) {
+            return spec.color == group.outline && spec.widthPx == group.outlineWidthPx;
+        });
+        if (same == specs.end()) {
+            specs.push_back({std::move(entities), group.outline, group.outlineWidthPx});
+        } else {
+            same->entities.insert(same->entities.end(), entities.begin(), entities.end());
+        }
+    }
+    if (specs.empty()) {
+        if (r->outline) r->outline->setGroups({});
+        return;
+    }
+    if (auto* pass = outlinePass(r)) pass->setGroups(specs);
 }
 
 /*
@@ -357,6 +408,7 @@ void applyAppearance(ar_renderer* r) {
             }
         }
     }
+    applyOutline(r);
 }
 
 void releaseAsset(ar_renderer* r) {
@@ -393,7 +445,9 @@ ar_renderer_ref ar_create(void) {
     // does not cover keeps whatever an earlier frame left there. Seen on Android as earlier
     // frames showing through around an isolated structure once the camera moved; the default
     // is the engine's, so it is the same here.
-    r->renderer->setClearOptions({.clearColor = {0.0f, 0.0f, 0.0f, 1.0f}, .clear = true});
+    // Alpha 0: an outline mask is cleared with this colour too, and must start transparent.
+    // The layer is opaque, so the screen is black either way.
+    r->renderer->setClearOptions({.clearColor = {0.0f, 0.0f, 0.0f, 0.0f}, .clear = true});
     r->scene = r->engine->createScene();
     r->view = r->engine->createView();
     r->cameraEntity = utils::EntityManager::get().create();
@@ -433,6 +487,8 @@ void ar_destroy(ar_renderer_ref r) {
     if (!r) return;
     if (r->engine) {
         releaseAsset(r);
+        delete r->outline;
+        r->outline = nullptr;
         delete r->resourceLoader;
         if (r->assetLoader) AssetLoader::destroy(&r->assetLoader);
         delete r->names;
@@ -452,6 +508,11 @@ void ar_destroy(ar_renderer_ref r) {
         Engine::destroy(&r->engine);
     }
     delete r;
+}
+
+void ar_set_outline_material(ar_renderer_ref r, const uint8_t* bytes, size_t size) {
+    if (!r || !bytes || size == 0) return;
+    r->outlineMaterial.assign(bytes, bytes + size);
 }
 
 void ar_attach_headless(ar_renderer_ref r, uint32_t width, uint32_t height) {
@@ -544,13 +605,16 @@ const char* ar_node_name_at(ar_renderer_ref r, size_t index) {
 }
 
 void ar_add_highlight(ar_renderer_ref r, const char* const* nodeNames, size_t count,
-                      const float* tintRgba, const float* emissiveRgb) {
-    if (!r || !r->engine || !r->asset || !tintRgba || !emissiveRgb) return;
+                      const float* tintRgba, const float* emissiveRgb,
+                      const float* outlineRgba, float outlineWidthPx) {
+    if (!r || !r->engine || !r->asset || !tintRgba || !emissiveRgb || !outlineRgba) return;
 
     HighlightGroup group;
     group.nodes = collect(nodeNames, count);
     group.tint = float4{tintRgba[0], tintRgba[1], tintRgba[2], tintRgba[3]};
     group.emissive = float3{emissiveRgb[0], emissiveRgb[1], emissiveRgb[2]};
+    group.outline = float4{outlineRgba[0], outlineRgba[1], outlineRgba[2], outlineRgba[3]};
+    group.outlineWidthPx = outlineWidthPx;
 
     // A node in two groups would be visited twice in one apply pass, and the second visit
     // would record the first's replacement as the "original" — the same corruption collect()
@@ -672,13 +736,24 @@ void ar_pick_at(ar_renderer_ref r, float x, float y) {
     }, &immediateHandler());
 }
 
+namespace {
+
+/* Masks first, so the overlay reads this frame's; the overlay last, over the model. */
+void drawViews(ar_renderer* r) {
+    if (r->outline) r->outline->renderMasks(r->renderer);
+    r->renderer->render(r->view);
+    if (r->outline) r->outline->renderOverlay(r->renderer);
+}
+
+} // namespace
+
 bool ar_render_frame(ar_renderer_ref r, uint64_t vsync_nanos) {
     if (!r || !r->engine || !r->swapChain) return false;
     // Filament refuses a frame while too many are already in flight. Reporting that back
     // lets a caller that needs frames to actually land — a contract test waiting on a
     // picking readback — know the difference between a drawn frame and a skipped one.
     if (!r->renderer->beginFrame(r->swapChain, vsync_nanos)) return false;
-    r->renderer->render(r->view);
+    drawViews(r);
     r->renderer->endFrame();
     return true;
 }
@@ -715,6 +790,36 @@ int64_t ar_footprint_bytes(void) {
 void ar_wait_for_gpu(ar_renderer_ref r) {
     if (!r || !r->engine) return;
     r->engine->flushAndWait();
+}
+
+bool ar_capture_frame(ar_renderer_ref r, uint8_t* out, size_t capacity) {
+    if (!r || !r->engine || !r->swapChain || !out) return false;
+    const size_t size = size_t(r->width) * size_t(r->height) * 4;
+    if (size == 0 || capacity < size) return false;
+
+    // On the heap: if the GPU never answers, the callback may still fire after we return,
+    // and must not write to a dead stack frame. Leaked in that case, deliberately.
+    auto* done = new std::atomic<bool>(false);
+    bool asked = false;
+    for (int attempt = 0; attempt < 16 && !done->load(); ++attempt) {
+        if (r->renderer->beginFrame(r->swapChain, 0)) {
+            drawViews(r);
+            if (!asked) {
+                backend::PixelBufferDescriptor descriptor(
+                    out, size, backend::PixelDataFormat::RGBA, backend::PixelDataType::UBYTE,
+                    &immediateHandler(),
+                    [](void*, size_t, void* user) { static_cast<std::atomic<bool>*>(user)->store(true); },
+                    done);
+                r->renderer->readPixels(0, 0, r->width, r->height, std::move(descriptor));
+                asked = true;
+            }
+            r->renderer->endFrame();
+        }
+        r->engine->flushAndWait();
+    }
+    const bool ok = done->load();
+    if (ok) delete done;
+    return ok;
 }
 
 bool ar_poll_event(ar_renderer_ref r, ar_event* out) {

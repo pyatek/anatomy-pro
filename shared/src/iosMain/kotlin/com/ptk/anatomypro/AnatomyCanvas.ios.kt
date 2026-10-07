@@ -69,7 +69,7 @@ actual fun AnatomyCanvas(
             MetalHostView(
                 scale = scale,
                 onSized = { layer, widthPx, heightPx ->
-                    renderer.attachLayer(layer, widthPx, heightPx, refreshHz)
+                    renderer.attachLayer(layer, widthPx, heightPx, refreshHz, scale.toFloat())
                 },
                 onTapped = { xPx, yPx -> renderer.pickAt(xPx, yPx) },
             )

@@ -4,13 +4,17 @@ import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.renderer.api.AnatomyRenderer
 import com.ptk.anatomypro.renderer.api.AnatomyRendererContract
+import com.ptk.anatomypro.renderer.api.HighlightStyle
 import com.ptk.anatomypro.renderer.api.MeshSource
+import com.ptk.anatomypro.renderer.api.OutlineStyle
 import com.ptk.anatomypro.renderer.api.RendererEvent
+import com.ptk.anatomypro.renderer.api.highlight
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Spec §15's contract, run against Filament on a real GPU.
@@ -64,6 +68,9 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    override suspend fun countPixels(renderer: AnatomyRenderer, argb: Int): Int =
+        FramePixels.countMatching((renderer as FilamentAnatomyRenderer).captureFrame(), argb)
+
     @Test fun centres_a_focused_structure() = runBlocking { verifyFocusingTheCameraCentresAStructure() }
     @Test fun returns_to_the_whole_model() = runBlocking { verifyFramingAllReturnsTheCentreToTheWholeModel() }
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }
@@ -77,6 +84,29 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
     @Test fun shows_a_hidden_structure_again() = runBlocking { verifyShowingAHiddenStructureRestoresPicking() }
     @Test fun keeps_a_ghosted_structure_pickable() = runBlocking { verifyAGhostedStructureStaysPickable() }
     @Test fun does_not_fault_when_highlight_and_ghost_interleave() = runBlocking { verifyDoesNotFaultWhenHighlightAndGhostInterleave() }
+    @Test fun draws_an_outline_in_the_styles_colour() = runBlocking { verifyAHighlightDrawsAnOutlineInItsColour() }
+    @Test fun draws_a_wider_outline_over_more_pixels() = runBlocking { verifyAWiderOutlineCoversMorePixels() }
+    @Test fun draws_no_outline_for_a_hidden_structure() = runBlocking { verifyAHiddenStructureHasNoOutline() }
+    @Test fun removes_the_outline_with_the_pack() = runBlocking { verifyUnloadingAPackRemovesItsOutline() }
+
+    /** Rotation and split screen hand the renderer a new surface while a structure is highlighted. */
+    @Test fun keeps_the_outline_when_the_surface_changes_size() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+            renderer.attachHeadless(VIEWPORT, VIEWPORT / 2)
+            settle(renderer)
+
+            val frame = renderer.captureFrame()
+            assertEquals(VIEWPORT * (VIEWPORT / 2) * 4, frame.size)
+            assertTrue(FramePixels.countMatching(frame, OUTLINE.outlineArgb) > 0)
+        } finally {
+            renderer.dispose()
+        }
+    }
 
     /**
      * The surface is the host's, and it arrives and changes size on the host's schedule: a
@@ -156,5 +186,13 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         const val FLIGHT_MS = 600
         const val FLIGHT_START_NANOS = 1_000_000_000L
         const val PICK_TIMEOUT_MS = 15_000L
+
+        val OUTLINE = HighlightStyle(
+            outlineArgb = 0xFFFF00FF.toInt(),
+            outlineWidthDp = 4f,
+            outlineStyle = OutlineStyle.SOLID,
+            fillArgb = 0xFFFF00FF.toInt(),
+            fillLuminanceShift = -0.5f,
+        )
     }
 }

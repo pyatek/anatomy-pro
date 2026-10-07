@@ -52,6 +52,14 @@ typedef struct {
 ar_renderer_ref ar_create(void);
 void ar_destroy(ar_renderer_ref renderer);
 
+/*
+ * Hands over the compiled outline material, once, before anything is highlighted.
+ *
+ * The bytes are copied. Without them, or if they do not load, highlights are still tinted
+ * and AR_EVENT_ERROR with code "outline-unavailable" is queued once.
+ */
+void ar_set_outline_material(ar_renderer_ref renderer, const uint8_t* bytes, size_t size);
+
 /* Renders to an offscreen swap chain, so contract tests need no window and no UI. */
 void ar_attach_headless(ar_renderer_ref renderer, uint32_t width, uint32_t height);
 /*
@@ -98,9 +106,13 @@ const char* ar_node_name_at(ar_renderer_ref renderer, size_t index);
  *
  * Groups accumulate until ar_clear_highlight. A node belongs to one group at a time: adding
  * it again moves it to the new group.
+ *
+ * `outline_rgba` is four floats, the outline colour as unconverted fractions of 255, and
+ * `outline_width_px` its width in pixels. Groups with the same outline share one mask.
  */
 void ar_add_highlight(ar_renderer_ref renderer, const char* const* node_names, size_t count,
-                      const float* tint_rgba, const float* emissive_rgb);
+                      const float* tint_rgba, const float* emissive_rgb,
+                      const float* outline_rgba, float outline_width_px);
 void ar_clear_highlight(ar_renderer_ref renderer);
 
 /*
@@ -157,6 +169,15 @@ bool ar_render_frame(ar_renderer_ref renderer, uint64_t vsync_nanos);
  * loops must not call this.
  */
 void ar_wait_for_gpu(ar_renderer_ref renderer);
+
+/*
+ * Renders a frame and copies it out, four bytes a pixel (R, G, B, A), bottom row first.
+ *
+ * Exists for tests. `capacity` must be at least width * height * 4. Blocks until the GPU
+ * has handed the pixels back; returns false when it did not, or when the buffer is too small.
+ */
+bool ar_capture_frame(ar_renderer_ref renderer, uint8_t* out_rgba, size_t capacity);
+
 /* Returns false when the queue is empty. */
 bool ar_poll_event(ar_renderer_ref renderer, ar_event* out_event);
 
