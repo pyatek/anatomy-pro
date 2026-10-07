@@ -2104,19 +2104,28 @@ one. It was found by looking at the app, then reproduced headless with `skeletal
 `Phase0ToyAsset` now carries the material extensions the packs do; on it the five outline
 cases fail without the translucent mask and pass with it.
 
+The whole-branch review found one memory fault, in test-only code: a frame capture that timed
+out left Filament holding a pointer into a Kotlin array that had since been unpinned. The
+capture now owns its buffer. It also found, as lesser points left open: on iOS every
+`highlight` releases and re-makes the mask target, because the seam clears before it adds,
+where Android reuses it; the generated-source dependency is wired by task name and misses
+`sourcesJar`; and the edge pass has no cheap exit for pixels far from any mask.
+
 One change to the material after it was first seen: the line begins under the structure's
 soft edge (`1 - smoothstep(0.5, 0.95, inside)`), not beside it. At half resolution the first
 version left a dark seam of background between the bone and its outline.
 
 ### 35.4 Verified
 
-Tests, at commit 87cebe0: 352 on the iOS simulator and 317 on the JVM host, none failing
-(`./gradlew allTests --rerun-tasks`); 48 instrumented on the API 36 emulator
+Tests, at commit 2b68bfb: 353 on the iOS simulator and 317 on the JVM host, none failing
+(`./gradlew allTests --rerun-tasks`); 49 instrumented on the API 36 emulator
 (`:shared:renderer-filament:connectedAndroidDeviceTest`). The contract looks at pixels for
 the first time: a highlight draws pixels of its outline colour and a restyle leaves none of
 the first colour; a wider outline covers more; a hidden structure has none; unloading a pack
-leaves none and reports no error. Each real renderer also keeps the outline across a change
-of surface size, and Android draws it once through `attachSurface` on an opaque surface.
+leaves none and reports no error. Each real renderer also draws, after a change of surface
+size, what a renderer given that size from the start draws, and draws a wider line at a
+higher density; both tests were seen to fail with the code they guard removed. Android draws
+the outline once through `attachSurface` on an opaque surface.
 
 By hand, with `skeletal-trunk`:
 
@@ -2149,5 +2158,13 @@ The line is the same colour on both platforms, by exact bytes in the screenshots
   tokens, with 5D17.
 - **Thin features.** The material samples two rings; a feature much thinner than the line can
   fall between them. Not seen to fail; not tested.
+- **The iOS `attachLayer` path.** No test attaches a layer; the density it carries is tested
+  through headless attachment instead, on both platforms.
+- **The material failing to load.** The `outline-unavailable` path is read, not run: neither
+  renderer has a way to be handed bad bytes.
+- **A mask target that cannot be created.** The outline design's §5 said to handle it as a
+  missing material. That was not built on either platform: on Android the exception would
+  leave `highlight`, and on iOS a null texture is not checked.
+- **The Vulkan variant of the material.** Compiled, never run; Android uses OpenGL ES here.
 - `DASHED` draws solid. Screen 12 is still unfinished: its camera frames only the expected
   structure, and its colours wait on 5D17.
