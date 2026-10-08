@@ -1,0 +1,9 @@
+{
+  "pack_id": "cardiovascular-trunk",
+  "require": [
+    "Trunk",
+    "5: Cardiovascular system"
+  ],
+  "exclude": [],
+  "max_triangles_per_structure": 1200
+}

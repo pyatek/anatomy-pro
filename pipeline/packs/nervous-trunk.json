@@ -1,0 +1,9 @@
+{
+  "pack_id": "nervous-trunk",
+  "require": [
+    "Trunk",
+    "7: Nervous system & Sense organs"
+  ],
+  "exclude": [],
+  "max_triangles_per_structure": 1200
+}

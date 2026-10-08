@@ -49,7 +49,9 @@ were corrected (design spec §37). The figures before that are in brackets.
 | `skeletal-trunk` | 104 (115) | 18 (29) | 77 (88) | Trunk |
 | `muscular-trunk` | 229 (247) | 24 (42) | 129 (147) | Trunk |
 | `joints-trunk` | 134 (105) | 29 (0) | 108 (82) | Trunk |
-| `visceral-trunk` | 62 (50) | 12 (0) | 56 (44) | Trunk |
+| `visceral-trunk` | 102 (50) | 12 (0) | 93 (44) | Trunk; bronchi and ducts added 2026-10-08 |
+| `cardiovascular-trunk` | 290 (—) | 12 | 226 | Trunk; new 2026-10-08 |
+| `nervous-trunk` | 91 (—) | 37 | 49 | Trunk; new 2026-10-08 |
 
 The skeleton lost 32 terms and the trunk's muscles 18: groups that held nothing drawable, the
 numbered layers, and groups borrowed from other systems. The joints and viscera gained terms
@@ -65,8 +67,10 @@ packs above rather than 62–67%, and the structure total it multiplied has itse
 (`pipeline/fetch-source.sh`), so the other systems can now be counted for the whole body
 instead of extrapolated.
 
-Two things will move these numbers. The pipeline drops about 950 vessel and nerve objects
-(state-of-play, known defects); fixing that adds terms to two systems. And a group can share its
+One thing has moved these numbers since: the pipeline used to drop the 951 vessels, nerves
+and bronchi that Z-Anatomy draws as curves. It exports them now (design spec §38), which is
+where the two new rows and the larger visceral count come from: 275 terms in the trunk's
+vessels and nerves that no earlier count included. And a group can share its
 term with a drawn structure — once in the skeleton now, 14 times before the correction — so
 cards slightly outnumber terms.
 

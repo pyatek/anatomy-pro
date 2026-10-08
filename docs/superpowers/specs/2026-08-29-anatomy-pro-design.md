@@ -2297,3 +2297,71 @@ Left as they are:
 Not verified: the regenerated packs on iOS (they are bundled at the next build; not run);
 any frame time for the packs as they now are, except `skeletal-trunk`'s 7.6 ms from §25.4;
 isolating a rib on the all-systems pack and seeing its neighbours ghost.
+
+## 38. Addendum — 2026-10-08: vessels and nerves, and nothing dropped in silence
+
+The export loop looked only at meshes. Z-Anatomy draws vessels, most peripheral nerves and
+the bronchi as curves, so two systems were missing from every pack and no report said so.
+
+### 38.1 What the source holds
+
+Measured in `Startup.blend`: 4,569 meshes, 951 curves, 1,660 text objects. Of the curves, 654
+are in the cardiovascular layer, 249 in the nervous, 44 in the visceral and 4 in none; 354
+are in the trunk; 916 match a term. All are Bézier curves with a round bevel, which is the
+tube: a radius of half a millimetre for most, up to 15 mm, on a body 1.88 m tall. Converted
+as authored they are 5.0 million triangles, against §6.1's 3 million for everything.
+
+The text objects are Z-Anatomy's captions for groups and surface landmarks (`.g`, `.s`).
+Leaving them out is right. Doing so without saying was not.
+
+### 38.2 What the pipeline does now
+
+- **A curve is exported as its tube**, at the radii its author gave it.
+- **Detail is cut at the curve.** Each curve takes the finest of four resolutions whose tube
+  fits the pack's triangle target; only what still does not fit goes to the mesh decimation
+  every structure gets. In the trunk 210 curves fit at the finest step and 30 needed the
+  coarsest.
+- **Ids and parents follow the rules meshes follow.** A curve with a term takes its id; a
+  real vessel the table lacks takes a `zan-` id.
+- **Helpers and the unnamed are skipped by name**: Blender's default names, names ending
+  `-path`, `-profile` or `-curve`, and names with nothing to make an id from.
+- **Every object a pack selects is exported or listed.** `report.json` has a `skipped` block
+  by reason, and the run fails if an object is in neither. The rules are in
+  `anatomypro_pipeline/audit.py`, pure Python, with 21 tests (89 in the pipeline).
+
+### 38.3 The packs
+
+All eight packs were regenerated.
+
+| Pack | Drawn | of which curves | Groups | Triangles | Roots |
+|---|---|---|---|---|---|
+| `cardiovascular-trunk` (new) | 278 | 260 | 12 | 195,538 | 1 |
+| `nervous-trunk` (new) | 54 | 53 | 37 | 61,229 | 1 |
+| `visceral-trunk` | 90 (was 50) | 40 | 12 | 81,660 | 1 |
+| `trunk-all-systems` | 952 (was 599) | 353 | 133 | 810,659 | 124 |
+
+The skeletal, muscular and joint packs contain no curves and came out as they were on
+2026-10-07. What their reports now show for the first time: `skeletal-body` skips 344 objects
+with no triangles (`.i` objects), 1,190 labels and 406 captions.
+
+`trunk-all-systems` is over §6.1's draw-call budget: 952 against 800. It was decided to keep
+the vessels and nerves in it and let the report say so.
+
+One trunk curve is skipped as unnamed (`????????`, a cardiac vein). One real vessel has no
+term and a `zan-` id: "Inferior vein of left ventricle". `Spinal dura`, a mesh, does not
+reach the triangle target and stays at 20,387.
+
+### 38.4 Seen, and not
+
+On the Android emulator: `cardiovascular-trunk` draws the heart with its vessels, and
+`nervous-trunk` the cord with its nerves; a tap in the nervous pack picked "Dura spinalis"
+and outlined it. Both have one root in the atlas.
+
+`nervous-trunk` showed 37 frames a second there, with 54 structures and 61,229 triangles,
+where `cardiovascular-trunk` with five times as much showed 60. Not understood, and an
+emulator figure.
+
+Not verified: tapping a vessel or a nerve itself (they are a pixel or two wide);
+`trunk-all-systems` in the app since the curves joined it; anything on iOS; any frame time
+on hardware; the whole-body packs for these systems, which do not exist yet — only the
+trunk was built.

@@ -1,7 +1,7 @@
 # State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–37 there are the running record of what was actually built and why. This file is
+sections 20–38 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -153,9 +153,13 @@ and packs are currently bundled in the APK.
 - **The ghost is dimmer on Android than when it was approved.** Its "pale shell" look was
   judged on a colour Android read wrongly; read as sRGB, as on iOS, it is a dim grey shell at
   30 % (§36). Decided 2026-10-07: it stays as it is.
-- **Vessels and most peripheral nerves are missing from every pack.** They are Blender curve
-  objects and the export loop selects meshes only. The source has ~950 of them; the pipeline
-  drops them silently. Fixing it will move the performance numbers for those systems.
+- **Vessels and nerves are thin, and hard to tap.** They are exported now (§38), as tubes at
+  Z-Anatomy's own radii: half a millimetre for most, a pixel or two on a phone. Picking them
+  has not been looked at.
+- **`trunk-all-systems` is over the draw-call budget**: 952 drawn structures against 800,
+  since the vessels and nerves joined it (§38.3). It is the default bundled Android pack.
+- **`nervous-trunk` ran at 37 frames a second on the emulator**, with 54 structures. Not
+  understood; emulator only (§38.4).
 - **The all-systems pack still has 114 structures with no parent**: the body-surface regions
   and some lymph nodes (§37.4). The single-system packs have one root each and none.
 - **`joints-trunk` has five roots**, the five joint groups; the source has no one group above

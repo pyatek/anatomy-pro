@@ -20,6 +20,10 @@ Each run writes `mesh.glb`, `manifest.json`, and `report.json` under
 `build/packs/<pack-id>/`. Read `report.json` first: it carries the join rate and the
 measurement against the §6.1 budget.
 
+`report.json` has a `skipped` block: every object the pack selected and did not export, by
+reason — label, text, helper, unnamed, empty, or its type. A run that cannot account for an
+object fails. Nothing is dropped without being named.
+
 `report.json` also has a `taxonomy` block. A pack of one system should list that system as
 its only root, and `parentless_leaves` should be empty; anything else is a fault in the
 grouping rules, to be looked at before the pack is used.
@@ -64,6 +68,11 @@ sourcing spec assumed:
   supply it. A structure is parented inside its own system's tree first, and a group that
   ends up with nothing drawable under it is left out of the manifest.
 - **Some names are an object and a collection at once** (`Mandible`). They are one structure.
+- **Vessels, most peripheral nerves and the bronchi are curves, not meshes** — 951 of them,
+  each with a bevel that describes its tube. They are exported as that tube, with detail cut
+  at the curve before any mesh decimation.
+- **Some curves are what a shape was built from**, not structures: `Medulla-path`,
+  `Oesophagus-profile`, `BezierCircle`. And a few objects were never named (`????????`).
 - **Definitions are text datablocks** (`bpy.data.texts`) keyed by the term, not object
   custom properties.
 - `TA2.csv` numbers enumerated structures — ribs, vertebrae, teeth — as `1113*8`. The

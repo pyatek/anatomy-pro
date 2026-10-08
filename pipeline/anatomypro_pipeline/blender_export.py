@@ -19,7 +19,7 @@ import bpy  # noqa: F401  (only available inside Blender)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from anatomypro_pipeline import manifest, naming, selection, ta2  # noqa: E402
+from anatomypro_pipeline import audit, manifest, naming, selection, ta2  # noqa: E402
 
 
 def parse_args(argv):
@@ -134,6 +134,41 @@ def decimate(obj, target):
     # cannot reach the target within it is reported rather than silently left oversized.
     modifier.ratio = max(DECIMATE_RATIO_FLOOR, target / float(before))
     return before, triangle_count(obj)
+
+
+def tube(obj, target):
+    """Replaces a bevelled curve by the mesh of its tube, and returns that mesh object.
+
+    Z-Anatomy draws vessels, most peripheral nerves and the bronchi as curves with a bevel,
+    so the tube is already described; evaluating the curve gives it, at the radii its
+    author chose. As authored the 951 of them cost 5.0 million triangles, so detail is cut
+    at the curve first — the finest resolution that fits the pack's target — and only what
+    still does not fit is left to the mesh decimation every structure goes through.
+
+    Returns the new object, the triangles as authored, and the resolution used. The new
+    object takes the curve's name, so everything downstream reads names as before.
+    """
+    data = obj.data
+    authored = triangle_count(obj)
+
+    def triangles_at(step):
+        data.bevel_resolution, data.resolution_u = step
+        return triangle_count(obj)
+
+    step, _ = audit.fitting_resolution(triangles_at, target)
+    data.bevel_resolution, data.resolution_u = step
+    bpy.context.view_layer.update()
+    evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = bpy.data.meshes.new_from_object(evaluated)
+
+    name = obj.name
+    obj.name = name + "~curve"
+    replacement = bpy.data.objects.new(name, mesh)
+    replacement.matrix_world = obj.matrix_world.copy()
+    # In the scene's own collection, so the exporter can select it whatever the visibility
+    # of the collections the curve sat in.
+    bpy.context.scene.collection.objects.link(replacement)
+    return replacement, authored, step
 
 
 #: Collections describing where a structure is rather than what it is part of. Region is
@@ -268,19 +303,37 @@ def main():
     depth = {name: len(parents) for name, parents in closure.items()}
     region = selection.pack_region(spec)
 
-    chosen = []
-    for obj in bpy.data.objects:
-        if obj.type != "MESH":
-            continue
+    # Every object the pack selects is exported or listed with the reason it was not
+    # (audit.check, at the end). Looking only at meshes dropped two whole systems in silence.
+    considered = []
+    skipped = {}
+    selected = []
+    for obj in list(bpy.data.objects):
         collections = membership(obj, closure)
         if not selection.is_included(collections, spec):
             continue
-        parsed = naming.parse_object(obj.name)
-        if parsed.is_label:
+        considered.append(obj.name)
+        reason = audit.reason_to_skip(obj.type, obj.name)
+        if reason:
+            skipped.setdefault(reason, []).append(obj.name)
             continue
+        selected.append((obj, naming.parse_object(obj.name), collections))
+
+    chosen = []
+    curve_steps = {}
+    authored_triangles = {}
+    for obj, parsed, collections in selected:
+        if obj.type == "CURVE":
+            name = obj.name
+            obj, authored, step = tube(obj, target)
+            authored_triangles[name] = authored
+            curve_steps[step] = curve_steps.get(step, 0) + 1
         chosen.append((obj, parsed, collections))
 
-    print(f"[pipeline] {len(chosen)} mesh objects selected for {spec.pack_id}")
+    print(
+        f"[pipeline] {len(chosen)} objects selected for {spec.pack_id}, "
+        f"{len(authored_triangles)} of them curves"
+    )
 
     # The taxonomy comes from collections, not from object parenting, which the source
     # does not use, nor from `.g` objects, which are too sparse to parent a whole pack.
@@ -320,6 +373,8 @@ def main():
         slug = naming.slugify(entry.latin if entry else parsed.core)
 
         source_triangles, triangles = decimate(obj, target)
+        # A tube's source is the curve as authored, not the resolution it was cut to.
+        source_triangles = authored_triangles.get(obj.name, source_triangles)
         if triangles == 0:
             empty.append(obj.name)
             continue
@@ -343,6 +398,7 @@ def main():
             "triangles": triangles,
             "source_triangles": source_triangles,
             "source_object": obj.name,
+            "source_type": "CURVE" if obj.name in authored_triangles else "MESH",
         })
         obj.name = node
         obj.select_set(True)
@@ -384,7 +440,16 @@ def main():
         })
 
     document, report = manifest.build(spec.pack_id, records, groups=group_rows)
-    report["skipped_empty"] = sorted(empty)
+    if empty:
+        skipped["empty"] = empty
+    audit.check(considered, [r["source_object"] for r in records], skipped)
+    report["skipped"] = audit.summary(skipped)
+    report["curves"] = {
+        "exported": sum(1 for r in records if r["source_type"] == "CURVE"),
+        # How many curves were cut to each (bevel resolution, resolution along the curve).
+        "resolutions": {f"{bevel},{along}": n for (bevel, along), n in sorted(curve_steps.items())},
+        "authored_triangles": sum(authored_triangles.values()),
+    }
     report["decimation_floor_reached"] = sorted(
         {r["english"] for r in records if r["triangles"] > target}
     )
