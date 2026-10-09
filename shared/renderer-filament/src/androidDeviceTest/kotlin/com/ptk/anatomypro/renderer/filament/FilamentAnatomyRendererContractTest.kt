@@ -275,6 +275,53 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    /**
+     * A surface changes size on the host's schedule — twice during launch — and the swap
+     * chain follows its window by itself. Destroying it and making another for every size
+     * meant waiting, on the main thread, for the GPU to finish whatever was queued; at
+     * launch that was the whole model, and the wait was 3.7 seconds (design spec §40).
+     */
+    @Test fun keeps_its_swap_chain_when_the_same_surface_changes_size() = runBlocking {
+        val reader = ImageReader.newInstance(VIEWPORT, VIEWPORT, PixelFormat.RGBX_8888, 2)
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachSurface(reader.surface, VIEWPORT, VIEWPORT, refreshHz = 0f, pixelsPerDp = 1f)
+            renderer.loadPack(pack, source)
+            renderer.attachSurface(reader.surface, VIEWPORT, VIEWPORT / 2, refreshHz = 0f, pixelsPerDp = 1f)
+            settle(renderer)
+
+            assertEquals(1, renderer.swapChainsCreated)
+            // And it draws at the new size: the frame read back is the new size, with the model in it.
+            val frame = renderer.captureFrame()
+            assertEquals(VIEWPORT * (VIEWPORT / 2) * 4, frame.size)
+            assertEquals(hitStructure, structureAtCentre(renderer, VIEWPORT / 2))
+        } finally {
+            renderer.dispose()
+            reader.close()
+        }
+    }
+
+    /**
+     * A holder hands back the same `Surface` object for a new window after the old one was
+     * destroyed. The renderer is told the surface went, so it does not keep drawing into a
+     * swap chain whose window is gone.
+     */
+    @Test fun makes_a_new_swap_chain_after_the_surface_was_taken_away() = runBlocking {
+        val reader = ImageReader.newInstance(VIEWPORT, VIEWPORT, PixelFormat.RGBX_8888, 2)
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachSurface(reader.surface, VIEWPORT, VIEWPORT, refreshHz = 0f, pixelsPerDp = 1f)
+            renderer.detachSurface()
+            assertEquals(false, renderer.renderFrame())
+            renderer.attachSurface(reader.surface, VIEWPORT, VIEWPORT, refreshHz = 0f, pixelsPerDp = 1f)
+
+            assertEquals(2, renderer.swapChainsCreated)
+        } finally {
+            renderer.dispose()
+            reader.close()
+        }
+    }
+
     /** What a pick at the middle of a [VIEWPORT]-wide, [height]-tall surface reports. */
     private suspend fun structureAtCentre(renderer: FilamentAnatomyRenderer, height: Int): StructureId? {
         settle(renderer)

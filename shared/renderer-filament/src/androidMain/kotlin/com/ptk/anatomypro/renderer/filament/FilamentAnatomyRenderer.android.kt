@@ -63,6 +63,8 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private val resourceLoader: ResourceLoader
 
     private var swapChain: SwapChain? = null
+    /** The host surface the swap chain was made for, by identity. Null when headless or detached. */
+    private var attachedSurface: Any? = null
     private var asset: FilamentAsset? = null
     private var width = 0
     private var height = 0
@@ -241,6 +243,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         renderer.setDisplayInfo(Renderer.DisplayInfo().apply { refreshRate = 0.0f })
         this.pixelsPerDp = pixelsPerDp
         releaseSwapChain()
+        attachedSurface = null
         configureSurface(engine.createSwapChain(width, height, 0L), width, height)
     }
 
@@ -258,9 +261,36 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
             Renderer.DisplayInfo().apply { refreshRate = if (refreshHz > 0f) refreshHz else 60.0f }
         )
         this.pixelsPerDp = pixelsPerDp
+        // The same window at a new size. A swap chain follows its window by itself, so only
+        // what this class sizes changes. Making a new one meant destroying the old and
+        // waiting for the GPU to finish everything queued (releaseSwapChain) — on the main
+        // thread, and at launch what is queued is the whole model: 3.7 seconds.
+        if (surface === attachedSurface && swapChain != null) {
+            sizeSurface(width, height)
+            return
+        }
         releaseSwapChain()
+        attachedSurface = surface
         configureSurface(engine.createSwapChain(surface), width, height)
     }
+
+    /**
+     * The host's surface is going away. Called before it does.
+     *
+     * A holder hands back the same `Surface` object for its next window, so without being
+     * told, [attachSurface] would take the new window for the old one and keep a swap chain
+     * whose window is gone. The wait in [releaseSwapChain] belongs here: the window must not
+     * be destroyed while the backend may still draw into it.
+     */
+    fun detachSurface() {
+        if (disposed) return
+        releaseSwapChain()
+        attachedSurface = null
+    }
+
+    /** Test-only: how many swap chains this renderer has made. */
+    var swapChainsCreated: Int = 0
+        private set
 
     /**
      * Lets go of the current swap chain, and waits until the backend really has.
@@ -279,6 +309,13 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
 
     private fun configureSurface(next: SwapChain, width: Int, height: Int) {
         swapChain = next
+        swapChainsCreated++
+        sizeSurface(width, height)
+        _events.tryEmit(RendererEvent.Ready)
+    }
+
+    /** Everything that depends on the surface's size, and nothing that depends on which surface it is. */
+    private fun sizeSurface(width: Int, height: Int) {
         this.width = width
         this.height = height
         view.viewport = Viewport(0, 0, width, height)
@@ -286,7 +323,6 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         outline?.resize(width, height)
         // The density may have come with the surface.
         applyOutline()
-        _events.tryEmit(RendererEvent.Ready)
     }
 
     /**

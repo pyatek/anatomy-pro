@@ -1,5 +1,9 @@
 package com.ptk.anatomypro.core.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
+
 /**
  * Writes a downloaded pack's metadata into the database.
  *
@@ -7,10 +11,18 @@ package com.ptk.anatomypro.core.data
  * renderer cannot resolve, which surfaces to a user as a structure that cannot be tapped
  * rather than as an error.
  */
-class PackInstaller(private val database: AnatomyDatabase) {
+class PackInstaller(
+    private val database: AnatomyDatabase,
+    /**
+     * Where the manifest is parsed. Not the caller's context: `install` is called from the
+     * main thread at launch, and a megabyte of JSON for a thousand structures held the first
+     * frame back by up to a second and a half there (design spec §40).
+     */
+    private val parseContext: CoroutineContext = Dispatchers.Default,
+) {
 
     suspend fun install(manifestJson: String, version: Long, meshUri: String?) {
-        val rows = PackIngest.parse(manifestJson, version, meshUri)
+        val rows = withContext(parseContext) { PackIngest.parse(manifestJson, version, meshUri) }
         database.structures().replacePackContent(
             pack = rows.pack,
             structures = rows.structures,

@@ -84,7 +84,9 @@ actual fun AnatomyCanvas(
                         )
                     }
 
-                    override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
+                    // The holder reuses its Surface object for the next window, so the
+                    // renderer has to be told this one is gone.
+                    override fun surfaceDestroyed(holder: SurfaceHolder) = renderer.detachSurface()
                 })
             }
         },

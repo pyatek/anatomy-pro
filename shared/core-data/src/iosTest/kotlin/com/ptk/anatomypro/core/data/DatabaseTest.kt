@@ -1,7 +1,11 @@
 package com.ptk.anatomypro.core.data
 
 import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.CoroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,6 +30,21 @@ class DatabaseTest {
 
     private suspend fun install() =
         PackInstaller(database).install(SAMPLE_MANIFEST, version = 1, meshUri = "file:///m.glb")
+
+    /**
+     * A manifest is a megabyte of JSON for a thousand structures. Parsed where `install` was
+     * called, which is the main thread at launch, it held the first frame back by up to a
+     * second and a half (design spec §40).
+     */
+    @Test
+    fun parses_the_manifest_on_its_own_context_not_the_caller_s() = runTest {
+        val parsing = CountingDispatcher()
+
+        PackInstaller(database, parseContext = parsing).install(SAMPLE_MANIFEST, version = 1, meshUri = null)
+
+        assertTrue(parsing.dispatched > 0, "the manifest was parsed without leaving the caller's context")
+        assertNotNull(dao.structure("1168-clavicula-left"))
+    }
 
     @Test
     fun installs_a_pack_and_reads_a_structure_back() = runTest {
@@ -223,3 +242,14 @@ private const val TWO_SYSTEMS = """
   ]
 }
 """
+
+/** Runs on the default dispatcher, and counts what it was handed. */
+private class CountingDispatcher : CoroutineDispatcher() {
+    var dispatched = 0
+        private set
+
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        dispatched++
+        Dispatchers.Default.dispatch(context, block)
+    }
+}
