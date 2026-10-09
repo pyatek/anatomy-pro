@@ -26,6 +26,7 @@ import anatomypro.shared.feature_atlas.generated.resources.atlas_empty
 import anatomypro.shared.feature_atlas.generated.resources.atlas_load_failed
 import anatomypro.shared.feature_atlas.generated.resources.atlas_loading
 import anatomypro.shared.feature_atlas.generated.resources.atlas_select_prompt
+import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.model.StructureId
 import org.jetbrains.compose.resources.stringResource
@@ -108,11 +109,14 @@ private fun TaxonomyRow(
             }
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (latinOnly) row.summary.latinName ?: row.summary.name else row.summary.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (latinOnly) row.summary.latinName ?: row.summary.name else row.summary.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
+                )
+                SideBadge(row.summary.laterality)
+            }
             if (!latinOnly) {
                 row.summary.latinName
                     ?.takeIf { it != row.summary.name }

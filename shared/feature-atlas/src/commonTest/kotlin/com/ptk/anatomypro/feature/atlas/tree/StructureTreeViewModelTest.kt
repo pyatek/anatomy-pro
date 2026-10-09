@@ -4,6 +4,7 @@ import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.Laterality
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasError
 import kotlinx.coroutines.CompletableDeferred
@@ -70,7 +71,12 @@ class StructureTreeViewModelTest {
         model.onFocus(0)
 
         assertEquals("Pectoralis major", model.state.value.focused?.name)
-        assertEquals(TreeAnnouncement.Focused(name = "Pectoralis major", position = 1, total = 4), model.state.value.announcement)
+        // The side travels with the name: the screen says "left" or "right" after it, and
+        // nothing for a median structure like this one.
+        assertEquals(
+            TreeAnnouncement.Focused(name = "Pectoralis major", laterality = Laterality.MEDIAN, position = 1, total = 4),
+            model.state.value.announcement,
+        )
     }
 
     @Test

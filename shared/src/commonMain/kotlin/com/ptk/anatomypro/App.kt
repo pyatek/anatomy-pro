@@ -8,8 +8,13 @@ import anatomypro.shared.generated.resources.tab_test
 import anatomypro.shared.generated.resources.tab_today
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -20,9 +25,13 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -82,7 +91,11 @@ fun App(dependencies: AppDependencies) {
         ProvideAppLocale(settingsState.settings.interfaceLocale) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 Box(
-                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
+                    // Everything but the keyboard. With the keyboard's inset applied here the
+                    // whole layout shrank above it, and the bottom bar rode up over the
+                    // search results. The content area alone makes room for the keyboard.
+                    modifier = Modifier.fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime)),
                 ) {
                     when {
                         settingsState.isLoading -> Centered("…")
@@ -147,8 +160,17 @@ private fun MainScaffold(
         null
     }
 
+    // The bar stays where it is and the keyboard covers it. The content gives up only what
+    // the keyboard takes above the bar, so nothing it shows is hidden and no gap is left.
+    var barHeightPx by remember { mutableStateOf(0) }
+    val barHeight = with(LocalDensity.current) { barHeightPx.toDp() }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier.weight(1f)
+                .consumeWindowInsets(PaddingValues(bottom = barHeight))
+                .imePadding(),
+        ) {
             NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
                 composable<AtlasRoute.Browse> {
                     if (state.settings.structureTreeMode) {
@@ -233,7 +255,11 @@ private fun MainScaffold(
                 composable<DailyRoute.Leaderboard> { NotBuilt(Res.string.tab_ranking) }
             }
         }
-        AnatomyBottomBar(selected = tab, onSelect = { navController.selectTab(it, current = tab) })
+        AnatomyBottomBar(
+            selected = tab,
+            onSelect = { navController.selectTab(it, current = tab) },
+            modifier = Modifier.onSizeChanged { barHeightPx = it.height },
+        )
     }
 }
 

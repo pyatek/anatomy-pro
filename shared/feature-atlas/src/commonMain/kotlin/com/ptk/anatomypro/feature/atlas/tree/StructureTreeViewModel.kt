@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.Laterality
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasError
 import kotlinx.coroutines.CancellationException
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 
 /** What a screen reader should say next. A kind and values; the screen picks the words. */
 sealed interface TreeAnnouncement {
-    data class Focused(val name: String, val position: Int, val total: Int) : TreeAnnouncement
+    data class Focused(val name: String, val laterality: Laterality, val position: Int, val total: Int) : TreeAnnouncement
     data class Level(val level: Int, val name: String?, val count: Int) : TreeAnnouncement
 }
 
@@ -79,7 +80,9 @@ class StructureTreeViewModel(
         targetFocus = item.id
         _state.value = current.copy(
             focusedIndex = index,
-            announcement = TreeAnnouncement.Focused(item.name, position = index + 1, total = current.items.size),
+            announcement = TreeAnnouncement.Focused(
+                item.name, item.laterality, position = index + 1, total = current.items.size,
+            ),
         )
     }
 

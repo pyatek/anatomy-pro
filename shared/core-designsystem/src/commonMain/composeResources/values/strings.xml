@@ -1,3 +1,5 @@
 <resources>
     <string name="locale_probe">Atlas</string>
+    <string name="side_left">left</string>
+    <string name="side_right">right</string>
 </resources>

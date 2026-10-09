@@ -43,6 +43,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ptk.anatomypro.core.designsystem.SideBadge
+import com.ptk.anatomypro.core.designsystem.sideLabel
+import com.ptk.anatomypro.core.designsystem.withSide
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import org.jetbrains.compose.resources.pluralStringResource
@@ -106,7 +109,10 @@ fun TreeScreen(
                         .clickable { onFocus(index) },
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(item.latinName ?: item.name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(item.latinName ?: item.name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal)
+                            SideBadge(item.laterality)
+                        }
                         if (item.latinName != null && item.latinName != item.name) {
                             Text(item.name, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
                         }
@@ -147,8 +153,12 @@ fun TreeScreen(
 @Composable
 private fun announcementText(announcement: TreeAnnouncement?): String = when (announcement) {
     null -> ""
-    is TreeAnnouncement.Focused ->
-        stringResource(Res.string.tree_announce_focused, announcement.name, announcement.position, announcement.total)
+    is TreeAnnouncement.Focused -> stringResource(
+        Res.string.tree_announce_focused,
+        withSide(announcement.name, sideLabel(announcement.laterality)),
+        announcement.position,
+        announcement.total,
+    )
     is TreeAnnouncement.Level -> pluralStringResource(
         Res.plurals.tree_announce_level,
         announcement.count,

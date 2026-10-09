@@ -27,6 +27,7 @@ import anatomypro.shared.feature_atlas.generated.resources.detail_not_found
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_definition
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_hierarchy
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_structure
+import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import org.jetbrains.compose.resources.stringResource
@@ -69,8 +70,12 @@ fun StructureDetailScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                state.title?.let {
-                    Text(it, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    state.title?.let {
+                        Text(it, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                    // Which of a pair this is. "Costa prima" alone read the same for both.
+                    state.detail?.let { SideBadge(it.laterality) }
                 }
 
                 if (state.otherNames.isNotEmpty()) {

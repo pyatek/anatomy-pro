@@ -26,6 +26,7 @@ import anatomypro.shared.feature_search.generated.resources.search_results
 import anatomypro.shared.feature_search.generated.resources.search_scope
 import anatomypro.shared.feature_search.generated.resources.search_searching
 import com.ptk.anatomypro.core.data.model.SearchHit
+import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import org.jetbrains.compose.resources.pluralStringResource
@@ -91,6 +92,7 @@ fun SearchScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = if (hit.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
                         )
+                        SideBadge(hit.summary.laterality)
                         Text(
                             text = stringResource(Res.string.search_match, hit.matchedLocale.uppercase()),
                             style = MaterialTheme.typography.labelSmall,

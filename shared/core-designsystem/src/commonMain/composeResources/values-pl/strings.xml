@@ -1,3 +1,5 @@
 <resources>
     <string name="locale_probe">Atlas anatomiczny</string>
+    <string name="side_left">strona lewa</string>
+    <string name="side_right">strona prawa</string>
 </resources>
