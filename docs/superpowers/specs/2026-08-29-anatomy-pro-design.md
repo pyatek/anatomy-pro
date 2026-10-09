@@ -2365,3 +2365,45 @@ Not verified: tapping a vessel or a nerve itself (they are a pixel or two wide);
 `trunk-all-systems` in the app since the curves joined it; anything on iOS; any frame time
 on hardware; the whole-body packs for these systems, which do not exist yet — only the
 trunk was built.
+
+## 39. Addendum — 2026-10-08: which side, and the keyboard
+
+§32.3 found that a paired structure was listed twice with nothing to tell the rows apart, and
+that the bottom bar rode up above the keyboard.
+
+**Sides.** A pair stays two rows: they are two meshes and, in a quiz, two answers. Each row
+shows its side as a small badge after the name, and a median structure shows none. The word
+is in the interface language: "left" and "right"; in Polish "strona lewa" and "strona
+prawa", because the name shown is Latin and a bare *lewy/lewa/lewe* would often not agree
+with it. One function in `core-designsystem` supplies the word to all four places that name
+a structure — search results, the atlas list, tree mode and the detail screen — and tree
+mode's announcement carries it: "Hip bone, left, 1 of 2".
+
+**Keyboard.** The app's root applied the whole safe-drawing inset, the keyboard included, so
+everything shrank above the keyboard and the bar came with it. The root now leaves the
+keyboard out; the bar stays where it is, under the keyboard, and the content area alone gives
+up what the keyboard takes above the bar.
+
+Verified at commit 72d8604: 359 tests on the iOS simulator and 321 on the JVM host, none
+failing; four are new, for the side word and the spoken name, and the tree's announcement
+test now carries a side. By hand:
+
+| | Android emulator | iOS simulator |
+|---|---|---|
+| Search "cost": the two first ribs differ | seen, Polish | seen, English |
+| Detail screen names the side | seen, Polish | seen, English |
+| Keyboard open: bar not lifted, results reach the keyboard | seen | seen |
+| Tree mode: badge on each row, side in the announcement | seen, English | not tried |
+| Atlas list: badge on a paired row | not seen | not seen |
+
+Not verified: the atlas list, which uses the same badge but was not opened down to a pair on
+either platform; the announcement as speech, with TalkBack or VoiceOver; Polish on iOS and
+English search on Android.
+
+The quiz's answer options are unchanged: they are one option per name, and either side is
+accepted (§34.3).
+
+Seen in passing on the iOS simulator: its atlas still listed `1: Skeletal system`, `Muscular
+system` and `Nervous system` as roots. The simulator's database holds rows from packs
+installed in earlier sessions; the installer replaces the content of the pack it installs and
+leaves the others. Not a fault of this change, and not looked into further.

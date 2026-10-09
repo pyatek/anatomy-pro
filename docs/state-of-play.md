@@ -1,7 +1,7 @@
 # State of play — 2026-10-07
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
-sections 20–38 there are the running record of what was actually built and why. This file is
+sections 20–39 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
 ## The one thing to decide first
@@ -46,8 +46,8 @@ The renderer can now frame things: `focusCamera` and `frameAll` exist on both pl
 share their framing maths. `AtlasSceneViewModel` owns what the renderer shows. Android
 hide/ghost is implemented and verified on the emulator.
 
-**355 tests pass on the iOS simulator and 317 on the JVM host, none failing** (`./gradlew
-allTests` at commit 43f6efb) — common tests run on both, so those figures overlap rather than
+**359 tests pass on the iOS simulator and 321 on the JVM host, none failing** (`./gradlew
+allTests` at commit 72d8604) — common tests run on both, so those figures overlap rather than
 sum. The quiz module has 53 per target, on both the JVM host and the iOS simulator: 8 for the
 topic grid, 32 for the session, 13 for the canvas rules. The fake module has 78 per target,
 five of them added with the mirror-side answer (§34.3). Android's renderer contract and
@@ -166,7 +166,9 @@ and packs are currently bundled in the APK.
   them that resolves to a term.
 - **A small mesh named "Skeletal system" is drawn and can be tapped** in `skeletal-body`: one
   of Z-Anatomy's `.g` group objects, 450 triangles (§37.4).
-- **Left and right look identical in search and on the detail screen.**
+- **The iOS simulator's database holds rows from packs installed in earlier sessions**, so
+  its atlas still lists roots the regenerated packs no longer have. Seen 2026-10-08 (§39); a
+  clean install is needed before the new tree can be judged there.
 - **No Polish names.** The pipeline emits Latin and English. The schema holds more; nothing
   fills it. The settings picker lists only what packs can render.
 - **The selection's outline is hard to see against bone.** Pale pink (`FFD3CB`) on ivory,
