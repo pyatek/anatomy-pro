@@ -2407,3 +2407,62 @@ Seen in passing on the iOS simulator: its atlas still listed `1: Skeletal system
 system` and `Nervous system` as roots. The simulator's database holds rows from packs
 installed in earlier sessions; the installer replaces the content of the pack it installs and
 leaves the others. Not a fault of this change, and not looked into further.
+
+## 40. Addendum — 2026-10-09: four seconds at launch, and where they went
+
+A cold start into the atlas held the main thread long enough to draw an "isn't responding"
+dialog on a cold emulator. Measured again on the day's build, with the default
+`trunk-all-systems` pack (952 structures): every cold start skipped frames twice, 50 to 120
+and then about 220 — up to a second and a half, then 3.7 seconds.
+
+### 40.1 What it was
+
+Found by timing each step and then sampling the main thread's stack four times a second
+through a launch. Neither cause is the one the model's size suggests:
+
+| Step, on the main thread | Time |
+|---|---|
+| Reading the bundled pack out of the assets | 5–20 ms |
+| **Parsing the manifest** (`PackIngest.parse`) | **620–1,470 ms** |
+| Writing it to the database | 275–810 ms, suspended, not blocking |
+| Loading the model into Filament (`loadPack`) | 130–300 ms |
+| **`Engine.flushAndWait`, from `attachSurface`** | **about 3,700 ms** |
+
+- **The manifest was parsed where `install` was called**, which is a `LaunchedEffect` on the
+  main thread: a megabyte of JSON for a thousand structures.
+- **The surface changes size once more during launch**, as the layout settles, and
+  `attachSurface` answered every call by destroying its swap chain, waiting for the backend
+  to finish (§23's fix for `EGL_BAD_ALLOC`), and making another. At that moment what the
+  backend has queued is the whole model that was just loaded. Every stack sample for 3.7
+  seconds was `flushAndWait`.
+
+### 40.2 What changed
+
+`PackInstaller` parses on `Dispatchers.Default`. The renderer keeps its swap chain while the
+host's surface is the same one — a swap chain follows its window's size by itself — and
+resizes only what it sizes itself: the viewport, the camera, the outline's masks. Because a
+`SurfaceHolder` hands back the same `Surface` object for its next window, the canvas now
+tells the renderer when the surface is destroyed (`detachSurface`), which is also where the
+wait belongs: before a window goes, not on every resize.
+
+### 40.3 Verified
+
+Six cold starts on the API 36 emulator with `trunk-all-systems`: no skipped-frame warning in
+any (Choreographer logs 30 or more). Before: two in every one of ten.
+
+Tests at commit 4ac8ed3: 360 on the iOS simulator, 321 on the JVM host, 53 instrumented, none
+failing. New: the installer parses on the context it is given; the renderer keeps one swap
+chain across a resize of the same surface, draws at the new size and still picks the centre
+structure; it makes a second after the surface was taken away.
+
+By hand on the emulator: the model is centred and the right size after launch (the resize
+path); sent to the background and brought back, it draws; the layers screen and the return
+from it draw; a tap picks and outlines.
+
+Not verified: any of this on a device, where the times will differ; rotation, which
+recreates the activity; iOS, whose shim was not touched — it shares the parsing fix, and
+§28 records that it still makes its new swap chain before destroying the old one. Database
+writes take up to 0.8 s at launch and were left alone: they suspend and do not block.
+
+The first measurement of this fault (2026-10-02) blamed the atlas's first composition and
+named three suspects. Loading the model, the most obvious of them, is a fifth of a second.
