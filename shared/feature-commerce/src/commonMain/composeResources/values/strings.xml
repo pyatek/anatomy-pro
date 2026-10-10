@@ -1,0 +1,19 @@
+<resources>
+    <string name="paywall_back">Back</string>
+    <string name="paywall_title">Subscription</string>
+    <string name="paywall_body">The whole atlas is free, and so are quizzes on the skeleton. A subscription adds the rest of the learning:</string>
+    <string name="paywall_benefit_topics">Quizzes on every other system</string>
+    <string name="paywall_benefit_daily">The daily quiz, the same for everyone</string>
+    <string name="paywall_benefit_board">Your place in the ranking</string>
+    <string name="paywall_loading">Loading the plans…</string>
+    <string name="paywall_plan">%1$s · %2$s</string>
+    <string name="paywall_buying">Buying…</string>
+    <string name="paywall_restore">Restore a purchase</string>
+    <string name="paywall_restoring">Looking for a purchase…</string>
+    <string name="paywall_subscribed_title">You are subscribed</string>
+    <string name="paywall_subscribed_body">Every quiz, the daily quiz and the ranking are open.</string>
+    <string name="paywall_notice_purchase_failed">The purchase did not go through. You have not been charged by this app.</string>
+    <string name="paywall_notice_nothing_to_restore">No earlier purchase was found for this account.</string>
+    <string name="paywall_notice_plans_failed">The plans could not be loaded.</string>
+    <string name="paywall_retry">Try again</string>
+</resources>
