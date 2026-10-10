@@ -190,4 +190,34 @@ class FakeCommerceTest {
         assertTrue(interrupted, "the download was never observed in progress")
         assertIs<PackStatus.Available>(repository.packs.first().first { it.id == muscular }.status)
     }
+
+    @Test
+    fun a_fake_can_start_with_nothing_installed_so_a_first_download_has_something_to_do() = runTest {
+        val packs = FakePackRepository(initiallyInstalled = emptySet()).packs.first()
+
+        assertIs<PackStatus.Available>(packs.first { it.id == PackId("skeletal-body") }.status)
+    }
+
+    @Test
+    fun a_download_that_failed_once_can_succeed_when_asked_again() = runTest {
+        // Screen 03 offers a resume. A fake that failed every attempt could never show it working.
+        val repository = FakePackRepository(downloadFailure = PackFailure.NETWORK, failingAttempts = 1)
+
+        repository.download(PackId("muscular-body"))
+        assertIs<PackStatus.Failed>(repository.packs.first().first { it.id == PackId("muscular-body") }.status)
+
+        repository.download(PackId("muscular-body"))
+        assertIs<PackStatus.Installed>(repository.packs.first().first { it.id == PackId("muscular-body") }.status)
+    }
+
+    @Test
+    fun download_requests_are_counted_so_a_test_can_tell_one_from_two() = runTest {
+        val repository = FakePackRepository()
+        assertEquals(0, repository.downloadRequests)
+
+        repository.download(PackId("muscular-body"))
+        repository.download(PackId("nervous-body"))
+
+        assertEquals(2, repository.downloadRequests)
+    }
 }

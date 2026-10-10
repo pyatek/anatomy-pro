@@ -26,7 +26,18 @@ import kotlinx.coroutines.yield
 class FakePackRepository(
     private val behaviour: FakeBehaviour = FakeBehaviour(),
     private val downloadFailure: PackFailure? = null,
+    /** How many download attempts [downloadFailure] spoils before one is allowed through. */
+    private val failingAttempts: Int = Int.MAX_VALUE,
+    /** Screen 03 needs the first pack absent; screens 17 and 19 want it present. */
+    private val initiallyInstalled: Set<PackId> = setOf(PackId("skeletal-body")),
 ) : PackRepository {
+
+    /** How many times [download] has been asked for, whatever came of it. */
+    var downloadRequests: Int = 0
+        private set
+
+    private fun initialStatus(id: PackId): PackStatus =
+        if (id in initiallyInstalled) PackStatus.Installed else PackStatus.Available
 
     private val _packs = MutableStateFlow(
         listOf(
@@ -37,7 +48,7 @@ class FakePackRepository(
                 byteSize = 48_300_000,
                 checksum = "sha256:2f1c0a",
                 entitlement = null,
-                status = PackStatus.Installed,
+                status = initialStatus(PackId("skeletal-body")),
             ),
             PackState(
                 id = PackId("muscular-body"),
@@ -46,7 +57,7 @@ class FakePackRepository(
                 byteSize = 112_700_000,
                 checksum = "sha256:9b4e17",
                 entitlement = SystemId("muscular-system"),
-                status = PackStatus.Available,
+                status = initialStatus(PackId("muscular-body")),
             ),
             PackState(
                 id = PackId("nervous-body"),
@@ -55,7 +66,7 @@ class FakePackRepository(
                 byteSize = 67_400_000,
                 checksum = "sha256:c30d82",
                 entitlement = SystemId("nervous-system-sense-organs"),
-                status = PackStatus.Available,
+                status = initialStatus(PackId("nervous-body")),
             ),
         ),
     )
@@ -67,13 +78,16 @@ class FakePackRepository(
     }
 
     override suspend fun download(id: PackId) {
+        downloadRequests++
+        val spoiled = downloadFailure != null && downloadRequests <= failingAttempts
         behaviour.respond {
             val pack = _packs.value.first { it.id == id }
             setStatus(id, PackStatus.Queued)
             yield()
             for (step in 1..DOWNLOAD_STEPS) {
-                if (downloadFailure != null && step > DOWNLOAD_STEPS / 2) {
-                    setStatus(id, PackStatus.Failed(downloadFailure, resumable = downloadFailure == PackFailure.NETWORK))
+                if (spoiled && step > DOWNLOAD_STEPS / 2) {
+                    val reason = downloadFailure!!
+                    setStatus(id, PackStatus.Failed(reason, resumable = reason == PackFailure.NETWORK))
                     return@respond
                 }
                 setStatus(id, PackStatus.Downloading(pack.byteSize * step / DOWNLOAD_STEPS, pack.byteSize))
