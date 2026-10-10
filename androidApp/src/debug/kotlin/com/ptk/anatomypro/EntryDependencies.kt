@@ -4,6 +4,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.ptk.anatomypro.core.data.AppDependencies
+import com.ptk.anatomypro.core.data.NotBuiltDailyRepository
 import com.ptk.anatomypro.core.data.NotBuiltQuizRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeDailyRepository
@@ -44,8 +45,27 @@ internal fun appDependencies(): AppDependencies {
     val packFailure = intent?.getStringExtra("packFailure")
         ?.let { name -> PackFailure.entries.firstOrNull { it.name == name } }
 
-    val fakes = remember(onboarding, packFailure) {
-        val base = fakeAppDependencies()
+    // adb shell am start -n com.ptk.anatomypro/.MainActivity --ez subscribed true --es daily offline
+    //   subscribed: true shows the daily and the boards; without it, "not subscribed".
+    //   daily: "offline" or "attempted"; anything else is a day not yet played.
+    //   unranked: true leaves the user off the boards.
+    //   purchaseFails: true makes every purchase on the paywall fail.
+    val subscribed = intent?.getBooleanExtra("subscribed", false) ?: false
+    val dailyState = intent?.getStringExtra("daily")
+    val unranked = intent?.getBooleanExtra("unranked", false) ?: false
+    val purchaseFails = intent?.getBooleanExtra("purchaseFails", false) ?: false
+
+    // Built once, whatever the atlas is doing: screens and app-scoped models hold on to
+    // the repositories they are first given, and a second set made when the pack finished
+    // installing would leave them reading the first.
+    val fakes = remember(onboarding, packFailure, subscribed, unranked, purchaseFails) {
+        val base = fakeAppDependencies().copy(
+            leaderboard = FakeLeaderboardRepository(ranked = !unranked),
+            entitlements = FakeEntitlementRepository(
+                initial = Entitlements(subscribed = subscribed, ownedSystems = emptySet()),
+                purchaseSucceeds = !purchaseFails,
+            ),
+        )
         if (!onboarding) {
             base
         } else {
@@ -61,21 +81,14 @@ internal fun appDependencies(): AppDependencies {
             )
         }
     }
-    // adb shell am start -n com.ptk.anatomypro/.MainActivity --ez subscribed true --es daily offline
-    //   subscribed: true shows the daily and the boards; without it, "not subscribed".
-    //   daily: "offline" or "attempted"; anything else is a day not yet played.
-    //   unranked: true leaves the user off the boards.
-    val subscribed = intent?.getBooleanExtra("subscribed", false) ?: false
-    val dailyState = intent?.getStringExtra("daily")
-    val unranked = intent?.getBooleanExtra("unranked", false) ?: false
-    //   purchaseFails: true makes every purchase on the paywall fail.
-    val purchaseFails = intent?.getBooleanExtra("purchaseFails", false) ?: false
-    return remember(atlas, fakes, subscribed, dailyState, unranked, purchaseFails) {
+    return remember(atlas, fakes, dailyState) {
         val installed = atlas?.repository
-            // Until the pack is installed there is no quiz, and the Test tab says so. A quiz
-            // over the fixture here would be captured by the app-scoped session and kept:
-            // the topic grid would then list the atlas while the session asked the fixture.
-            ?: return@remember fakes.copy(atlas = null, quiz = NotBuiltQuizRepository)
+            // Until the pack is installed there is no quiz and no daily, and their tabs say
+            // so. Either one built over the fixture here would be captured by its
+            // app-scoped model and kept: the daily was seen telling a subscriber they had
+            // no subscription, and the topic grid would list the atlas while the session
+            // asked the fixture.
+            ?: return@remember fakes.copy(atlas = null, quiz = NotBuiltQuizRepository, daily = NotBuiltDailyRepository)
 
         // The real generator (§8.1), asking about the atlas on screen: fixture ids are not
         // in the pack, so nothing a fixture quiz highlighted could be seen and nothing
@@ -92,11 +105,6 @@ internal fun appDependencies(): AppDependencies {
                 alreadyAttempted = dailyState == "attempted",
                 quiz = quiz,
                 topic = null,
-            ),
-            leaderboard = FakeLeaderboardRepository(ranked = !unranked),
-            entitlements = FakeEntitlementRepository(
-                initial = Entitlements(subscribed = subscribed, ownedSystems = emptySet()),
-                purchaseSucceeds = !purchaseFails,
             ),
         )
     }
