@@ -22,9 +22,15 @@ data class RenderState(
 /**
  * Asks the camera to frame [structure], or the whole model when it is null. [serial] makes
  * asking for the same thing twice a new request, so a screen can re-frame something the
- * user scrolled away from.
+ * user scrolled away from. [alongside] is framed in the same shot as [structure]: a wrong
+ * answer beside the right one.
  */
-data class FocusRequest(val structure: StructureId?, val durationMs: Int, val serial: Int)
+data class FocusRequest(
+    val structure: StructureId?,
+    val durationMs: Int,
+    val serial: Int,
+    val alongside: Set<StructureId> = emptySet(),
+)
 
 object SceneResolver {
 

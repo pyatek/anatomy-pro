@@ -126,7 +126,7 @@ internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, 
                 modifier = modifier,
                 highlights = canvas.highlights,
                 render = RenderState.None,
-                focus = FocusRequest(canvas.focus, FOCUS_MILLIS, serial),
+                focus = FocusRequest(canvas.focus, FOCUS_MILLIS, serial, alongside = canvas.framedWith),
                 // Empty space is not an answer (decision 5).
                 onPicked = { picked -> if (canvas.pickable && picked != null) session.answer(picked) },
                 onStats = {},

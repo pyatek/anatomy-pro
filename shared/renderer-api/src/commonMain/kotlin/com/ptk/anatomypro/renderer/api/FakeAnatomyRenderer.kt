@@ -36,6 +36,9 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
 
     /** The structure the camera was last asked to frame, or null once it frames the whole model. */
     var focused: StructureId? = null
+
+    /** Everything the camera was last asked to frame together; empty is the whole model. */
+    var framed: Set<StructureId> = emptySet()
         private set
     var pickingEnabled: Boolean = true
         private set
@@ -71,11 +74,14 @@ class FakeAnatomyRenderer(replay: Int = 64) : AnatomyRenderer {
         highlights = styles.toMap()
     }
 
-    override fun focusCamera(structure: StructureId, durationMs: Int) {
-        focused = structure
+    override fun focusCamera(structures: Set<StructureId>, durationMs: Int) {
+        if (structures.isEmpty()) return
+        framed = structures.toSet()
+        focused = structures.singleOrNull()
     }
 
     override fun frameAll(durationMs: Int) {
+        framed = emptySet()
         focused = null
     }
 

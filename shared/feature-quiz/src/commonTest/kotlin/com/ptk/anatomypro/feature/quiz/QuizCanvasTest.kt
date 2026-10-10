@@ -83,6 +83,27 @@ class QuizCanvasTest {
     }
 
     @Test
+    fun incorrect_feedback_frames_the_chosen_structure_together_with_the_expected_one() = runTest {
+        // Screen 12: framing the expected answer alone often left the chosen one out of view.
+        val session = session(QuizFormat.NAME_THE_HIGHLIGHTED)
+        val wrong = (session.questions[0] as QuizQuestion.NameTheHighlighted).options.first { it.id != session.expected(0) }.id
+
+        val canvas = quizCanvasFor(feedback(session, wrong))
+
+        assertEquals(session.expected(0), canvas.focus)
+        assertEquals(setOf(wrong), canvas.framedWith)
+    }
+
+    @Test
+    fun correct_feedback_and_a_question_frame_one_structure_alone() = runTest {
+        val session = session(QuizFormat.NAME_THE_HIGHLIGHTED)
+
+        assertTrue(quizCanvasFor(feedback(session, session.expected(0))).framedWith.isEmpty())
+        assertTrue(quizCanvasFor(feedback(session, chosen = null)).framedWith.isEmpty())
+        assertTrue(quizCanvasFor(QuizStage.Asking(session, 0, remainingMillis = null)).framedWith.isEmpty())
+    }
+
+    @Test
     fun feedback_with_no_chosen_structure_shows_only_the_expected_one() = runTest {
         // Review Focus 2: the timer ran out.
         val session = session(QuizFormat.NAME_THE_HIGHLIGHTED)

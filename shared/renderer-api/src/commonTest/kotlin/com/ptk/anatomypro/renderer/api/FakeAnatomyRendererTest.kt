@@ -41,6 +41,37 @@ class FakeAnatomyRendererContractTest : AnatomyRendererContract() {
     override suspend fun countPixels(renderer: AnatomyRenderer, argb: Int): Int =
         (renderer as FakeAnatomyRenderer).outlinePixels(argb)
 
+    @Test
+    fun focusing_several_structures_frames_all_of_them() {
+        // Screen 12 frames the expected and the chosen answer in one shot.
+        val fake = FakeAnatomyRenderer()
+
+        fake.focusCamera(setOf(hitStructure, offCentreStructure), durationMs = 0)
+
+        assertEquals(setOf(hitStructure, offCentreStructure), fake.framed)
+    }
+
+    @Test
+    fun focusing_one_structure_frames_that_one_and_framing_all_frames_none_in_particular() {
+        val fake = FakeAnatomyRenderer()
+
+        fake.focusCamera(offCentreStructure, durationMs = 0)
+        assertEquals(setOf(offCentreStructure), fake.framed)
+
+        fake.frameAll(durationMs = 0)
+        assertTrue(fake.framed.isEmpty())
+    }
+
+    @Test
+    fun focusing_no_structures_leaves_the_camera_where_it_was() {
+        val fake = FakeAnatomyRenderer()
+        fake.focusCamera(offCentreStructure, durationMs = 0)
+
+        fake.focusCamera(emptySet(), durationMs = 0)
+
+        assertEquals(setOf(offCentreStructure), fake.framed)
+    }
+
     @Test fun centres_a_focused_structure() = runTest { verifyFocusingTheCameraCentresAStructure() }
     @Test fun returns_to_the_whole_model() = runTest { verifyFramingAllReturnsTheCentreToTheWholeModel() }
     @Test fun signals_ready_then_pack_loaded() = runTest { verifyLoadingAPackSignalsReadyThenLoaded() }

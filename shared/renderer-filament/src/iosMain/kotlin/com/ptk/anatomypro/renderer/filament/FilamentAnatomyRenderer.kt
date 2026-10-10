@@ -344,8 +344,9 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         block(names, nodes.size.toULong())
     }
 
-    override fun focusCamera(structure: StructureId, durationMs: Int) {
-        val nodes = nodesByStructure[structure] ?: return // a group draws nothing to frame
+    override fun focusCamera(structures: Set<StructureId>, durationMs: Int) {
+        val nodes = structures.flatMap { nodesByStructure[it].orEmpty() } // a group draws nothing to frame
+        if (nodes.isEmpty()) return // bounds() reads an empty list as the whole asset
         val box = bounds(nodes) ?: return
         val to = CameraFraming.frame(box)
         val from = shot ?: bounds(emptyList())?.let(CameraFraming::frame) ?: to

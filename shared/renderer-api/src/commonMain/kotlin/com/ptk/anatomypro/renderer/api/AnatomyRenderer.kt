@@ -61,7 +61,17 @@ interface AnatomyRenderer {
      */
     fun highlight(styles: Map<StructureId, HighlightStyle>)
 
-    fun focusCamera(structure: StructureId, durationMs: Int)
+    /** Frames [structure] alone. */
+    fun focusCamera(structure: StructureId, durationMs: Int) = focusCamera(setOf(structure), durationMs)
+
+    /**
+     * Frames everything in [structures] in one shot, moving there over [durationMs].
+     *
+     * Several at once is what lets a wrong answer be seen beside the right one. A structure
+     * the loaded packs do not draw is left out, and when none of them draws anything the
+     * camera stays where it is.
+     */
+    fun focusCamera(structures: Set<StructureId>, durationMs: Int)
 
     /**
      * Frames the whole loaded model, as on load, moving there over [durationMs].

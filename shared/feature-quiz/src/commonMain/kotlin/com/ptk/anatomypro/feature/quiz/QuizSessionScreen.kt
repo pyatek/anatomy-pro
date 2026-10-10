@@ -54,8 +54,6 @@ import org.jetbrains.compose.resources.stringResource
  * behind it is created with the composable that calls it and reloads its pack when it is
  * recreated; a screen per stage would blank the model between every question and its
  * feedback.
- *
- * Screen 12 is unfinished: see [SCREEN_12_UNFINISHED].
  */
 @Composable
 fun QuizSessionScreen(

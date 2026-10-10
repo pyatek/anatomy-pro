@@ -9,16 +9,6 @@ import com.ptk.anatomypro.core.designsystem.HighlightTokens
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.renderer.api.HighlightStyle
 
-/**
- * What screen 12 still lacks.
- *
- * Expected and chosen are told apart by glyph, word, hue and brightness, which meets §12's
- * rule that state is never carried by hue alone. §12 also specifies a solid outline for the
- * right answer and a dashed one for the wrong; those need the outline shaders, which are not
- * built. Until they are, this screen is not finished.
- */
-const val SCREEN_12_UNFINISHED = "Design spec §12: solid and dashed outlines are not drawn on the model."
-
 /** What the 3D canvas shows for a stage of the quiz. */
 data class QuizCanvas(
     val highlights: Map<StructureId, HighlightStyle>,
@@ -26,6 +16,8 @@ data class QuizCanvas(
     val focus: StructureId?,
     /** Whether a tap on the model is an answer. */
     val pickable: Boolean,
+    /** Framed in the same shot as [focus]: on screen 12, the answer that was chosen. */
+    val framedWith: Set<StructureId> = emptySet(),
 ) {
     companion object {
         val Empty = QuizCanvas(highlights = emptyMap(), focus = null, pickable = false)
@@ -43,11 +35,17 @@ fun quizCanvasFor(stage: QuizStage): QuizCanvas = when (stage) {
         )
     }
 
-    is QuizStage.Feedback -> QuizCanvas(
-        highlights = answerMarks(stage.result).associate { it.structure.id to it.style },
-        focus = stage.result.expected.id,
-        pickable = false,
-    )
+    is QuizStage.Feedback -> {
+        val marks = answerMarks(stage.result)
+        QuizCanvas(
+            highlights = marks.associate { it.structure.id to it.style },
+            focus = stage.result.expected.id,
+            pickable = false,
+            // Both answers in one shot: framing the expected one alone often left the
+            // chosen one out of view, and the screen is about the difference between them.
+            framedWith = marks.filter { it.role == AnswerRole.Chosen }.map { it.structure.id }.toSet(),
+        )
+    }
 
     else -> QuizCanvas.Empty
 }
