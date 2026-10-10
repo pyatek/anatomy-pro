@@ -16,6 +16,14 @@ enum class TopLevel(val start: Any) {
     Profile(ProfileRoute.Profile),
 }
 
+/**
+ * The tab a back stack is under, given each entry's own tab from the root up.
+ *
+ * A screen with no tab of its own — the paywall, which every tab can open — is shown under
+ * the tab it was opened from: the nearest entry beneath it that has one.
+ */
+fun owningTab(tabsFromRoot: List<TopLevel?>): TopLevel? = tabsFromRoot.lastOrNull { it != null }
+
 /** Screens 04, 05, 06, 07, 21. */
 @Serializable
 sealed interface AtlasRoute {

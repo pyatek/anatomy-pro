@@ -62,6 +62,7 @@ import com.ptk.anatomypro.feature.quiz.quizIsBuilt
 import com.ptk.anatomypro.navigation.AtlasRoute
 import com.ptk.anatomypro.navigation.DailyRoute
 import com.ptk.anatomypro.navigation.ProfileRoute
+import com.ptk.anatomypro.navigation.owningTab
 import com.ptk.anatomypro.navigation.QuizRoute
 import com.ptk.anatomypro.navigation.TopLevel
 import org.jetbrains.compose.resources.StringResource
@@ -148,7 +149,10 @@ private fun MainScaffold(
     treePath: MutableState<String>,
 ) {
     val entry by navController.currentBackStackEntryAsState()
-    val tab = entry?.destination?.tab() ?: TopLevel.Atlas
+    // Read from the whole stack, not its top: the paywall has no tab of its own and is
+    // shown under whichever tab opened it.
+    val backStack by navController.currentBackStack.collectAsState()
+    val tab = owningTab(backStack.map { it.destination.tab() }) ?: TopLevel.Atlas
     val locale = state.settings.interfaceLocale
     val openDetail: (StructureId) -> Unit = { navController.navigate(AtlasRoute.Detail(it.value)) }
 
@@ -338,8 +342,9 @@ private fun NavDestination.tab(): TopLevel? = when {
     hasRoute<DailyRoute.Home>() || hasRoute<DailyRoute.Lobby>() -> TopLevel.Today
     hasRoute<QuizRoute.Topics>() || hasRoute<QuizRoute.Question>() ||
         hasRoute<QuizRoute.Feedback>() || hasRoute<QuizRoute.Summary>() -> TopLevel.Test
+    // Not the paywall: every tab can open it, and it stays under the one that did.
     hasRoute<ProfileRoute.Profile>() || hasRoute<ProfileRoute.Settings>() ||
-        hasRoute<ProfileRoute.Packs>() || hasRoute<ProfileRoute.Paywall>() -> TopLevel.Profile
+        hasRoute<ProfileRoute.Packs>() -> TopLevel.Profile
     hasRoute<AtlasRoute.Browse>() || hasRoute<AtlasRoute.Search>() || hasRoute<AtlasRoute.Layers>() ||
         hasRoute<AtlasRoute.Tree>() || hasRoute<AtlasRoute.Detail>() -> TopLevel.Atlas
     else -> null

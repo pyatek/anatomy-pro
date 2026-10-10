@@ -3,6 +3,7 @@ package com.ptk.anatomypro.feature.quiz
 import com.ptk.anatomypro.core.data.NotBuiltQuizRepository
 import com.ptk.anatomypro.core.data.model.AnswerResult
 import com.ptk.anatomypro.core.data.model.QuizQuestion
+import com.ptk.anatomypro.core.data.model.QuizSession
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.data.repository.QuizRepository
 import com.ptk.anatomypro.core.designsystem.HighlightTokens
@@ -26,8 +27,16 @@ data class QuizCanvas(
 
 fun quizCanvasFor(stage: QuizStage): QuizCanvas = when (stage) {
     is QuizStage.Asking -> when (val question = stage.question) {
-        // The whole model, unmarked: framing or highlighting the target would answer it.
-        is QuizQuestion.TapTheStructure -> QuizCanvas(emptyMap(), focus = null, pickable = !stage.submitting)
+        // Unmarked, and never framed on the target alone: either would answer it.
+        is QuizQuestion.TapTheStructure -> {
+            val region = tapRegion(stage.session)
+            QuizCanvas(
+                highlights = emptyMap(),
+                focus = region.firstOrNull(),
+                pickable = !stage.submitting,
+                framedWith = region.drop(1).toSet(),
+            )
+        }
         is QuizQuestion.NameTheHighlighted -> QuizCanvas(
             highlights = mapOf(question.highlighted to HighlightTokens.Selected),
             focus = question.highlighted,
@@ -48,6 +57,25 @@ fun quizCanvasFor(stage: QuizStage): QuizCanvas = when (stage) {
     }
 
     else -> QuizCanvas.Empty
+}
+
+/** Fewer targets than this and framing them would all but point at the answer. */
+private const val SMALLEST_TAP_REGION = 3
+
+/**
+ * What a "find the structure" session frames: everything it asks about, together.
+ *
+ * The whole model left a rib a few pixels wide and hard to tap. The session's targets are
+ * the region in question, and because every question in the session gets the same frame,
+ * the frame says nothing about which of them is wanted. Empty is the whole model.
+ */
+private fun tapRegion(session: QuizSession): List<StructureId> {
+    val targets = session.questions
+        .filterIsInstance<QuizQuestion.TapTheStructure>()
+        .map { it.target }
+        .distinct()
+        .sortedBy { it.value }
+    return if (targets.size < SMALLEST_TAP_REGION) emptyList() else targets
 }
 
 enum class AnswerRole { Expected, Chosen }
@@ -75,6 +103,28 @@ fun answerMarks(result: AnswerResult): List<AnswerMark> = buildList {
     if (!result.correct && chosen != null && chosen.id != result.expected.id) {
         add(AnswerMark(AnswerRole.Chosen, chosen, glyph = "✕", style = HighlightTokens.Incorrect))
     }
+}
+
+/** What the system back gesture does on a quiz screen. */
+enum class BackAction {
+    /** Swallowed: the way out of a session is "End session", not an accidental swipe. */
+    Ignore,
+
+    /** Leaves the summary for the topic grid, as its own button does. */
+    Leave,
+
+    /** Not the quiz's business. */
+    PassOn,
+}
+
+/**
+ * Back used to pop to the topic grid, which sent a running session straight back and rebuilt
+ * the canvas on the way; on the summary it did the same and so could never leave.
+ */
+fun backActionFor(stage: QuizStage): BackAction = when (stage) {
+    is QuizStage.Asking, is QuizStage.Feedback -> BackAction.Ignore
+    is QuizStage.Finished -> BackAction.Leave
+    QuizStage.Idle, QuizStage.Starting, is QuizStage.Failed -> BackAction.PassOn
 }
 
 /** Where the quiz's navigation should be for a stage. */

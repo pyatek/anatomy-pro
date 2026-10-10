@@ -38,13 +38,67 @@ class QuizCanvasTest {
     // --- the canvas -------------------------------------------------------------------
 
     @Test
-    fun a_tap_question_shows_the_whole_model_with_nothing_marked() = runTest {
-        // Framing or highlighting the target would be the answer.
-        val canvas = quizCanvasFor(QuizStage.Asking(session(QuizFormat.TAP_THE_STRUCTURE), 0, remainingMillis = null))
+    fun a_tap_question_marks_nothing_and_frames_everything_the_session_asks_about() = runTest {
+        // Highlighting the target, or framing it alone, would be the answer. Framing the
+        // whole model made a rib too small to tap; the session's targets together are the
+        // region being asked about, and the frame is the same for every question in it.
+        val session = session(QuizFormat.TAP_THE_STRUCTURE)
+        val targets = session.questions.indices.map { session.expected(it) }.toSet()
+
+        val canvas = quizCanvasFor(QuizStage.Asking(session, 0, remainingMillis = null))
 
         assertTrue(canvas.highlights.isEmpty())
-        assertNull(canvas.focus)
         assertTrue(canvas.pickable)
+        assertEquals(targets, canvas.framedWith + setOfNotNull(canvas.focus))
+    }
+
+    @Test
+    fun every_tap_question_in_a_session_is_framed_alike_so_the_frame_says_nothing() = runTest {
+        val session = session(QuizFormat.TAP_THE_STRUCTURE)
+
+        val frames = session.questions.indices.map { index ->
+            val canvas = quizCanvasFor(QuizStage.Asking(session, index, remainingMillis = null))
+            canvas.focus to canvas.framedWith
+        }
+
+        assertEquals(1, frames.distinct().size)
+    }
+
+    @Test
+    fun a_tap_session_about_fewer_than_three_structures_shows_the_whole_model() = runTest {
+        // Framing one or two structures would all but point at the answer.
+        val session = session(QuizFormat.TAP_THE_STRUCTURE)
+        val short = session.copy(questions = session.questions.take(2))
+
+        val canvas = quizCanvasFor(QuizStage.Asking(short, 0, remainingMillis = null))
+
+        assertNull(canvas.focus)
+        assertTrue(canvas.framedWith.isEmpty())
+    }
+
+    // --- the system back gesture ------------------------------------------------------
+
+    @Test
+    fun back_on_a_question_or_its_feedback_is_swallowed_because_end_session_is_the_way_out() = runTest {
+        // Popping to the topic grid sent the session straight back and rebuilt the canvas.
+        val session = session(QuizFormat.NAME_THE_HIGHLIGHTED)
+
+        assertEquals(BackAction.Ignore, backActionFor(QuizStage.Asking(session, 0, remainingMillis = null)))
+        assertEquals(BackAction.Ignore, backActionFor(feedback(session, session.expected(0))))
+    }
+
+    @Test
+    fun back_on_the_summary_leaves_it_as_back_to_topics_does() {
+        val summary = QuizSummary(QuizSessionId("s"), correct = 1, total = 1, elapsedMillis = 1, needsReview = emptyList())
+
+        assertEquals(BackAction.Leave, backActionFor(QuizStage.Finished(summary, ribs, QuizFormat.NAME_THE_HIGHLIGHTED)))
+    }
+
+    @Test
+    fun back_is_left_alone_when_no_session_is_running() {
+        assertEquals(BackAction.PassOn, backActionFor(QuizStage.Idle))
+        assertEquals(BackAction.PassOn, backActionFor(QuizStage.Starting))
+        assertEquals(BackAction.PassOn, backActionFor(QuizStage.Failed(FailedDuring.START)))
     }
 
     @Test

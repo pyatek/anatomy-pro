@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -13,6 +15,7 @@ import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.AppSettings
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
+import com.ptk.anatomypro.feature.quiz.BackAction
 import com.ptk.anatomypro.feature.quiz.FailedDuring
 import com.ptk.anatomypro.feature.quiz.QuizDestination
 import com.ptk.anatomypro.feature.quiz.QuizSessionScreen
@@ -21,6 +24,7 @@ import com.ptk.anatomypro.feature.quiz.QuizStage
 import com.ptk.anatomypro.feature.quiz.SummaryScreen
 import com.ptk.anatomypro.feature.quiz.TopicsScreen
 import com.ptk.anatomypro.feature.quiz.TopicsViewModel
+import com.ptk.anatomypro.feature.quiz.backActionFor
 import com.ptk.anatomypro.feature.quiz.destinationOf
 import com.ptk.anatomypro.feature.quiz.quizCanvasFor
 import com.ptk.anatomypro.navigation.ProfileRoute
@@ -97,10 +101,14 @@ internal fun QuizTopicsRoute(
 }
 
 /** Prototype screens 09 to 12. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, navController: NavHostController) {
     val stage by session.stage.collectAsState()
     FollowSession(stage, here = QuizDestination.Session(sessionId), navController = navController)
+    // Swallowed. Left to the navigation it popped to the topic grid, FollowSession sent it
+    // straight back, and the canvas was rebuilt and its pack reloaded on the way.
+    BackHandler(enabled = backActionFor(stage) == BackAction.Ignore) {}
 
     // The clock runs only while this is on screen and the app is in front (decision 3).
     // Elapsed time is read from a clock, so a question left running behind a backgrounded
@@ -139,6 +147,7 @@ internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, 
 }
 
 /** Prototype screen 13. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun QuizSummaryRoute(
     session: QuizSessionViewModel,
@@ -148,6 +157,9 @@ internal fun QuizSummaryRoute(
 ) {
     val stage by session.stage.collectAsState()
     FollowSession(stage, here = QuizDestination.Summary(sessionId), navController = navController)
+
+    // Back leaves the summary, as "Back to topics" does; it used to bounce straight back.
+    BackHandler(enabled = backActionFor(stage) == BackAction.Leave) { session.abandon() }
 
     val finished = stage as? QuizStage.Finished ?: return
     SummaryScreen(
