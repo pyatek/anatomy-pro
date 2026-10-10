@@ -1,5 +1,6 @@
 <resources>
     <string name="home_title">Dziś</string>
+    <string name="home_streak_label">SERIA</string>
     <string name="home_streak_unit">dni z rzędu</string>
     <string name="home_streak_longest">Najdłuższa seria: %1$d</string>
     <string name="home_streak_none">Nie masz jeszcze serii. Zaczyna ją jedna sesja dziennie.</string>
@@ -22,6 +23,14 @@
     <string name="lobby_loading">Sprawdzanie dzisiejszego quizu…</string>
     <string name="lobby_ready_body">Pytań: %1$d. Jedno podejście. Wszyscy dostają ten sam zestaw, a czas liczy się od startu.</string>
     <string name="lobby_no_verdicts">O tym, które odpowiedzi były poprawne, dowiesz się na końcu.</string>
+    <string name="lobby_fact_questions">Pytania</string>
+    <string name="lobby_fact_attempts">Próby</string>
+    <string name="lobby_fact_attempts_value">1 z 1</string>
+    <string name="lobby_fact_place">Miejsce</string>
+    <string name="lobby_fact_time">Czas</string>
+    <string name="lobby_rules">ZASADY</string>
+    <string name="lobby_rule_same">Wszyscy dziś odpowiadają na te same pytania.</string>
+    <string name="lobby_rule_clock">Czas liczy się od startu i nie da się go zatrzymać.</string>
     <string name="lobby_start">Start</string>
     <string name="lobby_submitting">Wysyłanie odpowiedzi…</string>
     <string name="lobby_done_score">Poprawnie: %1$d z %2$d</string>
@@ -46,6 +55,7 @@
     <string name="board_failed">Nie udało się wczytać rankingu.</string>
     <string name="board_retry">Spróbuj ponownie</string>
     <string name="board_players">Graczy: %1$d</string>
+    <string name="board_your_place">TWOJA POZYCJA</string>
     <string name="board_you">TY</string>
     <string name="board_unranked_daily">Nie ma cię w dzisiejszym rankingu. Zagraj w quiz dnia z limitem czasu, żeby się w nim znaleźć.</string>
     <string name="board_unranked_streak">Nie ma cię jeszcze w rankingu serii.</string>

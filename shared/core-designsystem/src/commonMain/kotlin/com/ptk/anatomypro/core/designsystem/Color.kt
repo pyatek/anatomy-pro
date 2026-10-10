@@ -66,6 +66,10 @@ val FooterHairline = Color(0xFF1A1F23)
 val FreeOutline = Color(0xFF2E5541)
 /** A quieter accent outline, for a chosen plan or a marked row. */
 val AccentMuted = Color(0xFF7A2E25)
+/** The square behind a monogram or a glyph on a row. */
+val MonogramFill = Color(0xFF1E2429)
+/** The warm top of the daily quiz's card, fading into [Surface]. */
+val AccentWash = Color(0xFF22100D)
 /** Text that leads without being a heading: values, the user's own row. */
 val TextStrong = Color(0xFFC9D0D6)
 

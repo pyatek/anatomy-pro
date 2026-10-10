@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -25,11 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -93,6 +97,80 @@ fun StepHeader(
                 )
             }
         }
+    }
+}
+
+/**
+ * The bar across the top of a screen that was pushed: a way back, and what the screen is,
+ * in the monospaced voice. [backLabel] is what the chevron is called aloud.
+ */
+@Composable
+fun TopBar(title: String, backLabel: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp)) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(44.dp)
+                .clickable(role = Role.Button, onClickLabel = backLabel, onClick = onBack)
+                .semantics { contentDescription = backLabel },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("‹", style = LocalAnatomyType.current.title, color = TextStrong, modifier = Modifier.clearAndSetSemantics { })
+        }
+        Overline(title, color = TextSecondary, modifier = Modifier.align(Alignment.Center))
+    }
+}
+
+/**
+ * Two or three views of one thing, one of them showing: the boards, the quiz formats.
+ * The chosen one is filled as well as coloured, and each is a tab to a screen reader.
+ */
+@Composable
+fun SegmentedTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val outer = RoundedCornerShape(11.dp)
+    val inner = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier.fillMaxWidth().clip(outer).background(Surface).border(BorderStroke(1.dp, Hairline), outer).padding(3.dp),
+    ) {
+        labels.forEachIndexed { index, label ->
+            val chosen = index == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 44.dp)
+                    .clip(inner)
+                    .then(if (chosen) Modifier.background(Accent) else Modifier)
+                    .selectable(selected = chosen, role = Role.Tab, onClick = { onSelect(index) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    style = if (chosen) LocalAnatomyType.current.bodyStrong else LocalAnatomyType.current.caption,
+                    color = if (chosen) OnAccent else TextSecondary,
+                )
+            }
+        }
+    }
+}
+
+/** A square with two or three letters in it, standing for a person or a kind of thing. */
+@Composable
+fun Monogram(text: String, modifier: Modifier = Modifier, fill: Color = MonogramFill, color: Color = TextSecondary, size: Dp = 32.dp) {
+    Box(
+        modifier = modifier.size(size).clip(RoundedCornerShape(size / 4)).background(fill).clearAndSetSemantics { },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = LocalAnatomyType.current.code, color = color)
+    }
+}
+
+/** A numbered line in a list of rules or reasons. */
+@Composable
+fun NumberedLine(number: Int, text: String, modifier: Modifier = Modifier) {
+    val type = LocalAnatomyType.current
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        Text(number.toString().padStart(2, '0'), style = type.value, color = TextTertiary, modifier = Modifier.clearAndSetSemantics { })
+        Text(text, style = type.caption, color = TextStrong, modifier = Modifier.weight(1f))
     }
 }
 
@@ -219,6 +297,22 @@ fun Panel(
             .border(BorderStroke(1.dp, outline), PanelShape)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(spacing),
+        content = content,
+    )
+}
+
+/** The card a screen leads with: the daily quiz. Warm at the top, outlined in a quiet accent. */
+@Composable
+fun HeroPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(AccentWash, Surface)))
+            .border(BorderStroke(1.dp, AccentMuted), shape)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         content = content,
     )
 }

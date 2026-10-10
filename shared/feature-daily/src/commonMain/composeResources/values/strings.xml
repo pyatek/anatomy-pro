@@ -1,5 +1,6 @@
 <resources>
     <string name="home_title">Today</string>
+    <string name="home_streak_label">STREAK</string>
     <string name="home_streak_unit">day streak</string>
     <string name="home_streak_longest">Longest: %1$d</string>
     <string name="home_streak_none">No streak yet. A session a day starts one.</string>
@@ -22,6 +23,14 @@
     <string name="lobby_loading">Checking today\'s quiz…</string>
     <string name="lobby_ready_body">%1$d questions. One attempt. Everyone gets the same set, and the clock starts when you do.</string>
     <string name="lobby_no_verdicts">You will not be told which answers were right until the end.</string>
+    <string name="lobby_fact_questions">Questions</string>
+    <string name="lobby_fact_attempts">Attempts</string>
+    <string name="lobby_fact_attempts_value">1 of 1</string>
+    <string name="lobby_fact_place">Place</string>
+    <string name="lobby_fact_time">Time</string>
+    <string name="lobby_rules">RULES</string>
+    <string name="lobby_rule_same">Everyone answers the same questions today.</string>
+    <string name="lobby_rule_clock">The time counts from the start and cannot be paused.</string>
     <string name="lobby_start">Start</string>
     <string name="lobby_submitting">Sending your answers…</string>
     <string name="lobby_done_score">%1$d of %2$d correct</string>
@@ -46,6 +55,7 @@
     <string name="board_failed">The ranking could not be loaded.</string>
     <string name="board_retry">Try again</string>
     <string name="board_players">%1$d players</string>
+    <string name="board_your_place">YOUR PLACE</string>
     <string name="board_you">YOU</string>
     <string name="board_unranked_daily">You are not on today\'s board. Play the daily quiz, timed, to be ranked.</string>
     <string name="board_unranked_streak">You are not on the streak board yet.</string>
