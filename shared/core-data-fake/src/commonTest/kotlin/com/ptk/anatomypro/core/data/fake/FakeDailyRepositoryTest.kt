@@ -71,4 +71,18 @@ class FakeDailyRepositoryTest {
         val names = started.questions.flatMap { (it as QuizQuestion.NameTheHighlighted).options }.map { it.name }
         assertTrue(names.all { it.startsWith("Rib ") }, "$names")
     }
+
+    @Test
+    fun with_no_topic_named_the_daily_asks_about_the_first_one_the_quiz_offers() = runTest {
+        // A debug build's quiz asks about the installed atlas, where "costae" may not exist.
+        val quiz = FakeQuizRepository(source = AtlasQuizSource(FakeAtlasRepository()))
+        val repository = FakeDailyRepository(quiz = quiz, topic = null)
+
+        val started = repository.start(locale = "la")
+
+        val first = quiz.topics("la").first()
+        val asked = (started.questions.first() as QuizQuestion.NameTheHighlighted).highlighted
+        assertTrue(quiz.startSession(first.id, com.ptk.anatomypro.core.data.model.QuizFormat.NAME_THE_HIGHLIGHTED, 50, 1, "la")
+            .questions.any { (it as QuizQuestion.NameTheHighlighted).highlighted == asked })
+    }
 }

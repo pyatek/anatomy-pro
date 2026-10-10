@@ -24,6 +24,8 @@ class FakeDailyRepository(
     alreadyAttempted: Boolean = false,
     private val date: LocalDate = LocalDate(2026, 9, 24),
     private val quiz: FakeQuizRepository = FakeQuizRepository(),
+    /** What the day's questions are about; null is the first topic [quiz] offers. */
+    private val topic: QuizTopicId? = QuizTopicId("costae"),
 ) : DailyRepository {
 
     private var state: DailyQuiz =
@@ -42,7 +44,7 @@ class FakeDailyRepository(
         check(state is DailyQuiz.NotStarted) { "one attempt per day (§9.1)" }
 
         val session = quiz.startSession(
-            topic = QuizTopicId("costae"),
+            topic = topic ?: quiz.topics(locale).first().id,
             format = QuizFormat.NAME_THE_HIGHLIGHTED,
             questionCount = QUESTION_COUNT,
             // Seeded on the date: everyone gets the same set today (§9.1).
