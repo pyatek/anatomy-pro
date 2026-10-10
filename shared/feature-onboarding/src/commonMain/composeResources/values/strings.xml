@@ -1,0 +1,15 @@
+<resources>
+    <string name="onboarding_step">STEP %1$d OF %2$d</string>
+    <string name="onboarding_back">Back</string>
+    <string name="goals_title">What are you studying?</string>
+    <string name="goals_body">Choose the systems you are working on now. It can be changed later.</string>
+    <string name="goals_loading">Reading the atlas…</string>
+    <string name="goals_empty">The atlas has no systems to choose from yet.</string>
+    <string name="goals_chosen">CHOSEN</string>
+    <string name="goals_continue">Continue</string>
+    <string name="goals_skip">Skip for now</string>
+    <plurals name="goals_count">
+        <item quantity="one">%1$d system chosen</item>
+        <item quantity="other">%1$d systems chosen</item>
+    </plurals>
+</resources>

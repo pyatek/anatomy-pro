@@ -1,0 +1,17 @@
+<resources>
+    <string name="onboarding_step">KROK %1$d Z %2$d</string>
+    <string name="onboarding_back">Wstecz</string>
+    <string name="goals_title">Czego się uczysz?</string>
+    <string name="goals_body">Wybierz układy, nad którymi teraz pracujesz. Można to później zmienić.</string>
+    <string name="goals_loading">Wczytywanie atlasu…</string>
+    <string name="goals_empty">Atlas nie ma jeszcze układów do wyboru.</string>
+    <string name="goals_chosen">WYBRANE</string>
+    <string name="goals_continue">Dalej</string>
+    <string name="goals_skip">Pomiń na razie</string>
+    <plurals name="goals_count">
+        <item quantity="one">Wybrano %1$d układ</item>
+        <item quantity="few">Wybrano %1$d układy</item>
+        <item quantity="many">Wybrano %1$d układów</item>
+        <item quantity="other">Wybrano %1$d układu</item>
+    </plurals>
+</resources>
