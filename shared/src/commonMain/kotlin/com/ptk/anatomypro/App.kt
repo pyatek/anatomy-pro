@@ -53,8 +53,10 @@ import com.ptk.anatomypro.feature.settings.SettingsViewModel
 import com.ptk.anatomypro.navigation.AnatomyBottomBar
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
+import com.ptk.anatomypro.feature.commerce.commerceIsBuilt
 import com.ptk.anatomypro.feature.daily.DailyViewModel
 import com.ptk.anatomypro.feature.daily.dailyIsBuilt
+import com.ptk.anatomypro.feature.profile.profileIsBuilt
 import com.ptk.anatomypro.feature.quiz.QuizSessionViewModel
 import com.ptk.anatomypro.feature.quiz.quizIsBuilt
 import com.ptk.anatomypro.navigation.AtlasRoute
@@ -178,6 +180,19 @@ private fun MainScaffold(
     var barHeightPx by remember { mutableStateOf(0) }
     val barHeight = with(LocalDensity.current) { barHeightPx.toDp() }
 
+    val settingsScreen: @Composable () -> Unit = {
+        SettingsScreen(
+            state = state,
+            onInterfaceLocale = model::onInterfaceLocale,
+            onExaminationLocale = model::onExaminationLocale,
+            onNameDisplay = model::onNameDisplay,
+            onQuizTimer = model::onQuizTimer,
+            onStructureTreeMode = model::onStructureTreeMode,
+            onPatternsNotColour = model::onPatternsNotColour,
+        )
+    }
+    val profileBuilt = profileIsBuilt(dependencies.progress, dependencies.packs)
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier.weight(1f)
@@ -226,18 +241,19 @@ private fun MainScaffold(
                     )
                 }
 
-                // Profile is not built. Settings live behind it in the prototype, so the
-                // tab shows settings rather than a second placeholder.
+                // Settings live behind the profile, as in the prototype. Production has no
+                // profile to show — its repositories refuse — so there the tab opens settings.
                 composable<ProfileRoute.Profile> {
-                    SettingsScreen(
-                        state = state,
-                        onInterfaceLocale = model::onInterfaceLocale,
-                        onExaminationLocale = model::onExaminationLocale,
-                        onNameDisplay = model::onNameDisplay,
-                        onQuizTimer = model::onQuizTimer,
-                        onStructureTreeMode = model::onStructureTreeMode,
-                        onPatternsNotColour = model::onPatternsNotColour,
-                    )
+                    if (profileBuilt) ProfileHomeRoute(dependencies, locale, navController) else settingsScreen()
+                }
+                composable<ProfileRoute.Settings> { settingsScreen() }
+                composable<ProfileRoute.Packs> {
+                    if (profileBuilt) PacksRoute(dependencies, navController)
+                }
+                // A release build must never present a purchase that cannot happen.
+                composable<ProfileRoute.Paywall> {
+                    if (commerceIsBuilt(dependencies.entitlements)) PaywallRoute(dependencies, navController)
+                    else NotBuilt(Res.string.screen_paywall)
                 }
 
                 // Plans 2-6 add their composable<Route> entries here. Until then each unbuilt
@@ -287,7 +303,6 @@ private fun MainScaffold(
                     }
                 }
                 // Screen 18 is the commerce plan's. A locked topic has to lead somewhere now.
-                composable<ProfileRoute.Paywall> { NotBuilt(Res.string.screen_paywall) }
                 composable<DailyRoute.Leaderboard> {
                     if (daily == null) NotBuilt(Res.string.tab_ranking) else LeaderboardRoute(dependencies, navController)
                 }

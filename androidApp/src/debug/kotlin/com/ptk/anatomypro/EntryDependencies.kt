@@ -68,7 +68,9 @@ internal fun appDependencies(): AppDependencies {
     val subscribed = intent?.getBooleanExtra("subscribed", false) ?: false
     val dailyState = intent?.getStringExtra("daily")
     val unranked = intent?.getBooleanExtra("unranked", false) ?: false
-    return remember(atlas, fakes, subscribed, dailyState, unranked) {
+    //   purchaseFails: true makes every purchase on the paywall fail.
+    val purchaseFails = intent?.getBooleanExtra("purchaseFails", false) ?: false
+    return remember(atlas, fakes, subscribed, dailyState, unranked, purchaseFails) {
         val installed = atlas?.repository
             // Until the pack is installed there is no quiz, and the Test tab says so. A quiz
             // over the fixture here would be captured by the app-scoped session and kept:
@@ -94,6 +96,7 @@ internal fun appDependencies(): AppDependencies {
             leaderboard = FakeLeaderboardRepository(ranked = !unranked),
             entitlements = FakeEntitlementRepository(
                 initial = Entitlements(subscribed = subscribed, ownedSystems = emptySet()),
+                purchaseSucceeds = !purchaseFails,
             ),
         )
     }
