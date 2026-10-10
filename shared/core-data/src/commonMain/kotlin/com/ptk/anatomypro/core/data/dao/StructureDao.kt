@@ -13,6 +13,9 @@ import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
 import com.ptk.anatomypro.core.data.entity.StructureTextEntity
 import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
 
+/** Projection for [StructureDao.currentlyVerified]. */
+data class VerifiedRow(val structureId: String, val locale: String)
+
 /** Projection for [StructureDao.searchHits]. */
 data class SearchHitRow(val structureId: String, val locale: String)
 
@@ -129,6 +132,31 @@ interface StructureDao {
 
     @Query("SELECT * FROM structure_verification WHERE structureId = :id AND locale = :locale")
     suspend fun anyVerification(id: String, locale: String): StructureVerificationEntity?
+
+    // --- the quiz's view of the atlas ------------------------------------------------
+    // Read whole: a few thousand rows, three queries, instead of a query per structure.
+
+    @Query("SELECT * FROM structure")
+    suspend fun allStructures(): List<StructureEntity>
+
+    @Query("SELECT * FROM structure_text WHERE locale IN (:locales)")
+    suspend fun textsIn(locales: List<String>): List<StructureTextEntity>
+
+    /**
+     * Every name whose review is VERIFIED and still describes the current text.
+     *
+     * The same hash join as [currentVerification], for the same reason: a review of a name
+     * that has since changed must stop authorising a quiz answer (spec §7).
+     */
+    @Query(
+        """
+        SELECT v.structureId AS structureId, v.locale AS locale FROM structure_verification v
+        JOIN structure_text t
+          ON t.structureId = v.structureId AND t.locale = v.locale
+        WHERE v.state = 'VERIFIED' AND v.verifiedTextHash = t.contentHash
+        """
+    )
+    suspend fun currentlyVerified(): List<VerifiedRow>
 
     // --- search ----------------------------------------------------------------------
 

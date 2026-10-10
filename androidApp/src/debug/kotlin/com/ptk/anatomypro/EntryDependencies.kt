@@ -5,18 +5,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.NotBuiltQuizRepository
-import com.ptk.anatomypro.core.data.fake.AtlasQuizSource
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeDailyRepository
 import com.ptk.anatomypro.core.data.fake.FakeEntitlementRepository
 import com.ptk.anatomypro.core.data.fake.FakeLeaderboardRepository
 import com.ptk.anatomypro.core.data.fake.FakePackRepository
-import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
 import com.ptk.anatomypro.core.data.fake.FakeSettingsRepository
+import com.ptk.anatomypro.core.data.fake.UnreviewedAtlas
 import com.ptk.anatomypro.core.data.fake.fakeAppDependencies
 import com.ptk.anatomypro.core.data.model.AppSettings
 import com.ptk.anatomypro.core.data.model.Entitlements
 import com.ptk.anatomypro.core.data.model.PackFailure
+import com.ptk.anatomypro.core.data.quiz.GeneratedQuizRepository
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -77,11 +77,11 @@ internal fun appDependencies(): AppDependencies {
             // the topic grid would then list the atlas while the session asked the fixture.
             ?: return@remember fakes.copy(atlas = null, quiz = NotBuiltQuizRepository)
 
-        // The quiz asks about the atlas on screen, for the same reason the atlas itself is
-        // real here: fixture ids are not in the pack, so nothing the quiz highlighted could
-        // be seen and nothing tapped could be right. A harness — it skips §7's
-        // verified-only rule, which would leave an unreviewed atlas with nothing to ask.
-        val quiz = FakeQuizRepository(source = AtlasQuizSource(installed))
+        // The real generator (§8.1), asking about the atlas on screen: fixture ids are not
+        // in the pack, so nothing a fixture quiz highlighted could be seen and nothing
+        // tapped could be right. Over a harness — UnreviewedAtlas switches §7's
+        // verified-only rule off, which would leave an unreviewed atlas with nothing to ask.
+        val quiz = GeneratedQuizRepository(UnreviewedAtlas(atlas.quizGraph))
         fakes.copy(
             atlas = installed,
             quiz = quiz,

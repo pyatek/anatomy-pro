@@ -6,6 +6,7 @@ import com.ptk.anatomypro.core.data.model.QuizAnswer
 import com.ptk.anatomypro.core.data.model.QuizFormat
 import com.ptk.anatomypro.core.data.model.QuizQuestion
 import com.ptk.anatomypro.core.data.repository.DailyRepository
+import com.ptk.anatomypro.core.data.repository.QuizRepository
 import com.ptk.anatomypro.core.model.QuizTopicId
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -23,7 +24,7 @@ class FakeDailyRepository(
     private val available: Boolean = true,
     alreadyAttempted: Boolean = false,
     private val date: LocalDate = LocalDate(2026, 9, 24),
-    private val quiz: FakeQuizRepository = FakeQuizRepository(),
+    private val quiz: QuizRepository = FakeQuizRepository(),
     /** What the day's questions are about; null is the first topic [quiz] offers. */
     private val topic: QuizTopicId? = QuizTopicId("costae"),
 ) : DailyRepository {

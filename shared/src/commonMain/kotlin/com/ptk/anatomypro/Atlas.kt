@@ -10,6 +10,8 @@ import com.ptk.anatomypro.core.data.AnatomyDatabase
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.PackInstaller
 import com.ptk.anatomypro.core.data.notBuiltAppDependencies
+import com.ptk.anatomypro.core.data.quiz.QuizGraphSource
+import com.ptk.anatomypro.core.data.quiz.RoomQuizGraphSource
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomAtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomSettingsRepository
@@ -29,6 +31,8 @@ data class BundledPack(
 data class AtlasDependencies(
     val pack: BundledPack,
     val repository: AtlasRepository,
+    /** The same atlas as the quiz reads it: the graph, the names, and what has been reviewed. */
+    val quizGraph: QuizGraphSource,
 )
 
 @Composable
@@ -53,7 +57,7 @@ fun rememberAtlas(): AtlasDependencies? {
         pack.manifestJson?.let { manifest ->
             PackInstaller(database).install(manifest, version = 1, meshUri = pack.mesh.uri)
         }
-        dependencies = AtlasDependencies(pack, RoomAtlasRepository(database))
+        dependencies = AtlasDependencies(pack, RoomAtlasRepository(database), RoomQuizGraphSource(database))
     }
     return dependencies
 }

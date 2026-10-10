@@ -47,6 +47,27 @@ class DatabaseTest {
     }
 
     @Test
+    fun the_quiz_reads_the_atlas_with_only_current_verifications_counted() = runTest {
+        // §7 against real rows: a name reviewed and unchanged counts; a row of any other
+        // state, or one whose name has changed since, does not.
+        install()
+        val reviewed = assertNotNull(dao.text("1168-clavicula-left", "en"))
+        dao.upsertVerification(StructureVerificationEntity("1168-clavicula-left", "en", "VERIFIED", 1_000L, reviewed.contentHash))
+        val source = com.ptk.anatomypro.core.data.quiz.RoomQuizGraphSource(database)
+
+        val nodes = source.nodes("en").associateBy { it.id.value }
+        assertTrue(nodes.getValue("1168-clavicula-left").verified)
+        assertEquals(1, nodes.values.count { it.verified })
+        assertTrue(nodes.size > 1, "every named structure is in the graph, verified or not")
+
+        dao.upsertVerification(StructureVerificationEntity("1168-clavicula-left", "en", "DISPUTED", 2_000L, reviewed.contentHash))
+        assertEquals(0, source.nodes("en").count { it.verified })
+
+        dao.upsertVerification(StructureVerificationEntity("1168-clavicula-left", "en", "VERIFIED", 3_000L, "the-hash-of-an-older-name"))
+        assertEquals(0, source.nodes("en").count { it.verified })
+    }
+
+    @Test
     fun installs_a_pack_and_reads_a_structure_back() = runTest {
         install()
 
