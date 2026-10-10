@@ -34,7 +34,7 @@ const val QUESTION_MILLIS = 30_000L
 const val TICK_MILLIS = 100L
 
 /** A clock that only goes forwards, in milliseconds from when it was made. */
-internal fun monotonicMillis(): () -> Long {
+fun monotonicMillis(): () -> Long {
     val origin = TimeSource.Monotonic.markNow()
     return { origin.elapsedNow().inWholeMilliseconds }
 }
