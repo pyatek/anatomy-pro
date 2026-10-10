@@ -8,11 +8,14 @@ import com.ptk.anatomypro.core.data.NotBuiltQuizRepository
 import com.ptk.anatomypro.core.data.fake.AtlasQuizSource
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeDailyRepository
+import com.ptk.anatomypro.core.data.fake.FakeEntitlementRepository
+import com.ptk.anatomypro.core.data.fake.FakeLeaderboardRepository
 import com.ptk.anatomypro.core.data.fake.FakePackRepository
 import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
 import com.ptk.anatomypro.core.data.fake.FakeSettingsRepository
 import com.ptk.anatomypro.core.data.fake.fakeAppDependencies
 import com.ptk.anatomypro.core.data.model.AppSettings
+import com.ptk.anatomypro.core.data.model.Entitlements
 import com.ptk.anatomypro.core.data.model.PackFailure
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -58,7 +61,14 @@ internal fun appDependencies(): AppDependencies {
             )
         }
     }
-    return remember(atlas, fakes) {
+    // adb shell am start -n com.ptk.anatomypro/.MainActivity --ez subscribed true --es daily offline
+    //   subscribed: true shows the daily and the boards; without it, "not subscribed".
+    //   daily: "offline" or "attempted"; anything else is a day not yet played.
+    //   unranked: true leaves the user off the boards.
+    val subscribed = intent?.getBooleanExtra("subscribed", false) ?: false
+    val dailyState = intent?.getStringExtra("daily")
+    val unranked = intent?.getBooleanExtra("unranked", false) ?: false
+    return remember(atlas, fakes, subscribed, dailyState, unranked) {
         val installed = atlas?.repository
             // Until the pack is installed there is no quiz, and the Test tab says so. A quiz
             // over the fixture here would be captured by the app-scoped session and kept:
@@ -70,7 +80,21 @@ internal fun appDependencies(): AppDependencies {
         // be seen and nothing tapped could be right. A harness — it skips §7's
         // verified-only rule, which would leave an unreviewed atlas with nothing to ask.
         val quiz = FakeQuizRepository(source = AtlasQuizSource(installed))
-        // The daily quiz practises on the same questions, so it shares the repository.
-        fakes.copy(atlas = installed, quiz = quiz, daily = FakeDailyRepository(quiz = quiz))
+        fakes.copy(
+            atlas = installed,
+            quiz = quiz,
+            // The daily quiz practises on the same questions, so it shares the repository,
+            // and asks about its first topic: the atlas may have no "costae".
+            daily = FakeDailyRepository(
+                available = dailyState != "offline",
+                alreadyAttempted = dailyState == "attempted",
+                quiz = quiz,
+                topic = null,
+            ),
+            leaderboard = FakeLeaderboardRepository(ranked = !unranked),
+            entitlements = FakeEntitlementRepository(
+                initial = Entitlements(subscribed = subscribed, ownedSystems = emptySet()),
+            ),
+        )
     }
 }

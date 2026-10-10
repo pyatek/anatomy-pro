@@ -44,6 +44,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.NameDisplay
+import com.ptk.anatomypro.core.data.model.QuizFormat
 import com.ptk.anatomypro.core.designsystem.AnatomyTheme
 import com.ptk.anatomypro.core.designsystem.ProvideAppLocale
 import com.ptk.anatomypro.feature.settings.SettingsScreen
@@ -52,6 +53,8 @@ import com.ptk.anatomypro.feature.settings.SettingsViewModel
 import com.ptk.anatomypro.navigation.AnatomyBottomBar
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
+import com.ptk.anatomypro.feature.daily.DailyViewModel
+import com.ptk.anatomypro.feature.daily.dailyIsBuilt
 import com.ptk.anatomypro.feature.quiz.QuizSessionViewModel
 import com.ptk.anatomypro.feature.quiz.quizIsBuilt
 import com.ptk.anatomypro.navigation.AtlasRoute
@@ -161,6 +164,14 @@ private fun MainScaffold(
     } else {
         null
     }
+    // App-scoped: the home screen and the lobby show the same day.
+    val daily: DailyViewModel? = if (dailyIsBuilt(dependencies.daily, dependencies.leaderboard)) {
+        viewModel(key = "daily") {
+            DailyViewModel(dependencies.daily, dependencies.entitlements, dependencies.quiz, dependencies.settings)
+        }
+    } else {
+        null
+    }
 
     // The bar stays where it is and the keyboard covers it. The content gives up only what
     // the keyboard takes above the bar, so nothing it shows is hidden and no gap is left.
@@ -231,7 +242,30 @@ private fun MainScaffold(
 
                 // Plans 2-6 add their composable<Route> entries here. Until then each unbuilt
                 // tab's start route needs a screen, or selecting the tab crashes the NavHost.
-                composable<DailyRoute.Home> { NotBuilt(Res.string.tab_today) }
+                // Production has no daily quiz or leaderboard yet: their repositories refuse.
+                composable<DailyRoute.Home> {
+                    if (daily == null) NotBuilt(Res.string.tab_today) else HomeRoute(dependencies, daily, navController)
+                }
+                composable<DailyRoute.Lobby> {
+                    if (daily != null) {
+                        LobbyRoute(
+                            daily = daily,
+                            settings = state.settings,
+                            navController = navController,
+                            // Practice is an ordinary topic session (all-screens spec §15.4):
+                            // start one, and go where sessions are played.
+                            onPractice = { topic ->
+                                quizSession?.start(
+                                    topic.id,
+                                    QuizFormat.NAME_THE_HIGHLIGHTED,
+                                    state.settings.examinationLocale,
+                                    state.settings.quizTimerEnabled,
+                                )
+                                navController.selectTab(TopLevel.Test, current = tab)
+                            },
+                        )
+                    }
+                }
                 // Production has no quiz yet: its repository refuses (all-screens spec §6).
                 composable<QuizRoute.Topics> {
                     if (quizSession == null) NotBuilt(Res.string.tab_test)
@@ -254,7 +288,9 @@ private fun MainScaffold(
                 }
                 // Screen 18 is the commerce plan's. A locked topic has to lead somewhere now.
                 composable<ProfileRoute.Paywall> { NotBuilt(Res.string.screen_paywall) }
-                composable<DailyRoute.Leaderboard> { NotBuilt(Res.string.tab_ranking) }
+                composable<DailyRoute.Leaderboard> {
+                    if (daily == null) NotBuilt(Res.string.tab_ranking) else LeaderboardRoute(dependencies, navController)
+                }
             }
         }
         AnatomyBottomBar(
