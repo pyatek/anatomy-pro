@@ -6,6 +6,7 @@
     <string name="goals_loading">Reading the atlas…</string>
     <string name="goals_empty">The atlas has no systems to choose from yet.</string>
     <string name="goals_chosen">CHOSEN</string>
+    <string name="goals_free">FREE</string>
     <string name="goals_continue">Continue</string>
     <string name="goals_skip">Skip for now</string>
     <plurals name="goals_count">
@@ -16,6 +17,10 @@
     <string name="download_title">Your first pack</string>
     <string name="download_body">The model is downloaded once and then works offline.</string>
     <string name="download_size">%1$s MB</string>
+    <string name="download_of">%1$s / %2$s MB</string>
+    <string name="download_fact_size">Size</string>
+    <string name="download_fact_stored">Stored</string>
+    <string name="download_fact_stored_value">on this device</string>
     <string name="download_queued">Waiting to start…</string>
     <string name="download_progress">%1$s of %2$s MB · %3$d %</string>
     <string name="download_done">Downloaded. Ready to use offline.</string>

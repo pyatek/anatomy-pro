@@ -53,6 +53,22 @@ val HighlightOutline = Color(0xFFFFD3CB)
 val CorrectGreen = Color(0xFF57B37C)
 val IncorrectAmber = Color(0xFFD89B3C)
 
+// ── Controls and cards, read off the prototype screens (spec §19) ──
+/** Ink on an [Accent] fill: the primary button's label, a ticked checkbox's tick. */
+val OnAccent = Color(0xFF150C0A)
+/** A chosen card's fill, one step up from [Surface]. */
+val SurfaceRaised = Color(0xFF1C2126)
+/** An unticked checkbox, an idle control's outline. */
+val ControlOutline = Color(0xFF4B545B)
+/** The rule above a screen's footer. */
+val FooterHairline = Color(0xFF1A1F23)
+/** The outline of a "free" badge; its text is [CorrectGreen]. */
+val FreeOutline = Color(0xFF2E5541)
+/** A quieter accent outline, for a chosen plan or a marked row. */
+val AccentMuted = Color(0xFF7A2E25)
+/** Text that leads without being a heading: values, the user's own row. */
+val TextStrong = Color(0xFFC9D0D6)
+
 // ── Light palette: the two reading-heavy screens ──
 val LightGround = Color(0xFFF3F4F5)
 val LightTextPrimary = Color(0xFF14181B)
