@@ -1,6 +1,9 @@
 <resources>
     <string name="paywall_back">Wstecz</string>
     <string name="paywall_title">Subskrypcja</string>
+    <string name="paywall_headline">Atlas i układ kostny zostają darmowe</string>
+    <string name="paywall_added">CO DAJE SUBSKRYPCJA</string>
+    <string name="paywall_plans">PLANY</string>
     <string name="paywall_body">Cały atlas jest darmowy, podobnie jak quizy z układu kostnego. Subskrypcja dodaje resztę nauki:</string>
     <string name="paywall_benefit_topics">Quizy ze wszystkich pozostałych układów</string>
     <string name="paywall_benefit_daily">Quiz dnia, taki sam dla wszystkich</string>

@@ -1,6 +1,9 @@
 <resources>
     <string name="paywall_back">Back</string>
     <string name="paywall_title">Subscription</string>
+    <string name="paywall_headline">The atlas and the skeleton stay free</string>
+    <string name="paywall_added">WHAT A SUBSCRIPTION ADDS</string>
+    <string name="paywall_plans">PLANS</string>
     <string name="paywall_body">The whole atlas is free, and so are quizzes on the skeleton. A subscription adds the rest of the learning:</string>
     <string name="paywall_benefit_topics">Quizzes on every other system</string>
     <string name="paywall_benefit_daily">The daily quiz, the same for everyone</string>

@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -266,6 +267,23 @@ fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         contentAlignment = Alignment.Center,
     ) {
         Text(text, style = LocalAnatomyType.current.button, color = if (enabled) TextPrimary else TextTertiary, textAlign = TextAlign.Center)
+    }
+}
+
+/** A button that belongs to one row: "Download", "Delete", "Stop". Still 44 dp tall (§12). */
+@Composable
+fun RowAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = TextPrimary) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clip(shape)
+            .border(BorderStroke(1.dp, ControlOutline), shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = LocalAnatomyType.current.caption.copy(fontWeight = FontWeight.SemiBold), color = color)
     }
 }
 

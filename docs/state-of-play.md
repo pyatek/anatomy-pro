@@ -60,6 +60,31 @@ anything on iOS or on a device.
 - **The ranking opened from the lobby stays on top of Today's stack**, so DZIŚ returns to it.
 - The design-spec addenda the three screen plans ask for are not written.
 
+## 2026-10-11: the prototype's design (branch `feature/prototype-design`, on top of the P1 batch)
+
+Until now every screen carried the prototype's colours and states and none of its look: no
+fonts were bundled, and screens were plain text rows. The design system now has the
+prototype's three typefaces (Source Serif 4 for Latin and headings, Montserrat for the
+interface, IBM Plex Mono for labels and figures; OFL, licences in
+`shared/core-designsystem/licences`), its type scale (`LocalAnatomyType`), the control
+colours read off it, and its recurring pieces (`Components.kt`: step header, choice card,
+buttons, panels, top bar, segmented tabs, progress ring).
+
+**Drawn as the prototype draws them, and seen on the Android emulator:** 02, 03, 14, 15, 16,
+17, 18, 19. **Not yet restyled:** 01, 04 to 13, 20, 21 — they pick up Montserrat from the
+theme and nothing else.
+
+Where the prototype shows something the app has no data for, it is left out rather than
+invented, and each screen's comment says what: structure counts per system (02), network,
+time remaining and pause (03), the greeting, mastery tile and "continue" rows (14), the
+day's topic and time limit (15), schools and the university board (16), name and school
+(17), device storage and the Wi-Fi switch (19). The paywall (18) keeps the prototype's shape
+but not its words: it was drawn when packs were to be sold, before design §29.
+
+The prototype is read with `DesignSync get_file` on project
+`c29fe5bc-0471-48c8-ab45-33e7849b4ab7`, file `Anatomy Pro Screens.dc.html`, after
+`/design-login`.
+
 ## What exists
 
 Twelve modules. `core-model`, `core-data` (Room), `core-designsystem`, `renderer-api`,
