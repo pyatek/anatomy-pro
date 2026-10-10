@@ -46,7 +46,6 @@ import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.NameDisplay
 import com.ptk.anatomypro.core.designsystem.AnatomyTheme
 import com.ptk.anatomypro.core.designsystem.ProvideAppLocale
-import com.ptk.anatomypro.feature.settings.LanguageSelectionScreen
 import com.ptk.anatomypro.feature.settings.SettingsScreen
 import com.ptk.anatomypro.feature.settings.SettingsUiState
 import com.ptk.anatomypro.feature.settings.SettingsViewModel
@@ -83,6 +82,9 @@ fun App(dependencies: AppDependencies) {
         // remembered down there would be thrown away with it: switching language on the
         // settings tab used to land the user back on the atlas.
         val navController = rememberNavController()
+        // Its own controller, and up here for the same reason as the one above: choosing a
+        // language on screen 01 rebuilds everything beneath ProvideAppLocale.
+        val onboardingNavController = rememberNavController()
         // The tree's level, saved so a recreated process reopens where it was. The tree's
         // model keeps the level across a language change by itself; this is held up here
         // because anything saveable beneath ProvideAppLocale is rebuilt, and reset, with it.
@@ -100,14 +102,14 @@ fun App(dependencies: AppDependencies) {
                     when {
                         settingsState.isLoading -> Centered("…")
 
-                        // Prototype screen 01. Shown until the choice is made, not until a
-                        // language differs from the default: accepting the defaults is a
-                        // decision too, and it has to be recorded as one.
-                        !settingsState.settings.onboarded -> LanguageSelectionScreen(
+                        // Prototype screens 01 to 03. Shown until the last step is passed,
+                        // not until a setting differs from its default: accepting the
+                        // defaults is a decision too, and it has to be recorded as one.
+                        !settingsState.settings.onboarded -> OnboardingFlow(
+                            dependencies = dependencies,
                             state = settingsState,
-                            onInterfaceLocale = settingsModel::onInterfaceLocale,
-                            onExaminationLocale = settingsModel::onExaminationLocale,
-                            onContinue = settingsModel::onOnboardingComplete,
+                            model = settingsModel,
+                            navController = onboardingNavController,
                         )
 
                         else -> MainScaffold(

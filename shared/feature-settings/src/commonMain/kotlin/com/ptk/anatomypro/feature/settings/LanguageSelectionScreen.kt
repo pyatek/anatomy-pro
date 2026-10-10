@@ -44,6 +44,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun LanguageSelectionScreen(
     state: SettingsUiState,
+    stepCount: Int,
     onInterfaceLocale: (String) -> Unit,
     onExaminationLocale: (String) -> Unit,
     onContinue: () -> Unit,
@@ -55,7 +56,7 @@ fun LanguageSelectionScreen(
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Text(stringResource(Res.string.language_step), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+        Text(stringResource(Res.string.language_step, stepCount), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
         Text(
             stringResource(Res.string.language_title),
             style = MaterialTheme.typography.headlineSmall,

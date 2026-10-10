@@ -18,7 +18,7 @@
     <string name="settings_tree_subtitle">A list instead of the 3D model</string>
     <string name="settings_patterns_title">Patterns instead of colours</string>
     <string name="settings_patterns_subtitle">Hatching and labels on the model</string>
-    <string name="language_step">STEP 1 OF 3</string>
+    <string name="language_step">STEP 1 OF %1$d</string>
     <string name="language_title">Two languages, set separately</string>
     <string name="language_body">Read the interface in one language and be examined in another. Both can be changed in Settings.</string>
     <string name="language_interface_label">INTERFACE LANGUAGE</string>

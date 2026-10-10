@@ -18,7 +18,7 @@
     <string name="settings_tree_subtitle">Lista zamiast modelu 3D</string>
     <string name="settings_patterns_title">Wzory zamiast kolorów</string>
     <string name="settings_patterns_subtitle">Kreskowanie i etykiety na modelu</string>
-    <string name="language_step">KROK 1 Z 3</string>
+    <string name="language_step">KROK 1 Z %1$d</string>
     <string name="language_title">Dwa języki, ustawiane osobno</string>
     <string name="language_body">Czytaj interfejs w jednym języku, a egzaminuj się w innym. Oba można zmienić w Ustawieniach.</string>
     <string name="language_interface_label">JĘZYK INTERFEJSU</string>
