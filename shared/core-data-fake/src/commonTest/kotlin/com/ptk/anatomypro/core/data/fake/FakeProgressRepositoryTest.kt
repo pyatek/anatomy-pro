@@ -65,4 +65,11 @@ class FakeProgressRepositoryTest {
         assertEquals(before, repository.streak.first().currentDays)
         assertEquals(1, repository.recorded.size)
     }
+
+    @Test
+    fun mastery_is_reported_under_the_ids_the_atlas_uses() = runTest {
+        val systems = FakeProgressRepository().masteryBySystem("pl").map { it.system.value }
+
+        assertEquals(listOf("skeletal-system", "muscular-system"), systems)
+    }
 }

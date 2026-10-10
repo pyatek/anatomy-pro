@@ -5,7 +5,6 @@ import com.ptk.anatomypro.core.data.model.PackState
 import com.ptk.anatomypro.core.data.model.PackStatus
 import com.ptk.anatomypro.core.data.repository.PackRepository
 import com.ptk.anatomypro.core.model.PackId
-import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,7 +55,7 @@ class FakePackRepository(
                 label = "Układ mięśniowy",
                 byteSize = 112_700_000,
                 checksum = "sha256:9b4e17",
-                entitlement = SystemId("muscular-system"),
+                entitlement = null,
                 status = initialStatus(PackId("muscular-body")),
             ),
             PackState(
@@ -65,7 +64,7 @@ class FakePackRepository(
                 label = "Układ nerwowy",
                 byteSize = 67_400_000,
                 checksum = "sha256:c30d82",
-                entitlement = SystemId("nervous-system-sense-organs"),
+                entitlement = null,
                 status = initialStatus(PackId("nervous-body")),
             ),
         ),
