@@ -1,4 +1,4 @@
-# State of play — 2026-10-07
+# State of play — 2026-10-10
 
 Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-pro-design.md`;
 sections 20–40 there are the running record of what was actually built and why. This file is
@@ -8,6 +8,57 @@ the shorter question: where things stand and what to do next.
 
 Nothing, for now. The merge this section used to demand is done: `main` carries all 26
 commits, `phase0/ios-filament-host` holds nothing `main` lacks, and `origin/main` agrees.
+
+## 2026-10-10: the P1 batch (branch `feature/p1-batch`, not merged)
+
+Everything below is on the branch, 24 commits ahead of `main`. The sections after this one
+were written before it and are not yet reconciled with it; where they disagree, this is newer.
+
+**All 21 prototype screens now exist.** Added: 02 goals and 03 first download
+(`feature-onboarding`); 14 home, 15 daily lobby, 16 leaderboard (`feature-daily`); 17 profile
+and 19 pack manager (`feature-profile`); 18 paywall (`feature-commerce`). All on fakes, in the
+Android debug build. Production and iOS keep the placeholders, onboarding there is two steps,
+and PROFIL still opens settings: the repositories behind the new screens refuse.
+
+**The quiz has its real generator** (`core-data/quiz`): topics and questions from the structure
+graph, distractors by distance (easy: another system; medium: same system and region, another
+parent; hard: siblings), one answer per name whichever side is drawn, seeded and pinned by a
+golden test, and gated on verification — an unverified name is never an answer and never an
+option. Debug builds run it over `UnreviewedAtlas`, a harness that switches the gate off.
+Production keeps `NotBuiltQuizRepository`: nothing is verified yet, and there is no progress
+store. Topic mastery is always 0.
+
+**Screen 12 frames both answers**, through `AnatomyRenderer.focusCamera(Set)`. Its colours
+are still unjudged. **A tap question frames the session's targets** instead of the whole
+model. **Back** is swallowed on a question and leaves the summary. **The paywall stays under
+the tab that opened it.**
+
+Debug extras: `--ez onboarding true`, `--es packFailure NETWORK|CHECKSUM`, `--ez subscribed
+true`, `--es daily offline|attempted`, `--ez unranked true`, `--ez purchaseFails true`.
+
+Tests: 506 on the iOS simulator and 466 on the JVM host, none failing (`./gradlew allTests`).
+
+**Seen by hand on the Android emulator, in Polish:** onboarding with both failures and in
+English; the daily from lobby to result; both boards; attempted, offline with practice,
+unranked; profile, settings behind it, packs with a confirmed delete; the paywall's restore,
+purchase and failed purchase; the generator's topic grid on the real atlas; the paywall under
+TEST; back on feedback.
+
+**Not seen:** the tap question's framing on a drawn model; back on the summary; the daily's
+three failures; a download in progress on screen 19; screens 14 to 19 in English; TalkBack;
+anything on iOS or on a device.
+
+**Found by that run, open:**
+
+- **The app hangs for good when a 3D screen is left while its pack is still loading.** The
+  main thread sits in `Engine.flushAndWait` under `releaseSwapChain` ← `surfaceDestroyed`.
+  Emulator only so far.
+- **On `trunk-all-systems` the body surface covers what a question asks about**; only the
+  outline shows through. The quiz needs to hide what is in front.
+- **The question timer runs while the canvas is still black** (about 20 s on the emulator),
+  so a session's first question usually times out there.
+- **The ranking opened from the lobby stays on top of Today's stack**, so DZIŚ returns to it.
+- The design-spec addenda the three screen plans ask for are not written.
 
 ## What exists
 
