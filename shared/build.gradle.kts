@@ -58,6 +58,8 @@ kotlin {
             api(project(":shared:feature-settings"))
             api(project(":shared:feature-onboarding"))
             api(project(":shared:feature-daily"))
+            api(project(":shared:feature-profile"))
+            api(project(":shared:feature-commerce"))
             api(project(":shared:feature-quiz"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
