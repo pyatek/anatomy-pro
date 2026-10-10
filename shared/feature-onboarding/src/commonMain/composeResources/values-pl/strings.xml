@@ -14,4 +14,22 @@
         <item quantity="many">Wybrano %1$d układów</item>
         <item quantity="other">Wybrano %1$d układu</item>
     </plurals>
+    <string name="decimal_separator">,</string>
+    <string name="download_title">Twój pierwszy pakiet</string>
+    <string name="download_body">Model pobiera się raz, a potem działa bez internetu.</string>
+    <string name="download_size">%1$s MB</string>
+    <string name="download_queued">Oczekiwanie na rozpoczęcie…</string>
+    <string name="download_progress">%1$s z %2$s MB · %3$d %</string>
+    <string name="download_done">Pobrano. Gotowe do pracy bez internetu.</string>
+    <string name="download_unavailable">W tej wersji nie ma nic do pobrania.</string>
+    <string name="download_failed_network">Połączenie zostało przerwane.</string>
+    <string name="download_failed_checksum">Plik dotarł uszkodzony.</string>
+    <string name="download_failed_space">Na urządzeniu brakuje wolnego miejsca.</string>
+    <string name="download_failed_entitlement">Ten pakiet nie jest dostępny dla tego konta.</string>
+    <string name="download_failed_kept">Pobrana część została zachowana.</string>
+    <string name="download_resume">Wznów pobieranie</string>
+    <string name="download_restart">Zacznij od nowa</string>
+    <string name="download_skip">Kontynuuj bez pakietu</string>
+    <string name="download_finish">Otwórz atlas</string>
+    <string name="download_progress_description">Postęp pobierania, %1$d procent</string>
 </resources>

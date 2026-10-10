@@ -12,4 +12,22 @@
         <item quantity="one">%1$d system chosen</item>
         <item quantity="other">%1$d systems chosen</item>
     </plurals>
+    <string name="decimal_separator">.</string>
+    <string name="download_title">Your first pack</string>
+    <string name="download_body">The model is downloaded once and then works offline.</string>
+    <string name="download_size">%1$s MB</string>
+    <string name="download_queued">Waiting to start…</string>
+    <string name="download_progress">%1$s of %2$s MB · %3$d %</string>
+    <string name="download_done">Downloaded. Ready to use offline.</string>
+    <string name="download_unavailable">There is nothing to download in this build.</string>
+    <string name="download_failed_network">The connection dropped.</string>
+    <string name="download_failed_checksum">The file arrived damaged.</string>
+    <string name="download_failed_space">There is not enough free space on this device.</string>
+    <string name="download_failed_entitlement">This pack is not available to this account.</string>
+    <string name="download_failed_kept">What was downloaded is kept.</string>
+    <string name="download_resume">Resume download</string>
+    <string name="download_restart">Start again</string>
+    <string name="download_skip">Continue without it</string>
+    <string name="download_finish">Open the atlas</string>
+    <string name="download_progress_description">Download progress, %1$d percent</string>
 </resources>
