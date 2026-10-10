@@ -46,6 +46,7 @@ import anatomypro.shared.feature_onboarding.generated.resources.onboarding_back
 import anatomypro.shared.feature_onboarding.generated.resources.onboarding_step
 import com.ptk.anatomypro.core.data.model.PackFailure
 import com.ptk.anatomypro.core.designsystem.Accent
+import com.ptk.anatomypro.core.designsystem.megabytes
 import com.ptk.anatomypro.core.designsystem.Hairline
 import com.ptk.anatomypro.core.designsystem.IncorrectAmber
 import com.ptk.anatomypro.core.designsystem.TextTertiary

@@ -1,4 +1,4 @@
-package com.ptk.anatomypro.feature.onboarding
+package com.ptk.anatomypro.core.designsystem
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

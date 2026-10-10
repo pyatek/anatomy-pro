@@ -1,4 +1,4 @@
-package com.ptk.anatomypro.feature.onboarding
+package com.ptk.anatomypro.core.designsystem
 
 /**
  * A byte count in megabytes to one decimal place, truncated.
