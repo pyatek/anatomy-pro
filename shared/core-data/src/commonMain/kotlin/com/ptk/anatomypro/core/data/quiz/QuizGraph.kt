@@ -58,8 +58,14 @@ class QuizGraph(nodes: List<QuizNode>) {
     private val childrenOf = sorted.filter { it.parentId != null }.groupBy { it.parentId!! }
     private val askable = sorted.filter { !it.isGroup && it.verified }
 
-    /** Every group with enough verified answers under it to fill a question. */
-    fun topics(): List<QuizTopic> = sorted.filter { it.isGroup }.mapNotNull { group ->
+    /**
+     * Every group with enough verified answers under it to fill a question.
+     *
+     * [mastered] is what the student has answered rightly before. A topic's mastery is the
+     * share of its names among them; a name is one answer whichever side was drawn, so
+     * either side having been answered counts for it.
+     */
+    fun topics(mastered: Set<StructureId> = emptySet()): List<QuizTopic> = sorted.filter { it.isGroup }.mapNotNull { group ->
         val answers = answersIn(group.id)
         val names = answers.distinctBy { it.name }.size
         if (names < QUIZ_OPTION_COUNT) return@mapNotNull null
@@ -67,8 +73,8 @@ class QuizGraph(nodes: List<QuizNode>) {
         val system = answers.firstNotNullOfOrNull { it.systemId } ?: return@mapNotNull null
         // A structure id is not always a slug, and a topic id must be one.
         val id = runCatching { QuizTopicId(group.id.value) }.getOrNull() ?: return@mapNotNull null
-        // Mastery is the progress store's to report; until one exists a topic is untouched.
-        QuizTopic(id, group.name, SystemId(system), structureCount = names, mastery = 0f)
+        val known = answers.filter { it.id in mastered }.distinctBy { it.name }.size
+        QuizTopic(id, group.name, SystemId(system), structureCount = names, mastery = known.toFloat() / names)
     }
 
     private fun answersIn(group: StructureId): List<QuizNode> =

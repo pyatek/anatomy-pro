@@ -217,6 +217,26 @@ class QuizGraphTest {
         assertNull(graph.sharedAncestor(StructureId("costa-1-left"), StructureId("musculus-1")))
     }
 
+    // --- mastery -----------------------------------------------------------------------
+
+    @Test
+    fun a_topic_s_mastery_is_the_share_of_its_names_answered_rightly_on_either_side() {
+        val mastered = setOf(StructureId("costa-2-left"), StructureId("costa-3-right"), StructureId("costa-3-left"))
+
+        val ribs = graph.topics(mastered).first { it.id.value == "costae" }
+
+        // Two of five names: both sides of rib 3 are one name, mastered once.
+        assertEquals(0.4f, ribs.mastery)
+    }
+
+    @Test
+    fun what_was_mastered_elsewhere_or_is_no_longer_askable_does_not_count() {
+        val mastered = setOf(StructureId("musculus-1"), StructureId("costa-6-left"), StructureId("gone-from-the-atlas"))
+
+        assertEquals(0f, graph.topics(mastered).first { it.id.value == "costae" }.mastery)
+        assertEquals(0f, graph.topics().first { it.id.value == "costae" }.mastery)
+    }
+
     private companion object {
         val GOLDEN_TARGETS = listOf("costa-4-left", "costa-1-right", "costa-2-right")
         val GOLDEN_OPTIONS = listOf(

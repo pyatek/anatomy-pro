@@ -91,6 +91,9 @@ data class AnswerResult(
     val elapsedMillis: Long,
 )
 
+/** One question of a finished session: what it asked about, and how it went. */
+data class AnsweredStructure(val structure: StructureId, val correct: Boolean)
+
 data class QuizSummary(
     val session: QuizSessionId,
     val correct: Int,
@@ -98,6 +101,11 @@ data class QuizSummary(
     val elapsedMillis: Long,
     /** Screen 13's review list, worst first. */
     val needsReview: List<StructureSummary>,
+    /**
+     * Each question's structure and whether it was answered rightly, in the order asked.
+     * What progress is kept from: [correct] alone does not say which structures are known.
+     */
+    val answered: List<AnsweredStructure> = emptyList(),
 ) {
     /** 0f for an empty session rather than a division by zero on a screen. */
     val fraction: Float get() = if (total == 0) 0f else correct.toFloat() / total

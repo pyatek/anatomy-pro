@@ -1,5 +1,7 @@
 package com.ptk.anatomypro.core.data.quiz
 
+import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.data.model.AnsweredStructure
 import com.ptk.anatomypro.core.data.model.AnswerResult
 import com.ptk.anatomypro.core.data.model.QuizAnswer
 import com.ptk.anatomypro.core.data.model.QuizFormat
@@ -26,17 +28,24 @@ fun interface QuizGraphSource {
  * Sessions are held in memory. One that is lost with the process is started again, as the
  * session's ViewModel already assumes.
  */
-class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizRepository {
+class GeneratedQuizRepository(
+    private val source: QuizGraphSource,
+    /** What the student has answered rightly before; a topic's mastery is counted from it. */
+    private val mastered: suspend () -> Set<StructureId> = { emptySet() },
+) : QuizRepository {
 
     private class Running(val session: QuizSession, val graph: QuizGraph) {
         val results = mutableListOf<AnswerResult>()
+
+        /** What each question asked about: the result names what was tapped, which may be its mirror. */
+        val answered = mutableListOf<AnsweredStructure>()
     }
 
     /** In the order they were started: the eldest is the first to go. */
     private val running = LinkedHashMap<QuizSessionId, Running>()
     private var nextSession = 0
 
-    override suspend fun topics(locale: String): List<QuizTopic> = QuizGraph(source.nodes(locale)).topics()
+    override suspend fun topics(locale: String): List<QuizTopic> = QuizGraph(source.nodes(locale)).topics(mastered())
 
     override suspend fun startSession(
         topic: QuizTopicId,
@@ -86,11 +95,13 @@ class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizReposit
             elapsedMillis = answer.elapsedMillis,
         )
         held.results += result
+        held.answered += AnsweredStructure(expected, correct)
         return result
     }
 
     override suspend fun finish(session: QuizSessionId): QuizSummary {
-        val results = requireNotNull(running.remove(session)) { "unknown session ${session.value}" }.results
+        val held = requireNotNull(running.remove(session)) { "unknown session ${session.value}" }
+        val results = held.results
         return QuizSummary(
             session = session,
             correct = results.count { it.correct },
@@ -100,6 +111,7 @@ class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizReposit
             needsReview = results.filterNot { it.correct }
                 .sortedByDescending { it.elapsedMillis }
                 .map { it.expected },
+            answered = held.answered.toList(),
         )
     }
 

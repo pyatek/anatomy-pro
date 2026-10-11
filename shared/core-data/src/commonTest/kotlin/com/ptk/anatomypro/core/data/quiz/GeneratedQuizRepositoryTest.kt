@@ -19,10 +19,12 @@ import kotlin.test.assertTrue
 class GeneratedQuizRepositoryTest {
 
     private val asked = mutableListOf<String>()
-    private val repository = GeneratedQuizRepository { locale ->
-        asked += locale
-        SAMPLE_QUIZ_NODES
-    }
+    private val repository = GeneratedQuizRepository(
+        source = { locale ->
+            asked += locale
+            SAMPLE_QUIZ_NODES
+        },
+    )
     private val ribs = QuizTopicId("costae")
 
     private suspend fun session(format: QuizFormat = QuizFormat.TAP_THE_STRUCTURE, seed: Long = 11): QuizSession =
@@ -142,5 +144,31 @@ class GeneratedQuizRepositoryTest {
         }
         val newest = later.last()
         assertTrue(repository.submit(newest.id, QuizAnswer(newest.questions[0].id, newest.target(0), 1)).correct)
+    }
+
+    @Test
+    fun the_summary_says_which_structure_each_question_was_about_and_whether_it_was_answered_rightly() = runTest {
+        // What a progress store needs: a count of right answers says nothing about which.
+        val session = session()
+        repository.submit(session.id, QuizAnswer(session.questions[0].id, session.target(0), 1_000))
+        repository.submit(session.id, QuizAnswer(session.questions[1].id, mirrorOf(session.target(1)), 1_000))
+        repository.submit(session.id, QuizAnswer(session.questions[2].id, chosen = null, elapsedMillis = 30_000))
+
+        val answered = repository.finish(session.id).answered
+
+        // The structure the question asked about, also where its mirror was the one tapped.
+        assertEquals(listOf(session.target(0), session.target(1), session.target(2)), answered.map { it.structure })
+        assertEquals(listOf(true, true, false), answered.map { it.correct })
+    }
+
+    @Test
+    fun topics_carry_the_mastery_the_progress_store_reports() = runTest {
+        val withProgress = GeneratedQuizRepository(
+            source = { SAMPLE_QUIZ_NODES },
+            mastered = { setOf(StructureId("costa-2-left")) },
+        )
+
+        assertEquals(0.2f, withProgress.topics("la").first { it.id == ribs }.mastery)
+        assertEquals(0f, repository.topics("la").first { it.id == ribs }.mastery)
     }
 }
