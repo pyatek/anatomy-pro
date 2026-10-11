@@ -4,6 +4,40 @@ Read this first. The design lives in `docs/superpowers/specs/2026-08-29-anatomy-
 sections 20–40 there are the running record of what was actually built and why. This file is
 the shorter question: where things stand and what to do next.
 
+
+## 2026-10-11 — packs from a bucket (backend plan, stage 1; ticket C010)
+
+- **The pipeline publishes.** `python -m anatomypro_pipeline.publish <pack dir> --version N
+  --label la=… --base-url … (--bucket … [--endpoint-url …] | --directory …)` uploads a
+  version's mesh and manifest, reads them back, and rewrites `index.json` last. A version is
+  never overwritten. The S3 path (`boto3`) has never been run: there is no bucket yet.
+- **`shared/core-network`** (new): `PackDownloader` (Range resume, SHA-256, `.part` then an
+  atomic move) and `CdnPackRepository` (the `PackRepository` contract over the index; a
+  download belongs to the repository, not to the screen that asked). Ktor 3.6.0 and Okio.
+  Android uses Ktor's `Android` engine: the OkHttp engine pulls an OkHttp that wants compile
+  SDK 37.
+- **A build is given an index, or it is not.** Gradle property `anatomypro.packs.indexUrl`
+  (Android; then no pack is staged into the APK) or `AnatomyProPackIndexURL` in Info.plist
+  (iOS). With one, `rememberDownloadedApp` supplies the real pack repository, onboarding has
+  its third step, and every canvas draws the installed `skeletal-body` through
+  `LocalDrawnPack`. Without one nothing has changed: the shipped pack, two-step onboarding.
+  Debug Android also takes `--es packIndex <url>`, and allows plain HTTP for it.
+- **Seen on the Android emulator** against a local range server: a fresh install with nothing
+  shipped fetched the skeleton and drew it; a download cut at 983 040 bytes resumed with
+  `Range: bytes=983040-`; a relaunch with the server down opened the atlas; the pack manager
+  listed, deleted and offered the pack again.
+- **Not done, not seen:**
+  - iOS downloading was built and unit-tested, never run in the app (ATS needs HTTPS).
+  - In download mode onboarding's goals step comes before there is an atlas, so it has no
+    systems to offer and says "loading atlas" (it can be skipped).
+  - With no pack installed (download skipped, or the pack deleted) the Atlas tab says
+    "opening atlas…" for ever; the only way back is Profile → Packs.
+  - Only `skeletal-body` is drawn. Other packs can be downloaded and deleted, not shown.
+  - An installed pack older than the index's is listed as installed; no update is offered.
+  - Running out of space is reported as a network failure. Eviction under memory pressure
+    (plan 1.4) is not built: one pack is resident at a time.
+  - Pack names are in the interface language as it was when the list was first read.
+
 ## The one thing to decide first
 
 Nothing, for now. The merge this section used to demand is done: `main` carries all 26
