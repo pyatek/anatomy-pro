@@ -21,6 +21,7 @@ import okio.Path
 import okio.Path.Companion.toPath
 import okio.blackholeSink
 import okio.buffer
+import okio.use
 
 /** Why a download did not finish, and whether what was fetched so far is worth keeping. */
 class PackDownloadException(
