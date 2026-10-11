@@ -1,6 +1,7 @@
 package com.ptk.anatomypro.core.data.fake
 
 import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -98,5 +99,16 @@ class FakeAtlasRepositoryTest {
     @Test
     fun a_detail_is_null_for_a_structure_that_does_not_exist() = runTest {
         assertTrue(repository.detail(StructureId("nonexistent"), "pl") == null)
+    }
+
+    @Test
+    fun the_systems_of_a_set_of_structures_are_the_ones_they_sit_in() = runTest {
+        val repository = FakeAtlasRepository()
+        val rib = repository.structuresIn(SystemId("skeletal-system")).first()
+        val muscle = repository.structuresIn(SystemId("muscular-system")).first()
+
+        assertEquals(setOf(SystemId("skeletal-system")), repository.systemsOf(setOf(rib)))
+        assertEquals(setOf(SystemId("skeletal-system"), SystemId("muscular-system")), repository.systemsOf(setOf(rib, muscle)))
+        assertEquals(emptySet(), repository.systemsOf(setOf(com.ptk.anatomypro.core.model.StructureId("not-in-the-atlas"))))
     }
 }

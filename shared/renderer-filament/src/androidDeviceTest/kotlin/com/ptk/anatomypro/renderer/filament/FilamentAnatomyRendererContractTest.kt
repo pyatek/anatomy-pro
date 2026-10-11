@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.renderer.filament
 
+import org.junit.Assert.assertFalse
 import kotlinx.coroutines.flow.SharedFlow
 import android.graphics.PixelFormat
 import android.media.ImageReader
@@ -131,6 +132,31 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         val after = picks(renderer)
         assertTrue("the tap at $x, $y was never answered", after.size > before)
         return after.last().structure
+    }
+
+    /**
+     * Loaded is not drawn. A pack reports loaded when it is parsed and its uploads are
+     * queued; a screen that times the user waits for this instead, which turns true only
+     * once a frame holding the pack has been through the backend.
+     */
+    @Test fun says_the_pack_is_on_screen_only_after_a_frame_holding_it_has_been_drawn() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            assertFalse(renderer.packOnScreen)
+
+            renderer.loadPack(pack, source)
+            assertFalse(renderer.packOnScreen)
+
+            settle(renderer)
+            settle(renderer)
+            assertTrue(renderer.packOnScreen)
+
+            renderer.unloadPack(pack)
+            assertFalse(renderer.packOnScreen)
+        } finally {
+            renderer.dispose()
+        }
     }
 
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }

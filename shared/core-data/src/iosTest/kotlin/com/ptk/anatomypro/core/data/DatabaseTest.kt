@@ -145,6 +145,17 @@ class DatabaseTest {
     }
 
     @Test
+    fun the_systems_of_several_structures_are_read_in_one_query() = runTest {
+        install()
+        val atlas = com.ptk.anatomypro.core.data.repository.RoomAtlasRepository(database)
+
+        val systems = atlas.systemsOf(setOf(StructureId("1168-clavicula-left"), StructureId("1169-scapula-left"), StructureId("not-in-the-atlas")))
+
+        assertEquals(setOf(com.ptk.anatomypro.core.model.SystemId("skeletal-system")), systems)
+        assertEquals(emptySet(), atlas.systemsOf(emptySet()))
+    }
+
+    @Test
     fun installs_a_pack_and_reads_a_structure_back() = runTest {
         install()
 

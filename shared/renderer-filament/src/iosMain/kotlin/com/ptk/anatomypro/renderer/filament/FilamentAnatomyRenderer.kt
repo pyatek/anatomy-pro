@@ -30,6 +30,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_load_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_count
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_nodes_bounds
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_name_at
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_pack_on_screen
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_pick_near
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_poll_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
@@ -194,6 +195,16 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      * Returns false when Filament skipped the frame because too many were already in
      * flight, which a caller that needs frames to land can use to pace itself.
      */
+    /**
+     * Whether the loaded pack has reached the screen.
+     *
+     * [RendererEvent.PackLoaded] says the pack is parsed and its uploads are queued, which
+     * can be long before anything is drawn. This turns true once the backend has finished
+     * the first frame that held the pack, so a caller that times the user can wait for a
+     * model that is really there. Asked from the frame loop; it never blocks.
+     */
+    val packOnScreen: Boolean get() = ar_pack_on_screen(handle)
+
     fun renderFrame(frameTimeNanos: Long = 0L): Boolean {
         stepCamera(frameTimeNanos)
         val rendered = ar_render_frame(handle, frameTimeNanos.toULong())

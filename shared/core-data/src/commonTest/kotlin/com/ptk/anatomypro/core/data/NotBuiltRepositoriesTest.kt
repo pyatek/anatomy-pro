@@ -17,6 +17,7 @@ import kotlin.test.assertFailsWith
 
 /** Empty, but real: the point is that it answers rather than throws. */
 private class StandInAtlasRepository : AtlasRepository {
+    override suspend fun systemsOf(ids: Set<com.ptk.anatomypro.core.model.StructureId>) = emptySet<com.ptk.anatomypro.core.model.SystemId>()
     override suspend fun roots(locale: String) = emptyList<StructureSummary>()
     override suspend fun children(parent: StructureId, locale: String) = emptyList<StructureSummary>()
     override suspend fun summary(id: StructureId, locale: String): StructureSummary? = null

@@ -1,5 +1,7 @@
 package com.ptk.anatomypro.feature.quiz
 
+import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.fake.FakeAtlasRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
@@ -69,5 +71,23 @@ class QuizSceneTest {
         assertTrue(quizClockRuns(resumed = true, canvasReady = true))
         assertFalse(quizClockRuns(resumed = true, canvasReady = false))
         assertFalse(quizClockRuns(resumed = false, canvasReady = true))
+    }
+
+    @Test
+    fun the_systems_asked_about_are_found_in_one_question_to_the_atlas_not_one_per_structure() = runTest {
+        // A structure's whole detail was read for each question, only for its system: ten
+        // rounds of queries before the first question could hide what stood in front of it.
+        var details = 0
+        var lookups = 0
+        val counting = object : AtlasRepository by atlas {
+            override suspend fun detail(id: StructureId, locale: String) = atlas.detail(id, locale).also { details++ }
+            override suspend fun systemsOf(ids: Set<StructureId>) = atlas.systemsOf(ids).also { lookups++ }
+        }
+
+        val hidden = structuresHiddenFor(counting, ribs())
+
+        assertEquals(0, details)
+        assertEquals(1, lookups)
+        assertEquals(atlas.allStructures() - atlas.structuresIn(SystemId("skeletal-system")), hidden)
     }
 }

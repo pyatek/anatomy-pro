@@ -7,6 +7,7 @@
 #include <backend/PixelBufferDescriptor.h>
 #include <filament/Box.h>
 #include <filament/Camera.h>
+#include <filament/Fence.h>
 #include <filament/Engine.h>
 #include <filament/IndirectLight.h>
 #include <filament/LightManager.h>
@@ -175,6 +176,12 @@ struct ar_renderer {
     bool pickingEnabled = true;
     uint32_t width = 0;
     uint32_t height = 0;
+
+    // A model is loaded and no frame holding it has been handed to the backend yet.
+    bool awaitingFirstFrame = false;
+    // Queued behind the first frame that holds the model; signalled when it has been drawn.
+    Fence* loadFence = nullptr;
+    bool packOnScreen = false;
 
     std::mutex mutex;
     std::deque<QueuedEvent> queue;
@@ -413,6 +420,12 @@ void applyAppearance(ar_renderer* r) {
 }
 
 void releaseAsset(ar_renderer* r) {
+    r->packOnScreen = false;
+    r->awaitingFirstFrame = false;
+    if (r->loadFence) {
+        r->engine->destroy(r->loadFence);
+        r->loadFence = nullptr;
+    }
     if (!r->asset) return;
     r->hiddenNodes.clear();
     r->ghostedNodes.clear();
@@ -577,6 +590,7 @@ void ar_load_model(ar_renderer_ref r, const char* uri) {
     r->scene->addEntities(entities, r->asset->getEntityCount());
     r->assetUri = uri ? uri : "";
     frameAsset(r);
+    r->awaitingFirstFrame = true;
 
     QueuedEvent loaded;
     loaded.type = AR_EVENT_MODEL_LOADED;
@@ -814,10 +828,24 @@ bool ar_render_frame(ar_renderer_ref r, uint64_t vsync_nanos) {
     // Filament refuses a frame while too many are already in flight. Reporting that back
     // lets a caller that needs frames to actually land — a contract test waiting on a
     // picking readback — know the difference between a drawn frame and a skipped one.
+    if (r->loadFence && r->loadFence->wait(Fence::Mode::DONT_FLUSH, 0) != Fence::FenceStatus::TIMEOUT_EXPIRED) {
+        // Satisfied, or failed: either way there is nothing more to wait for.
+        r->engine->destroy(r->loadFence);
+        r->loadFence = nullptr;
+        r->packOnScreen = true;
+    }
     if (!r->renderer->beginFrame(r->swapChain, vsync_nanos)) return false;
     drawViews(r);
     r->renderer->endFrame();
+    if (r->awaitingFirstFrame) {
+        r->awaitingFirstFrame = false;
+        r->loadFence = r->engine->createFence();
+    }
     return true;
+}
+
+bool ar_pack_on_screen(ar_renderer_ref r) {
+    return r && r->packOnScreen;
 }
 
 int64_t ar_gpu_frame_nanos(ar_renderer_ref r) {

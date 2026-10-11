@@ -78,6 +78,10 @@ class FakeAtlasRepository(
         AtlasFixture.all.map { it.system }.distinct().map(::SystemId)
     }
 
+    override suspend fun systemsOf(ids: Set<StructureId>): Set<SystemId> = behaviour.respond {
+        AtlasFixture.all.filter { it.id in ids }.mapTo(mutableSetOf()) { SystemId(it.system) }
+    }
+
     override suspend fun structuresIn(system: SystemId): Set<StructureId> = behaviour.respond {
         AtlasFixture.all.filter { it.system == system.value }.mapTo(mutableSetOf()) { it.id }
     }

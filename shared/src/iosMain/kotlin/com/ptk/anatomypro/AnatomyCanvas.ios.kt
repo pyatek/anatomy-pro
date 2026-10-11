@@ -57,6 +57,9 @@ actual fun AnatomyCanvas(
     val scale = UIScreen.mainScreen.scale
     val refreshHz = UIScreen.mainScreen.maximumFramesPerSecond.toFloat()
     val renderer = remember { FilamentAnatomyRenderer() }
+    // Loaded is not drawn: a pack's uploads are only queued when it reports loaded. The
+    // frame loop says when the backend has drawn it.
+    var packDrawn by remember(renderer) { mutableStateOf(false) }
     val pack = remember { resolveBundledPack() }
     val currentOnPicked by rememberUpdatedState(onPicked)
     val currentOnStats by rememberUpdatedState(onStats)
@@ -105,6 +108,7 @@ actual fun AnatomyCanvas(
             previous = seconds
 
             if (renderer.renderFrame((seconds * NANOS_PER_SECOND).toLong())) framesThisSecond++ else refused++
+            if (packDrawn != renderer.packOnScreen) packDrawn = renderer.packOnScreen
 
             if (windowStart == 0.0) windowStart = seconds
             val elapsed = seconds - windowStart
@@ -153,8 +157,8 @@ actual fun AnatomyCanvas(
     var packLoaded by remember(renderer) { mutableStateOf(false) }
     val applied = remember(renderer) { arrayOf(RenderState.None) }
     val reportReady by rememberUpdatedState(onReady)
-    DisposableEffect(packLoaded) {
-        reportReady(packLoaded)
+    DisposableEffect(packLoaded, packDrawn) {
+        reportReady(packLoaded && packDrawn)
         // Leaving takes the model with it.
         onDispose { reportReady(false) }
     }

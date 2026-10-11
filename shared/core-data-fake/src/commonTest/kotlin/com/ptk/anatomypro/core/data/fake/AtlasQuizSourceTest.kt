@@ -105,6 +105,7 @@ class AtlasQuizSourceTest {
  * distinct names, one carried by a left and a right femur, and "rest" has a femur of its own.
  */
 internal class PairedAtlas : AtlasRepository {
+    override suspend fun systemsOf(ids: Set<com.ptk.anatomypro.core.model.StructureId>) = emptySet<com.ptk.anatomypro.core.model.SystemId>()
 
     private class Node(val id: String, val name: String, val parent: String?, val isGroup: Boolean = false)
 

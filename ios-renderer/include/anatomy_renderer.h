@@ -171,6 +171,16 @@ void ar_pick_near(ar_renderer_ref renderer, float x_px, float y_px,
  */
 bool ar_render_frame(ar_renderer_ref renderer, uint64_t vsync_nanos);
 /*
+ * Whether the loaded model has reached the screen.
+ *
+ * AR_EVENT_MODEL_LOADED says the model is parsed and its uploads are queued, which can be
+ * long before anything is drawn: the first frame is where the materials' programs are
+ * built. This turns true once the backend has finished the first frame that held the
+ * model, and false again when the model is released. Polled from the frame loop; it never
+ * blocks.
+ */
+bool ar_pack_on_screen(ar_renderer_ref renderer);
+/*
  * Blocks until the GPU has caught up.
  *
  * Exists for tests: picking results arrive some frames after ar_pick_at, and without a

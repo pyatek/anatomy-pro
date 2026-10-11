@@ -4,7 +4,6 @@ import com.ptk.anatomypro.core.data.model.QuizQuestion
 import com.ptk.anatomypro.core.data.model.QuizSession
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.model.StructureId
-import com.ptk.anatomypro.core.model.SystemId
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -24,11 +23,13 @@ suspend fun structuresHiddenFor(atlas: AtlasRepository, session: QuizSession): S
             is QuizQuestion.TapTheStructure -> it.target
         }
     }
-    val systems = asked.mapNotNull { atlas.detail(it, session.locale)?.systemId }.toSet()
+    // One question to the atlas for every structure asked about, not a structure's whole
+    // detail each: this runs before the first question can be drawn as it should be.
+    val systems = atlas.systemsOf(asked.toSet())
     if (systems.isEmpty()) {
         emptySet()
     } else {
-        val kept = systems.flatMap { atlas.structuresIn(SystemId(it)) }.toSet()
+        val kept = systems.flatMap { atlas.structuresIn(it) }.toSet()
         // Never something asked about, whatever the atlas says its system is.
         atlas.allStructures() - kept - asked.toSet()
     }

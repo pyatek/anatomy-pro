@@ -30,6 +30,12 @@ interface AtlasRepository {
     /** The systems the installed atlas has structures in, by id (screen 07). */
     suspend fun systems(): List<SystemId>
 
+    /**
+     * The systems the structures in [ids] sit in. An id the atlas does not have, or a
+     * structure with no system of its own (a group in real packs), adds nothing.
+     */
+    suspend fun systemsOf(ids: Set<StructureId>): Set<SystemId>
+
     /** Every structure in [system], groups included: hiding a group hides nothing extra. */
     suspend fun structuresIn(system: SystemId): Set<StructureId>
 

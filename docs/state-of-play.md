@@ -126,10 +126,15 @@ button are behaviour that does not exist yet.
   inference from that, not something seen in a trace.
 - **A question's structure is no longer behind other systems** (9685): a session's canvas
   hides every system but the ones it asks about.
-- **A question's time starts when the model is on screen** (9685), on Android: the canvas
-  reports ready after the backend has finished the first frame holding the pack. On the
-  emulator that is 20 s after "pack loaded", which is where a first question used to run
-  out. iOS still reports ready at "pack loaded"; its first frame has not been timed.
+- **A question's time starts when the model is on screen** (9685, 2890), on both platforms:
+  the canvas reports ready after the backend has finished the first frame holding the pack
+  (`packOnScreen`; on iOS through `ar_pack_on_screen` in the shim). On the Android emulator
+  that is 20 s after "pack loaded", which is where a first question used to run out. A test
+  on each platform checks the signal is false at "loaded" and true after frames. How long
+  iOS's first frame takes has still not been timed, and the iOS side was never watched in a
+  running quiz.
+- **A session's hidden systems are found in one query** (2890): `AtlasRepository.systemsOf`
+  replaces a structure's whole detail read once per question.
 - **A "find the structure" question was seen framing its region** on a drawn skeleton.
 
 Where the prototype shows something the app has no data for, it is left out rather than

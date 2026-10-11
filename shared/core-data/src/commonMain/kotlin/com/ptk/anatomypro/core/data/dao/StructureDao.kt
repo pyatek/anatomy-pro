@@ -185,6 +185,10 @@ interface StructureDao {
     @Query("SELECT DISTINCT systemId FROM structure WHERE systemId IS NOT NULL ORDER BY systemId")
     suspend fun systems(): List<String>
 
+    /** One query however many structures are asked about. */
+    @Query("SELECT DISTINCT systemId FROM structure WHERE id IN (:ids) AND systemId IS NOT NULL")
+    suspend fun systemsOf(ids: List<String>): List<String>
+
     @Query("SELECT id FROM structure WHERE systemId = :systemId")
     suspend fun idsInSystem(systemId: String): List<String>
 

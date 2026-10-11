@@ -117,6 +117,9 @@ class RoomAtlasRepository(private val database: AnatomyDatabase) : AtlasReposito
 
     override suspend fun systems(): List<SystemId> = dao.systems().map(::SystemId)
 
+    override suspend fun systemsOf(ids: Set<StructureId>): Set<SystemId> =
+        if (ids.isEmpty()) emptySet() else dao.systemsOf(ids.map { it.value }).mapTo(mutableSetOf(), ::SystemId)
+
     override suspend fun structuresIn(system: SystemId): Set<StructureId> =
         dao.idsInSystem(system.value).mapTo(mutableSetOf(), ::StructureId)
 
