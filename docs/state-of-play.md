@@ -70,9 +70,30 @@ interface, IBM Plex Mono for labels and figures; OFL, licences in
 colours read off it, and its recurring pieces (`Components.kt`: step header, choice card,
 buttons, panels, top bar, segmented tabs, progress ring).
 
-**Drawn as the prototype draws them, and seen on the Android emulator:** 02, 03, 14, 15, 16,
-17, 18, 19. **Not yet restyled:** 01, 04 to 13, 20, 21 — they pick up Montserrat from the
-theme and nothing else.
+**Every screen is now drawn as the prototype draws it**, and all but one seen on the Android
+emulator: 01 to 20. Tree mode (21) is restyled and compiles but was not seen: the setting
+did not switch from the test script. Structure detail (05) and settings (20) are the two
+light screens. The atlas viewer (04) keeps its own structure — canvas, selection, list — in
+the prototype's dress; the prototype's bottom sheet, layer chips over the canvas and "quiz me"
+button are behaviour that does not exist yet.
+
+**Fixed 2026-10-11, found by the hand runs:**
+
+- **A native crash, on both platforms** (9854 and what looked like a hang): an outline's
+  material named a mask texture that was destroyed before its changes reached the GPU —
+  a resize and a cleared highlight in the same instant, which is what leaving a quiz
+  question does. Filament aborts on a freed texture. A slot's material is now pointed at a
+  placeholder before its mask goes. Reproduced by a test on each platform; 56 instrumented
+  tests pass on the emulator. Yesterday's "hang" scenario was replayed three times on the
+  fixed build without a hang, a crash or an ANR; that it was this same defect is an
+  inference from that, not something seen in a trace.
+- **A question's structure is no longer behind other systems** (9685): a session's canvas
+  hides every system but the ones it asks about.
+- **A question's time starts when the model is on screen** (9685), on Android: the canvas
+  reports ready after the backend has finished the first frame holding the pack. On the
+  emulator that is 20 s after "pack loaded", which is where a first question used to run
+  out. iOS still reports ready at "pack loaded"; its first frame has not been timed.
+- **A "find the structure" question was seen framing its region** on a drawn skeleton.
 
 Where the prototype shows something the app has no data for, it is left out rather than
 invented, and each screen's comment says what: structure counts per system (02), network,
