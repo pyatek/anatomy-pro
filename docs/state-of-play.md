@@ -5,6 +5,22 @@ sections 20–40 there are the running record of what was actually built and why
 the shorter question: where things stand and what to do next.
 
 
+
+## 2026-10-12 — what both ends share (backend plan, stage 2)
+
+- **`shared/core-quiz`**: `QuizNode`, `QuizGraph` and the quiz model types (`Quiz.kt`,
+  `StructureSummary.kt`), moved out of `core-data` with their packages unchanged; `core-data`
+  re-exports it. It and `core-model` now also build for the JVM, so the server can generate
+  the daily with the app's own code. The golden test passes on JVM, Android host and the iOS
+  simulator.
+- **`shared/core-quiz-fixtures`**: the sample atlas the generator's tests use, as a module,
+  because `core-data`'s tests use it too and the server's will.
+- **`shared/api-contract`**: every request, response, error code and path of backend spec §5
+  to §8, `@Serializable`, on all three targets. `ApiContractTest` pins version 1 of each
+  message as JSON: a field added without a default, or a wire name changed, fails it. An
+  enum value from a newer server reads as that enum's "unknown". Nothing uses these types
+  yet; stage 3 (the server) and stage 5 (the client) do.
+
 ## 2026-10-11 — packs from a bucket (backend plan, stage 1; ticket C010)
 
 - **The pipeline publishes.** `python -m anatomypro_pipeline.publish <pack dir> --version N
