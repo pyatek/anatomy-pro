@@ -61,6 +61,7 @@ private:
     filament::Engine* mEngine = nullptr;
     filament::Camera* mCamera = nullptr;
     filament::Material* mMaterial = nullptr;
+    filament::Texture* mNoMask = nullptr;
     filament::VertexBuffer* mVertices = nullptr;
     filament::IndexBuffer* mIndices = nullptr;
     filament::Scene* mOverlayScene = nullptr;

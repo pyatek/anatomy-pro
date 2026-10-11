@@ -29,6 +29,11 @@ namespace {
 const float kPositions[] = {-1.0f, -1.0f, 0.0f, 3.0f, -1.0f, 0.0f, -1.0f, 3.0f, 0.0f};
 const uint16_t kOrder[] = {0, 1, 2};
 
+TextureSampler maskSampler() {
+    return TextureSampler(TextureSampler::MinFilter::LINEAR, TextureSampler::MagFilter::LINEAR,
+                          TextureSampler::WrapMode::CLAMP_TO_EDGE);
+}
+
 } // namespace
 
 struct OutlinePass::Slot {
@@ -54,6 +59,19 @@ OutlinePass* OutlinePass::create(Engine* engine, const void* material, size_t si
     pass->mMaterial = built;
     pass->mLayerSelect = layerSelect;
     pass->mLayerValues = layerValues;
+    // What a slot's material samples while it has no mask of its own. An instance sends its
+    // parameters to the GPU at the next frame, not when they are set, so a mask destroyed in
+    // between left it naming a freed texture; Filament aborts on that (seen on Android,
+    // where a resize and a cleared highlight arrive together). An instance is pointed here
+    // before its mask goes.
+    pass->mNoMask = Texture::Builder()
+        .width(1)
+        .height(1)
+        .levels(1)
+        .sampler(Texture::Sampler::SAMPLER_2D)
+        .format(Texture::InternalFormat::RGBA8)
+        .usage(Texture::Usage::COLOR_ATTACHMENT | Texture::Usage::SAMPLEABLE)
+        .build(*engine);
 
     pass->mVertices = VertexBuffer::Builder()
         .vertexCount(3)
@@ -95,6 +113,8 @@ OutlinePass::~OutlinePass() {
     mEngine->destroy(mVertices);
     mEngine->destroy(mIndices);
     mEngine->destroy(mMaterial);
+    // Last: every instance that sampled it is gone by now.
+    mEngine->destroy(mNoMask);
 }
 
 void OutlinePass::resize(uint32_t width, uint32_t height) {
@@ -155,6 +175,7 @@ OutlinePass::Slot* OutlinePass::newSlot() {
     slot->view->setVisibleLayers(mLayerSelect, mLayerValues);
 
     slot->instance = mMaterial->createInstance();
+    slot->instance->setParameter("mask", mNoMask, maskSampler());
     slot->quad = utils::EntityManager::get().create();
     RenderableManager::Builder(1)
         .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, mVertices, mIndices, 0, 3)
@@ -184,9 +205,7 @@ void OutlinePass::allocate(Slot* slot) {
         .build(*mEngine);
     slot->view->setRenderTarget(slot->target);
     slot->view->setViewport({0, 0, maskWidth, maskHeight});
-    TextureSampler sampler(TextureSampler::MinFilter::LINEAR, TextureSampler::MagFilter::LINEAR,
-                           TextureSampler::WrapMode::CLAMP_TO_EDGE);
-    slot->instance->setParameter("mask", slot->colour, sampler);
+    slot->instance->setParameter("mask", slot->colour, maskSampler());
     setReach(slot);
 }
 
@@ -197,6 +216,8 @@ void OutlinePass::setReach(Slot* slot) {
 }
 
 void OutlinePass::release(Slot* slot) {
+    // Before the texture goes, not after: see mNoMask.
+    if (slot->colour) slot->instance->setParameter("mask", mNoMask, maskSampler());
     slot->view->setRenderTarget(nullptr);
     if (slot->target) mEngine->destroy(slot->target);
     if (slot->colour) mEngine->destroy(slot->colour);

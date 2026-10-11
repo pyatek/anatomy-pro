@@ -127,6 +127,73 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    /**
+     * Clearing a highlight and drawing on. Ending a quiz session did this and the app died:
+     * the outline's mask texture was destroyed while the material that samples it still
+     * named it, and the next frame used a freed texture (Filament aborts on that).
+     */
+    @Test fun goes_on_drawing_after_a_highlight_is_cleared() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+
+            renderer.highlight(emptyMap())
+            settle(renderer)
+
+            assertEquals(0, FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb))
+        } finally {
+            renderer.dispose()
+        }
+    }
+
+    /**
+     * The same, with no frame drawn between the surface changing size and the highlight
+     * going: what leaving a quiz question does, where the panel under the canvas changes
+     * height in the same instant. The resize leaves the outline's material with changes not
+     * yet sent to the GPU, and the texture it names must still be there when they are.
+     */
+    @Test fun survives_a_highlight_cleared_straight_after_a_resize() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT / 2)
+            renderer.loadPack(pack, source)
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.highlight(emptyMap())
+            settle(renderer)
+
+            assertEquals(0, FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb))
+        } finally {
+            renderer.dispose()
+        }
+    }
+
+    /** Two outlined, then one: the second mask goes while the first is still drawn. */
+    @Test fun goes_on_drawing_when_one_of_two_outlines_is_dropped() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        val second = OUTLINE.copy(outlineArgb = 0xFF57B37C.toInt())
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            renderer.highlight(mapOf(hitStructure to OUTLINE, offCentreStructure to second))
+            settle(renderer)
+
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+
+            val frame = renderer.captureFrame()
+            assertTrue(FramePixels.countMatching(frame, OUTLINE.outlineArgb) > 0)
+            assertEquals(0, FramePixels.countMatching(frame, second.outlineArgb))
+        } finally {
+            renderer.dispose()
+        }
+    }
+
     /** Widths are given in dp. A renderer that ignored the density would draw a hairline on a phone. */
     @Test fun draws_a_wider_outline_on_a_denser_display() = runBlocking {
         val renderer = FilamentAnatomyRenderer()

@@ -126,6 +126,30 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
         }
     }
 
+    /**
+     * No frame drawn between the surface changing size and the highlight going: what leaving
+     * a quiz question does. The resize leaves the outline's material with changes not yet
+     * sent to the GPU, and the texture it names must still be there when they are. On
+     * Android this aborted the process.
+     */
+    @Test fun survives_a_highlight_cleared_straight_after_a_resize() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT / 2)
+            renderer.loadPack(pack, source)
+            renderer.highlight(setOf(hitStructure), OUTLINE)
+            settle(renderer)
+
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.highlight(emptyMap())
+            settle(renderer)
+
+            assertEquals(0, FramePixels.countMatching(renderer.captureFrame(), OUTLINE.outlineArgb))
+        } finally {
+            renderer.dispose()
+        }
+    }
+
     /** Widths are given in dp. A renderer that ignored the density would draw a hairline on a phone. */
     @Test fun draws_a_wider_outline_on_a_denser_display() = runBlocking {
         val renderer = FilamentAnatomyRenderer()

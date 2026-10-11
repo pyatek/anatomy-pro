@@ -62,6 +62,29 @@ internal class OutlinePass(
     private val overlayScene: Scene = engine.createScene()
     private val overlayView: View = engine.createView()
 
+    /**
+     * What a slot's material samples while it has no mask of its own.
+     *
+     * A material instance sends its parameters to the GPU at the next frame, not when they
+     * are set. A mask destroyed in between — a resize and a cleared highlight in the same
+     * instant, which is what leaving a quiz question does — left the instance naming a
+     * freed texture, and Filament aborts the process on that. So an instance never names a
+     * texture that is about to go: it is pointed here first.
+     */
+    private val noMask: Texture = Texture.Builder()
+        .width(1)
+        .height(1)
+        .levels(1)
+        .sampler(Texture.Sampler.SAMPLER_2D)
+        .format(Texture.InternalFormat.RGBA8)
+        .usage(Texture.Usage.COLOR_ATTACHMENT or Texture.Usage.SAMPLEABLE)
+        .build(engine)
+    private val maskSampler = TextureSampler(
+        TextureSampler.MinFilter.LINEAR,
+        TextureSampler.MagFilter.LINEAR,
+        TextureSampler.WrapMode.CLAMP_TO_EDGE,
+    )
+
     /** Slots are kept and reused: moving a selection must not make and destroy a render target. */
     private val slots = mutableListOf<Slot>()
     private var active = 0
@@ -156,6 +179,8 @@ internal class OutlinePass(
         engine.destroyVertexBuffer(vertices)
         engine.destroyIndexBuffer(indices)
         engine.destroyMaterial(material)
+        // Last: every instance that sampled it is gone by now.
+        engine.destroyTexture(noMask)
     }
 
     private fun newSlot(): Slot {
@@ -174,6 +199,7 @@ internal class OutlinePass(
         view.setVisibleLayers(layerSelect, layerValues)
 
         val instance = material.createInstance()
+        instance.setParameter("mask", noMask, maskSampler)
         val quad = EntityManager.get().create()
         RenderableManager.Builder(1)
             .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, vertices, indices, 0, 3)
@@ -205,15 +231,7 @@ internal class OutlinePass(
         slot.target = target
         slot.view.renderTarget = target
         slot.view.viewport = Viewport(0, 0, maskWidth, maskHeight)
-        slot.instance.setParameter(
-            "mask",
-            colour,
-            TextureSampler(
-                TextureSampler.MinFilter.LINEAR,
-                TextureSampler.MagFilter.LINEAR,
-                TextureSampler.WrapMode.CLAMP_TO_EDGE,
-            ),
-        )
+        slot.instance.setParameter("mask", colour, maskSampler)
         setReach(slot)
     }
 
@@ -223,6 +241,8 @@ internal class OutlinePass(
     }
 
     private fun release(slot: Slot) {
+        // Before the texture goes, not after: see [noMask].
+        if (slot.colour != null) slot.instance.setParameter("mask", noMask, maskSampler)
         slot.view.renderTarget = null
         slot.target?.let(engine::destroyRenderTarget)
         slot.colour?.let(engine::destroyTexture)
