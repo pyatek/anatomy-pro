@@ -7,6 +7,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.feature.quiz.quizClockRuns
+import com.ptk.anatomypro.feature.quiz.structuresHiddenFor
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.AppSettings
 import com.ptk.anatomypro.core.data.model.QuizTopic
@@ -51,16 +59,24 @@ internal fun HomeRoute(dependencies: AppDependencies, daily: DailyViewModel, nav
 @Composable
 internal fun LobbyRoute(
     daily: DailyViewModel,
+    atlas: AtlasRepository?,
     settings: AppSettings,
     navController: NavHostController,
     onPractice: (QuizTopic) -> Unit,
 ) {
     val stage by daily.stage.collectAsState()
 
-    // The clock runs only while this is on screen.
-    DisposableEffect(daily) {
-        daily.onQuestionShown()
-        onDispose { daily.onQuestionHidden() }
+    // The clock runs only while this is on screen and the model is drawn: the canvas
+    // reloads its pack when it is created, and the server times the whole attempt.
+    var canvasReady by remember { mutableStateOf(false) }
+    val clockRuns = quizClockRuns(resumed = true, canvasReady = canvasReady)
+    DisposableEffect(daily, clockRuns) {
+        if (clockRuns) daily.onQuestionShown()
+        onDispose { if (clockRuns) daily.onQuestionHidden() }
+    }
+    val asked = (stage as? DailyStage.Playing)?.asking?.session
+    val hidden by produceState(emptySet<StructureId>(), asked?.id, atlas) {
+        value = if (asked != null && atlas != null) structuresHiddenFor(atlas, asked) else emptySet()
     }
 
     val playing = stage as? DailyStage.Playing
@@ -72,10 +88,11 @@ internal fun LobbyRoute(
                 AnatomyCanvas(
                     modifier = modifier,
                     highlights = canvas.highlights,
-                    render = RenderState.None,
+                    render = RenderState(hidden = hidden, ghosted = emptySet(), ghostAlpha = 1f),
                     focus = FocusRequest(canvas.focus, DAILY_FOCUS_MILLIS, serial = playing.asking.index),
                     onPicked = { picked -> if (canvas.pickable && picked != null) daily.answer(picked) },
                     onStats = {},
+                    onReady = { canvasReady = it },
                 )
             },
             onAnswer = daily::answer,

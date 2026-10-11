@@ -39,6 +39,12 @@ expect fun AnatomyCanvas(
     focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
+    /**
+     * Told when the pack is loaded and there is a model to look at, and again with false if
+     * that stops being so. A canvas reloads its pack whenever it is created, so a screen
+     * that times the user must not start counting before this.
+     */
+    onReady: (Boolean) -> Unit = {},
 )
 
 /** The atlas's one highlight: the selected structure, or nothing. */

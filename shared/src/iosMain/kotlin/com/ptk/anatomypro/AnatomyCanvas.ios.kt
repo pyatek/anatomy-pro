@@ -52,6 +52,7 @@ actual fun AnatomyCanvas(
     focus: FocusRequest?,
     onPicked: (StructureId?) -> Unit,
     onStats: (CanvasStats) -> Unit,
+    onReady: (Boolean) -> Unit,
 ) {
     val scale = UIScreen.mainScreen.scale
     val refreshHz = UIScreen.mainScreen.maximumFramesPerSecond.toFloat()
@@ -151,6 +152,12 @@ actual fun AnatomyCanvas(
     // hidden, ghosted or framed before it arrives; a state sent early would be dropped.
     var packLoaded by remember(renderer) { mutableStateOf(false) }
     val applied = remember(renderer) { arrayOf(RenderState.None) }
+    val reportReady by rememberUpdatedState(onReady)
+    DisposableEffect(packLoaded) {
+        reportReady(packLoaded)
+        // Leaving takes the model with it.
+        onDispose { reportReady(false) }
+    }
 
     LaunchedEffect(renderer) {
         renderer.events.filterIsInstance<RendererEvent.PackLoaded>().collect {

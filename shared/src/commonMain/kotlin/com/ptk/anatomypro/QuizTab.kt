@@ -3,7 +3,12 @@ package com.ptk.anatomypro
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.lifecycle.Lifecycle
@@ -13,6 +18,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.AppSettings
+import com.ptk.anatomypro.core.data.repository.AtlasRepository
+import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.scene.FocusRequest
 import com.ptk.anatomypro.feature.atlas.scene.RenderState
 import com.ptk.anatomypro.feature.quiz.BackAction
@@ -27,6 +34,8 @@ import com.ptk.anatomypro.feature.quiz.TopicsViewModel
 import com.ptk.anatomypro.feature.quiz.backActionFor
 import com.ptk.anatomypro.feature.quiz.destinationOf
 import com.ptk.anatomypro.feature.quiz.quizCanvasFor
+import com.ptk.anatomypro.feature.quiz.quizClockRuns
+import com.ptk.anatomypro.feature.quiz.structuresHiddenFor
 import com.ptk.anatomypro.navigation.ProfileRoute
 import com.ptk.anatomypro.navigation.QuizRoute
 import kotlinx.coroutines.flow.first
@@ -103,7 +112,12 @@ internal fun QuizTopicsRoute(
 /** Prototype screens 09 to 12. */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, navController: NavHostController) {
+internal fun QuizSessionRoute(
+    session: QuizSessionViewModel,
+    sessionId: String,
+    atlas: AtlasRepository?,
+    navController: NavHostController,
+) {
     val stage by session.stage.collectAsState()
     FollowSession(stage, here = QuizDestination.Session(sessionId), navController = navController)
     // Swallowed. Left to the navigation it popped to the topic grid, FollowSession sent it
@@ -113,9 +127,25 @@ internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, 
     // The clock runs only while this is on screen and the app is in front (decision 3).
     // Elapsed time is read from a clock, so a question left running behind a backgrounded
     // app would have expired by the time the student came back.
+    // Nor before the model is drawn: the canvas reloads its pack when it is created, and a
+    // first question used to run out behind a black canvas.
+    var resumed by remember { mutableStateOf(false) }
+    var canvasReady by remember { mutableStateOf(false) }
     LifecycleResumeEffect(session) {
-        session.onQuestionShown()
-        onPauseOrDispose { session.onQuestionHidden() }
+        resumed = true
+        onPauseOrDispose { resumed = false }
+    }
+    val clockRuns = quizClockRuns(resumed, canvasReady)
+    DisposableEffect(session, clockRuns) {
+        if (clockRuns) session.onQuestionShown()
+        onDispose { if (clockRuns) session.onQuestionHidden() }
+    }
+
+    // Everything but the systems asked about is taken off the model, so nothing stands in
+    // front of what a question is about. Worked out once per session.
+    val held = (stage as? QuizStage.Asking)?.session ?: (stage as? QuizStage.Feedback)?.session
+    val hidden by produceState(emptySet<StructureId>(), held?.id, atlas) {
+        value = if (held != null && atlas != null) structuresHiddenFor(atlas, held) else emptySet()
     }
 
     val canvas = quizCanvasFor(stage)
@@ -133,11 +163,12 @@ internal fun QuizSessionRoute(session: QuizSessionViewModel, sessionId: String, 
             AnatomyCanvas(
                 modifier = modifier,
                 highlights = canvas.highlights,
-                render = RenderState.None,
+                render = RenderState(hidden = hidden, ghosted = emptySet(), ghostAlpha = 1f),
                 focus = FocusRequest(canvas.focus, FOCUS_MILLIS, serial, alongside = canvas.framedWith),
                 // Empty space is not an answer (decision 5).
                 onPicked = { picked -> if (canvas.pickable && picked != null) session.answer(picked) },
                 onStats = {},
+                onReady = { canvasReady = it },
             )
         },
         onAnswer = session::answer,

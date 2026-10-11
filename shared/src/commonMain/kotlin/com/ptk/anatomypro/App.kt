@@ -270,6 +270,7 @@ private fun MainScaffold(
                     if (daily != null) {
                         LobbyRoute(
                             daily = daily,
+                            atlas = dependencies.atlas,
                             settings = state.settings,
                             navController = navController,
                             // Practice is an ordinary topic session (all-screens spec §15.4):
@@ -293,7 +294,7 @@ private fun MainScaffold(
                 }
                 composable<QuizRoute.Question> { backStackEntry ->
                     if (quizSession != null) {
-                        QuizSessionRoute(quizSession, backStackEntry.toRoute<QuizRoute.Question>().sessionId, navController)
+                        QuizSessionRoute(quizSession, backStackEntry.toRoute<QuizRoute.Question>().sessionId, dependencies.atlas, navController)
                     }
                 }
                 composable<QuizRoute.Summary> { backStackEntry ->
