@@ -100,6 +100,10 @@ actual fun AnatomyCanvas(
         renderer.loadPack(pack.id, pack.source)
     }
 
+    // Loaded is not drawn: a pack's uploads are only queued when it reports loaded. The
+    // frame loop says when the GPU has taken them.
+    var packDrawn by remember(renderer) { mutableStateOf(false) }
+
     // Filament paces against the vsync timestamp, so frames have to be driven by
     // Choreographer rather than by a timer. Given any other clock reading it refuses
     // every frame after the first, and the surface stays black.
@@ -117,6 +121,7 @@ actual fun AnatomyCanvas(
             override fun doFrame(frameTimeNanos: Long) {
                 if (!active) return
                 if (renderer.renderFrame(frameTimeNanos)) framesThisSecond++
+                if (packDrawn != renderer.packOnScreen) packDrawn = renderer.packOnScreen
 
                 if (windowStartNanos == 0L) windowStartNanos = frameTimeNanos
                 val elapsed = frameTimeNanos - windowStartNanos
@@ -162,8 +167,8 @@ actual fun AnatomyCanvas(
     var packLoaded by remember(renderer) { mutableStateOf(false) }
     val applied = remember(renderer) { arrayOf(RenderState.None) }
     val reportReady by rememberUpdatedState(onReady)
-    DisposableEffect(packLoaded) {
-        reportReady(packLoaded)
+    DisposableEffect(packLoaded, packDrawn) {
+        reportReady(packLoaded && packDrawn)
         // Leaving takes the model with it.
         onDispose { reportReady(false) }
     }

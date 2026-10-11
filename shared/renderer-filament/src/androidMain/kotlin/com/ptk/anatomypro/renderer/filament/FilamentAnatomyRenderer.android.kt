@@ -4,6 +4,7 @@ import com.google.android.filament.Box
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
 import com.google.android.filament.Engine
+import com.google.android.filament.Fence
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
 import com.google.android.filament.LightManager
@@ -96,6 +97,35 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     private var pixelsPerDp = 1f
     private var outline: OutlinePass? = null
     private var outlineFailed = false
+
+    /** A pack is loaded and no frame holding it has been handed to the backend yet. */
+    private var awaitingFirstFrame = false
+
+    /** Queued behind the first frame that holds the pack; signalled when the backend has drawn it. */
+    private var loadFence: Fence? = null
+
+    /**
+     * Whether the loaded pack has reached the screen.
+     *
+     * [RendererEvent.PackLoaded] says the pack is parsed and its uploads are queued, which
+     * is long before anything is drawn where the first frame is slow: the emulator showed a
+     * black canvas for twenty seconds after it, with the uploads done in two — the first
+     * frame is where the materials' programs are built. This turns true once the backend
+     * has finished the first frame that held the pack, so a caller that times the user can
+     * wait for a model that is really there. Asked from the frame loop; it never blocks.
+     */
+    var packOnScreen: Boolean = false
+        private set
+
+    private fun pollLoadFence() {
+        val fence = loadFence ?: return
+        if (fence.wait(Fence.Mode.DONT_FLUSH, 0) != Fence.FenceStatus.TIMEOUT_EXPIRED) {
+            // Satisfied, or failed: either way there is nothing more to wait for.
+            engine.destroyFence(fence)
+            loadFence = null
+            packOnScreen = true
+        }
+    }
 
     /**
      * The outline pass, made the first time something is highlighted.
@@ -338,10 +368,15 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
      */
     fun renderFrame(frameTimeNanos: Long = System.nanoTime()): Boolean {
         val chain = swapChain ?: return false
+        pollLoadFence()
         stepCamera(frameTimeNanos)
         if (!renderer.beginFrame(chain, frameTimeNanos)) return false
         drawViews()
         renderer.endFrame()
+        if (awaitingFirstFrame) {
+            awaitingFirstFrame = false
+            loadFence = engine.createFence()
+        }
         return true
     }
 
@@ -467,6 +502,7 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         indexNodes(loaded)
         scene.addEntities(loaded.entities)
         frameAsset()
+        awaitingFirstFrame = true
 
         _events.tryEmit(RendererEvent.PackLoaded(pack))
     }
@@ -732,6 +768,10 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     }
 
     private fun releaseAsset() {
+        packOnScreen = false
+        awaitingFirstFrame = false
+        loadFence?.let(engine::destroyFence)
+        loadFence = null
         val current = asset ?: return
         shot = null
         flight = null
