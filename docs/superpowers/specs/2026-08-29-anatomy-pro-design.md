@@ -2466,3 +2466,47 @@ writes take up to 0.8 s at launch and were left alone: they suspend and do not b
 
 The first measurement of this fault (2026-10-02) blamed the atlas's first composition and
 named three suspects. Loading the model, the most obvious of them, is a fifth of a second.
+
+---
+
+## 41. Addendum — 2026-10-11: a tap is a finger, not a pixel
+
+Vessels and nerves are exported at Z-Anatomy's own radii (§38): half a millimetre for most,
+a pixel or two on a phone. Picking asked the one pixel under the tap, so they could hardly
+be selected, and each of the 951 is a possible "find the structure" answer.
+
+### 41.1 What was chosen
+
+Of the two ways named when this was filed — a minimum radius in the pipeline, or a tolerance
+in the renderer — the renderer's. It needs no pack regenerated, leaves the meshes as the
+source drew them, and helps every thin thing, not only tubes.
+
+A tap now asks seventeen pixels: the one under it, then two rings of eight, out to 12 dp
+(`TapProbe`, shared by both platforms). **What is under the finger wins.** Only when nothing
+is does the nearest hit within reach count, nearer ring first. The reach turns a miss into a
+near hit; it never takes a tap from the structure it landed on. One tap is still one
+`Picked` event. On iOS the probing is in the shim (`ar_pick_near`), which is handed the
+offsets, so the pattern is written once.
+
+A minimum drawn radius is still open as a matter of *seeing* a vessel rather than tapping
+it. Nothing here makes a one-pixel line easier to see.
+
+### 41.2 What it does not do
+
+A thin structure lying over a larger one is not helped: the pixel under the finger is the
+larger one, and that wins. With every system shown this is the common case for a vessel
+over an organ. It is helped where it matters most, in a quiz, because a session's canvas
+shows only the systems it asks about (state-of-play, 2026-10-11).
+
+### 41.3 Seen
+
+Contract tests on both platforms find the edge of the toy cube with a reach of zero, then
+tap two pixels past it: nothing with no reach, the cube with the default, nothing again
+thirty pixels clear. On the Android emulator with `trunk-all-systems` and every listed system
+but the cardiovascular hidden, eight taps seven pixels beside lines two to six pixels wide
+selected a structure seven times, `Vena jugularis interna` among them. Not tried: a nerve by
+name, the iOS simulator by hand, or any device.
+
+That run also showed ligaments and membranes still drawn with "Juncturae" hidden on the
+layer panel. Either they are not in the system that row hides or hiding missed them; not
+looked into.
