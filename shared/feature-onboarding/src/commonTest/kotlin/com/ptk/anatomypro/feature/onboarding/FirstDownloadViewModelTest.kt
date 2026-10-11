@@ -1,5 +1,10 @@
 package com.ptk.anatomypro.feature.onboarding
 
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.Flow
+import com.ptk.anatomypro.core.data.repository.PackRepository
+import com.ptk.anatomypro.core.data.model.PackState
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakePackRepository
 import com.ptk.anatomypro.core.data.model.PackFailure
@@ -196,5 +201,66 @@ class FirstDownloadViewModelTest {
 
         assertIs<DownloadPhase.Failed>(reopened.state.value.phase)
         assertEquals(1, repository.downloadRequests)
+    }
+
+    // --- outside onboarding: the atlas tab with no pack ---------------------------------
+
+    @Test
+    fun a_pack_someone_removed_is_offered_not_fetched_again_behind_their_back() = runTest(dispatcher) {
+        val repository = FakePackRepository(initiallyInstalled = emptySet())
+
+        val model = FirstDownloadViewModel(repository, autoStart = false)
+        advanceUntilIdle()
+
+        assertEquals(DownloadPhase.Offered, model.state.value.phase)
+        assertEquals(0, repository.downloadRequests)
+
+        model.onStart()
+        advanceUntilIdle()
+
+        assertEquals(DownloadPhase.Done, model.state.value.phase)
+        assertEquals(1, repository.downloadRequests)
+    }
+
+    @Test
+    fun a_download_that_failed_earlier_is_still_a_failure_to_retry_when_it_is_only_offered() = runTest(dispatcher) {
+        val repository = FakePackRepository(downloadFailure = PackFailure.NETWORK, failingAttempts = 1, initiallyInstalled = emptySet())
+        FirstDownloadViewModel(repository)
+        advanceUntilIdle()
+
+        val later = FirstDownloadViewModel(repository, autoStart = false)
+        advanceUntilIdle()
+        assertEquals(DownloadPhase.Failed(PackFailure.NETWORK, resumable = true), later.state.value.phase)
+
+        later.onRetry()
+        advanceUntilIdle()
+        assertEquals(DownloadPhase.Done, later.state.value.phase)
+    }
+
+    // --- a list of packs that cannot be read --------------------------------------------
+
+    @Test
+    fun a_list_that_cannot_be_read_is_a_failure_to_try_again_not_a_build_with_nothing_to_fetch() = runTest(dispatcher) {
+        // No connection on first launch: there is no index, so there is no list.
+        val inner = FakePackRepository(initiallyInstalled = emptySet())
+        var online = false
+        val repository = object : PackRepository by inner {
+            override val packs: Flow<List<PackState>> = flow {
+                if (!online) throw IllegalStateException("no index")
+                emitAll(inner.packs)
+            }
+        }
+
+        val model = FirstDownloadViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(DownloadPhase.Failed(PackFailure.NETWORK, resumable = false), model.state.value.phase)
+        assertTrue(model.state.value.canSkip)
+
+        online = true
+        model.onRetry()
+        advanceUntilIdle()
+
+        assertEquals(DownloadPhase.Done, model.state.value.phase)
     }
 }

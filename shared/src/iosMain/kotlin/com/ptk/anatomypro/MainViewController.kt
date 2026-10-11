@@ -14,5 +14,5 @@ import platform.Foundation.NSBundle
 fun MainViewController() = ComposeUIViewController {
     val packIndexUrl = remember { NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProPackIndexURL") as? String }
     val entry = rememberAppEntry(packIndexUrl)
-    App(entry.dependencies, entry.pack)
+    App(entry)
 }

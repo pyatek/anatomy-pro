@@ -33,5 +33,8 @@
     <string name="download_restart">Start again</string>
     <string name="download_skip">Continue without it</string>
     <string name="download_finish">Open the atlas</string>
+    <string name="download_offered">The atlas needs its model before it can show anything.</string>
+    <string name="download_start">Download the model</string>
+    <string name="download_next">Continue</string>
     <string name="download_progress_description">Download progress, %1$d percent</string>
 </resources>

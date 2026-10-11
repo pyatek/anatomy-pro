@@ -26,12 +26,17 @@ the shorter question: where things stand and what to do next.
   shipped fetched the skeleton and drew it; a download cut at 983 040 bytes resumed with
   `Range: bytes=983040-`; a relaunch with the server down opened the atlas; the pack manager
   listed, deleted and offered the pack again.
+- **Two dead ends in download mode, closed the same day.** Where the download is what
+  brings the atlas, onboarding runs language, download, goals (`onboardingSteps`), so the
+  goals have systems to offer; a download walked past ends onboarding there. With no pack
+  installed the Atlas tab shows the download screen without its step header
+  (`NoPackRoute`): the pack is offered, not fetched, because it may have been removed on
+  purpose. A list of packs that cannot be read is now a failure to retry, not "nothing to
+  download in this version". Seen on the emulator: the new order, delete then download from
+  the Atlas tab, and an offline first launch recovered from the Atlas tab. The prototype has
+  no screen for either case; both reuse screen 03.
 - **Not done, not seen:**
   - iOS downloading was built and unit-tested, never run in the app (ATS needs HTTPS).
-  - In download mode onboarding's goals step comes before there is an atlas, so it has no
-    systems to offer and says "loading atlas" (it can be skipped).
-  - With no pack installed (download skipped, or the pack deleted) the Atlas tab says
-    "opening atlas…" for ever; the only way back is Profile → Packs.
   - Only `skeletal-body` is drawn. Other packs can be downloaded and deleted, not shown.
   - An installed pack older than the index's is listed as installed; no update is offered.
   - Running out of space is reported as a network failure. Eviction under memory pressure

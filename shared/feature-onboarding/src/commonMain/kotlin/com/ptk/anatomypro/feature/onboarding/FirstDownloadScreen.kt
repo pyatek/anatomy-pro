@@ -31,6 +31,9 @@ import anatomypro.shared.feature_onboarding.generated.resources.download_failed_
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_network
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_space
 import anatomypro.shared.feature_onboarding.generated.resources.download_finish
+import anatomypro.shared.feature_onboarding.generated.resources.download_next
+import anatomypro.shared.feature_onboarding.generated.resources.download_offered
+import anatomypro.shared.feature_onboarding.generated.resources.download_start
 import anatomypro.shared.feature_onboarding.generated.resources.download_of
 import anatomypro.shared.feature_onboarding.generated.resources.download_progress_description
 import anatomypro.shared.feature_onboarding.generated.resources.download_queued
@@ -72,6 +75,13 @@ import org.jetbrains.compose.resources.stringResource
  * The prototype also shows the network in use, the time remaining and the space free, and
  * offers a pause. The pack contract reports none of the first three and has no pause, so
  * the panel says what is known and the footer offers what can be done.
+ *
+ * [standalone] is the same screen outside onboarding, where the atlas tab shows it for as
+ * long as there is no pack: no step header, nothing to walk past, and the download waits
+ * for [onStart]. It needs no way out of its own, because it is replaced by the atlas the
+ * moment the pack is in.
+ *
+ * [lastStep] is false where another onboarding step follows, and the button says so.
  */
 @Composable
 fun FirstDownloadScreen(
@@ -82,20 +92,25 @@ fun FirstDownloadScreen(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
+    onStart: () -> Unit = {},
+    standalone: Boolean = false,
+    lastStep: Boolean = true,
 ) {
     val type = LocalAnatomyType.current
     val separator = stringResource(Res.string.decimal_separator)
     val phase = state.phase
 
     Column(modifier = modifier.fillMaxSize()) {
-        StepHeader(
-            label = stringResource(Res.string.onboarding_step, step, stepCount),
-            step = step,
-            stepCount = stepCount,
-            backLabel = stringResource(Res.string.onboarding_back),
-            onBack = onBack,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-        )
+        if (!standalone) {
+            StepHeader(
+                label = stringResource(Res.string.onboarding_step, step, stepCount),
+                step = step,
+                stepCount = stepCount,
+                backLabel = stringResource(Res.string.onboarding_back),
+                onBack = onBack,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -133,7 +148,8 @@ fun FirstDownloadScreen(
                         }
                         DownloadPhase.Done -> Text("✓", style = figure, color = CorrectGreen)
                         is DownloadPhase.Failed -> Text("✕", style = figure, color = IncorrectAmber)
-                        DownloadPhase.Queued, DownloadPhase.Unavailable -> Text("–", style = figure, color = TextTertiary)
+                        DownloadPhase.Queued, DownloadPhase.Unavailable, DownloadPhase.Offered ->
+                            Text("–", style = figure, color = TextTertiary)
                     }
                 }
             }
@@ -156,6 +172,8 @@ fun FirstDownloadScreen(
             ) {
                 when (phase) {
                     DownloadPhase.Queued -> Text(stringResource(Res.string.download_queued), style = type.body, color = TextSecondary)
+                    DownloadPhase.Offered ->
+                        Text(stringResource(Res.string.download_offered), style = type.body, color = TextSecondary, textAlign = TextAlign.Center)
                     is DownloadPhase.Progress -> {
                         val description = stringResource(Res.string.download_progress_description, (phase.fraction * 100).toInt())
                         // The figures are in the ring; here they are only spoken.
@@ -184,15 +202,23 @@ fun FirstDownloadScreen(
             }
         }
 
-        ScreenFooter {
-            if (phase is DownloadPhase.Failed) {
+        when {
+            phase is DownloadPhase.Failed -> ScreenFooter {
                 PrimaryButton(
                     text = stringResource(if (phase.resumable) Res.string.download_resume else Res.string.download_restart),
                     onClick = onRetry,
                 )
-                QuietAction(stringResource(Res.string.download_skip), onClick = onFinish)
-            } else {
-                PrimaryButton(stringResource(Res.string.download_finish), onClick = onFinish, enabled = state.canContinue)
+                if (!standalone) QuietAction(stringResource(Res.string.download_skip), onClick = onFinish)
+            }
+            phase == DownloadPhase.Offered -> ScreenFooter {
+                PrimaryButton(stringResource(Res.string.download_start), onClick = onStart)
+            }
+            !standalone -> ScreenFooter {
+                PrimaryButton(
+                    text = stringResource(if (lastStep) Res.string.download_finish else Res.string.download_next),
+                    onClick = onFinish,
+                    enabled = state.canContinue,
+                )
             }
         }
     }

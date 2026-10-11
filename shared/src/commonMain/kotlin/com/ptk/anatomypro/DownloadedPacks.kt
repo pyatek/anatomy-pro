@@ -41,8 +41,20 @@ data class DrawnPack(val id: PackId, val mesh: MeshSource, val label: String)
  */
 val LocalDrawnPack = staticCompositionLocalOf<DrawnPack?> { null }
 
-/** What an entry point hands to [App]. */
-class AppEntry(val dependencies: AppDependencies, val pack: DrawnPack?)
+/**
+ * What an entry point hands to [App].
+ *
+ * [downloadsPacks] is true for a build that fetches its packs: the atlas is then not in the
+ * app until the first download, which changes the order of onboarding. [packMissing] is
+ * true once it is known that no pack is installed — as opposed to not known yet, which at
+ * launch it never is for a moment.
+ */
+class AppEntry(
+    val dependencies: AppDependencies,
+    val pack: DrawnPack?,
+    val downloadsPacks: Boolean = false,
+    val packMissing: Boolean = false,
+)
 
 /**
  * The pack to draw, once [first] is installed.
@@ -90,14 +102,26 @@ fun rememberDownloadedApp(packIndexUrl: String): AppEntry {
     }
 
     var pack by remember { mutableStateOf<DrawnPack?>(null) }
+    // Whether the listing has been heard from at all. Until then "no pack" is not known.
+    var resolved by remember { mutableStateOf(false) }
     LaunchedEffect(packs, installed) {
         packs.packs
             // No index yet and no connection: nothing is installed either. Ask again.
-            .retryWhen { cause, _ -> (cause is PackIndexUnavailable).also { if (it) delay(INDEX_RETRY_MILLIS) } }
-            .collect { listed -> pack = drawnPackOf(listed, installed.all()) }
+            .retryWhen { cause, _ ->
+                (cause is PackIndexUnavailable).also {
+                    if (it) {
+                        resolved = true
+                        delay(INDEX_RETRY_MILLIS)
+                    }
+                }
+            }
+            .collect { listed ->
+                pack = drawnPackOf(listed, installed.all())
+                resolved = true
+            }
     }
 
-    return remember(pack, packs, settings, progress, database) {
+    return remember(pack, resolved, packs, settings, progress, database) {
         val base = notBuiltAppDependencies(
             atlas = if (pack != null) RoomAtlasRepository(database) else null,
             settings = settings,
@@ -107,6 +131,8 @@ fun rememberDownloadedApp(packIndexUrl: String): AppEntry {
                 base.copy(quiz = GeneratedQuizRepository(RoomQuizGraphSource(database), mastered = progress::mastered))
             },
             pack = pack,
+            downloadsPacks = true,
+            packMissing = resolved && pack == null,
         )
     }
 }

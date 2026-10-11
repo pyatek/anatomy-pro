@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         // set in release. The build type, not a runtime flag, decides which one compiles.
         setContent {
             val entry = appEntry()
-            App(entry.dependencies, entry.pack)
+            App(entry)
         }
     }
 }
@@ -25,5 +25,5 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppAndroidPreview() {
     val entry = appEntry()
-    App(entry.dependencies, entry.pack)
+    App(entry)
 }

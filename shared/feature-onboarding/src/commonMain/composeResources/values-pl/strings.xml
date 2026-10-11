@@ -35,5 +35,8 @@
     <string name="download_restart">Zacznij od nowa</string>
     <string name="download_skip">Kontynuuj bez pakietu</string>
     <string name="download_finish">Otwórz atlas</string>
+    <string name="download_offered">Atlas potrzebuje modelu, żeby cokolwiek pokazać.</string>
+    <string name="download_start">Pobierz model</string>
+    <string name="download_next">Dalej</string>
     <string name="download_progress_description">Postęp pobierania, %1$d procent</string>
 </resources>

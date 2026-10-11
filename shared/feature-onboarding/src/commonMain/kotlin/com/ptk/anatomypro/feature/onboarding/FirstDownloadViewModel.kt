@@ -11,7 +11,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 /** The pack onboarding fetches: the skeleton, which the brief names and review starts with. */
@@ -32,6 +31,9 @@ sealed interface DownloadPhase {
 
     data object Done : DownloadPhase
 
+    /** There to be had, and not asked for: outside onboarding a download waits to be wanted. */
+    data object Offered : DownloadPhase
+
     /** The repository has no such pack. Nothing to wait for, so the step can be passed. */
     data object Unavailable : DownloadPhase
 }
@@ -44,10 +46,13 @@ sealed interface DownloadPhase {
  * while the pack is still untouched — once bytes move, or the repository reports its own
  * failure, the status is the better witness.
  */
-fun phaseOf(status: PackStatus?, requestFailed: Boolean): DownloadPhase = when (status) {
+fun phaseOf(status: PackStatus?, requestFailed: Boolean, asked: Boolean = true): DownloadPhase = when (status) {
     null -> DownloadPhase.Unavailable
-    PackStatus.Available, PackStatus.Queued ->
-        if (requestFailed) DownloadPhase.Failed(PackFailure.NETWORK, resumable = true) else DownloadPhase.Queued
+    PackStatus.Available, PackStatus.Queued -> when {
+        requestFailed -> DownloadPhase.Failed(PackFailure.NETWORK, resumable = true)
+        status == PackStatus.Available && !asked -> DownloadPhase.Offered
+        else -> DownloadPhase.Queued
+    }
     is PackStatus.Downloading -> DownloadPhase.Progress(status.bytesDone, status.bytesTotal)
     PackStatus.Installed -> DownloadPhase.Done
     is PackStatus.Failed -> DownloadPhase.Failed(status.reason, status.resumable)
@@ -74,6 +79,11 @@ data class FirstDownloadUiState(
 class FirstDownloadViewModel(
     private val packs: PackRepository,
     private val pack: PackId = FIRST_PACK,
+    /**
+     * Onboarding fetches the pack without being asked. Anywhere else the pack may be absent
+     * because someone removed it, and it waits for [onStart].
+     */
+    private val autoStart: Boolean = true,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FirstDownloadUiState())
@@ -83,22 +93,40 @@ class FirstDownloadViewModel(
     private var requestFailed = false
     private var asked = false
 
+    /** The list of packs could not be read at all: no connection and nothing kept. */
+    private var listFailed = false
+
     init {
+        observe()
+    }
+
+    private fun observe() {
+        listFailed = false
         viewModelScope.launch {
-            packs.packs
-                // A listing that cannot be read is a pack that cannot be fetched.
-                .catch { emit(emptyList()) }
-                .collect { all ->
+            try {
+                packs.packs.collect { all ->
                     latest = all.firstOrNull { it.id == pack }
                     publish()
-                    if (latest?.status == PackStatus.Available && !asked) request()
+                    if (autoStart && latest?.status == PackStatus.Available && !asked) request()
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                listFailed = true
+                publish()
+            }
         }
+    }
+
+    /** Asks for a pack that was only [DownloadPhase.Offered]. */
+    fun onStart() {
+        if (_state.value.phase != DownloadPhase.Offered) return
+        request()
     }
 
     fun onRetry() {
         if (_state.value.phase !is DownloadPhase.Failed) return
-        request()
+        if (listFailed) observe() else request()
     }
 
     private fun request() {
@@ -122,7 +150,12 @@ class FirstDownloadViewModel(
         _state.value = FirstDownloadUiState(
             label = current?.label,
             byteSize = current?.byteSize ?: 0,
-            phase = phaseOf(current?.status, requestFailed),
+            // Nothing was fetched, so there is nothing to resume: only to try again.
+            phase = if (listFailed) {
+                DownloadPhase.Failed(PackFailure.NETWORK, resumable = false)
+            } else {
+                phaseOf(current?.status, requestFailed, asked)
+            },
         )
     }
 }

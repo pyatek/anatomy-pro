@@ -80,12 +80,17 @@ import org.jetbrains.compose.resources.stringResource
  * system's (§13).
  */
 @Composable
-fun App(dependencies: AppDependencies, pack: DrawnPack? = null) {
-    CompositionLocalProvider(LocalDrawnPack provides pack) { AppContent(dependencies) }
+fun App(dependencies: AppDependencies) = App(AppEntry(dependencies, pack = null))
+
+@Composable
+fun App(entry: AppEntry) {
+    CompositionLocalProvider(LocalDrawnPack provides entry.pack) {
+        AppContent(entry.dependencies, downloadsPacks = entry.downloadsPacks, packMissing = entry.packMissing)
+    }
 }
 
 @Composable
-private fun AppContent(dependencies: AppDependencies) {
+private fun AppContent(dependencies: AppDependencies, downloadsPacks: Boolean, packMissing: Boolean) {
     AnatomyTheme {
         val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(dependencies.settings) }
         val settingsState: SettingsUiState by settingsModel.state.collectAsState()
@@ -122,6 +127,7 @@ private fun AppContent(dependencies: AppDependencies) {
                             state = settingsState,
                             model = settingsModel,
                             navController = onboardingNavController,
+                            atlasArrivesByDownload = downloadsPacks,
                         )
 
                         else -> MainScaffold(
@@ -130,6 +136,7 @@ private fun AppContent(dependencies: AppDependencies) {
                             model = settingsModel,
                             navController = navController,
                             treePath = treePath,
+                            packMissing = packMissing,
                         )
                     }
                 }
@@ -153,6 +160,7 @@ private fun MainScaffold(
     model: SettingsViewModel,
     navController: NavHostController,
     treePath: MutableState<String>,
+    packMissing: Boolean,
 ) {
     val entry by navController.currentBackStackEntryAsState()
     // Read from the whole stack, not its top: the paywall has no tab of its own and is
@@ -212,7 +220,12 @@ private fun MainScaffold(
         ) {
             NavHost(navController = navController, startDestination = TopLevel.Atlas.start) {
                 composable<AtlasRoute.Browse> {
-                    if (state.settings.structureTreeMode) {
+                    if (packMissing && dependencies.atlas == null) {
+                        // Nothing to browse: the first download was walked past, or the pack
+                        // was removed. Offer it here rather than wait for an atlas that is
+                        // not coming.
+                        NoPackRoute(dependencies.packs)
+                    } else if (state.settings.structureTreeMode) {
                         TreeRoute(
                             repository = dependencies.atlas,
                             scene = scene,
