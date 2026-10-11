@@ -156,6 +156,31 @@ class DatabaseTest {
     }
 
     @Test
+    fun an_installed_pack_is_listed_with_its_version_and_where_its_mesh_is() = runTest {
+        val installed = com.ptk.anatomypro.core.data.repository.RoomInstalledPacks(database)
+        assertEquals(emptyList(), installed.all())
+
+        installed.install(SAMPLE_MANIFEST, version = 3, meshUri = "file:///packs/m.glb")
+
+        val pack = installed.all().single()
+        assertEquals(3L, pack.version)
+        assertEquals("file:///packs/m.glb", pack.meshUri)
+        assertNotNull(dao.structure("1168-clavicula-left"))
+    }
+
+    @Test
+    fun an_uninstalled_pack_is_no_longer_listed_but_its_structures_can_still_be_read() = runTest {
+        // Design §24.3: deleting a pack frees its geometry, not what is known about it.
+        val installed = com.ptk.anatomypro.core.data.repository.RoomInstalledPacks(database)
+        installed.install(SAMPLE_MANIFEST, version = 1, meshUri = "file:///packs/m.glb")
+
+        installed.uninstall(installed.all().single().id)
+
+        assertEquals(emptyList(), installed.all())
+        assertNotNull(dao.structure("1168-clavicula-left"))
+    }
+
+    @Test
     fun installs_a_pack_and_reads_a_structure_back() = runTest {
         install()
 

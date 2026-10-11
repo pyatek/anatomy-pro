@@ -87,6 +87,13 @@ interface StructureDao {
     @Query("SELECT * FROM pack WHERE id = :id")
     suspend fun pack(id: String): PackEntity?
 
+    @Query("SELECT * FROM pack ORDER BY id")
+    suspend fun packs(): List<PackEntity>
+
+    /** The pack's structures stay; only where its geometry was is forgotten (§24.3). */
+    @Query("UPDATE pack SET meshUri = NULL, installedAt = NULL WHERE id = :id")
+    suspend fun forgetMeshOf(id: String)
+
     // --- §8.1 distractor tiers -------------------------------------------------------
     // Each is one predicate over an indexed column. `id != :exclude` keeps the structure
     // being asked about out of its own list of wrong answers.
