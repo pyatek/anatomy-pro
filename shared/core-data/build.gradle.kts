@@ -18,6 +18,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":shared:core-model"))
+            api(project(":shared:core-quiz"))
             api(libs.kotlinx.datetime)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
@@ -27,6 +28,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(project(":shared:core-quiz-fixtures"))
         }
         getByName("androidDeviceTest").dependencies {
             implementation(libs.kotlin.test)
