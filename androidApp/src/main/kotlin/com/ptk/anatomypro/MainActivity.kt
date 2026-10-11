@@ -12,10 +12,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // appDependencies() is declared once per build type: fakes in debug, the production
+        // appEntry() is declared once per build type: fakes in debug, the production
         // set in release. The build type, not a runtime flag, decides which one compiles.
         setContent {
-            App(appDependencies())
+            val entry = appEntry()
+            App(entry.dependencies, entry.pack)
         }
     }
 }
@@ -23,5 +24,6 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App(appDependencies())
+    val entry = appEntry()
+    App(entry.dependencies, entry.pack)
 }

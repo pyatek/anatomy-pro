@@ -75,6 +75,22 @@ fun rememberSettingsRepository(): SettingsRepository {
 }
 
 /**
+ * Progress is kept on the device from the first session, in the user's own days
+ * (all-screens spec §4.2).
+ */
+@Composable
+fun rememberProgressRepository(): RoomProgressRepository {
+    val database = rememberAnatomyDatabase()
+    return remember(database) {
+        RoomProgressRepository(
+            database,
+            today = { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date },
+            now = { Clock.System.now().toEpochMilliseconds() },
+        )
+    }
+}
+
+/**
  * The production set.
  *
  * Four of the eight repositories still refuse rather than answer; see
@@ -89,16 +105,7 @@ fun rememberSettingsRepository(): SettingsRepository {
 fun rememberAppDependencies(): AppDependencies {
     val atlas = rememberAtlas()
     val settings = rememberSettingsRepository()
-    val database = rememberAnatomyDatabase()
-    // Progress is kept on the device from the first session, in the user's own days
-    // (all-screens spec §4.2).
-    val progress = remember(database) {
-        RoomProgressRepository(
-            database,
-            today = { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date },
-            now = { Clock.System.now().toEpochMilliseconds() },
-        )
-    }
+    val progress = rememberProgressRepository()
     return remember(atlas, settings, progress) {
         val base = notBuiltAppDependencies(atlas = atlas?.repository, settings = settings).copy(progress = progress)
         // The quiz is generated from the installed atlas (§8.2), so there is none until the

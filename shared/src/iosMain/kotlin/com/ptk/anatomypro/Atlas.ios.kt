@@ -64,3 +64,13 @@ internal fun resolveBundledPack(): BundledPack {
         label = id,
     )
 }
+
+@Composable
+actual fun rememberPackDirectory(): String = remember {
+    val support = platform.Foundation.NSSearchPathForDirectoriesInDomains(
+        platform.Foundation.NSApplicationSupportDirectory,
+        platform.Foundation.NSUserDomainMask,
+        true,
+    ).first() as String
+    "$support/packs"
+}

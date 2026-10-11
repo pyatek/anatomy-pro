@@ -42,7 +42,18 @@ import kotlin.time.Duration.Companion.milliseconds
  * can be seen working.
  */
 @Composable
-internal fun appDependencies(): AppDependencies {
+internal fun appEntry(): AppEntry {
+    val intent = LocalActivity.current?.intent
+    //   packIndex: the URL of a pack index. The app then runs as a release build given that
+    //   index does: nothing shipped inside it, the skeleton fetched by onboarding's third step.
+    //   adb shell am start -n com.ptk.anatomypro/.MainActivity --es packIndex http://10.0.2.2:8099/index.json
+    val packIndex = intent?.getStringExtra("packIndex") ?: BuildConfig.PACK_INDEX_URL
+    if (packIndex.isNotBlank()) return rememberDownloadedApp(packIndex)
+    return AppEntry(fakeOrProductionDependencies(), pack = null)
+}
+
+@Composable
+private fun fakeOrProductionDependencies(): AppDependencies {
     val intent = LocalActivity.current?.intent
     //   production: true runs this debug build on exactly what a release build is given —
     //   the real quiz and progress store, and refusals for everything not built yet.

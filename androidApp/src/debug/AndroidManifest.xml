@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Debug only: lets a pack index be served from the development machine over plain
+         HTTP (the packIndex intent extra). Release allows HTTPS only. -->
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

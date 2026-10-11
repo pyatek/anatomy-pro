@@ -63,13 +63,20 @@ abstract class StagePhase0Pack : DefaultTask() {
 // nothing has implemented layer peeling yet (§6.1, Phase 1).
 val phase0PackId = providers.gradleProperty("anatomypro.pack").orElse("trunk-all-systems")
 
+// Where packs are downloaded from (backend spec §9): the URL of the bucket's index.json.
+// With it set the app ships no pack and fetches the skeleton on first launch; without it
+// the pack above is staged into the APK, as it has been since Phase 0.
+val packIndexUrl = providers.gradleProperty("anatomypro.packs.indexUrl").orElse("")
+
 val stagePhase0Pack by tasks.registering(StagePhase0Pack::class) {
     description = "Copies the generated Phase 0 content pack into the app's assets."
     packId.set(phase0PackId)
-    pack.from(
-        phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/mesh.glb") },
-        phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/manifest.json") },
-    )
+    if (packIndexUrl.get().isBlank()) {
+        pack.from(
+            phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/mesh.glb") },
+            phase0PackId.map { rootProject.layout.projectDirectory.file("pipeline/build/packs/$it/manifest.json") },
+        )
+    }
 }
 
 androidComponents {
@@ -91,6 +98,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "PACK_INDEX_URL", "\"${packIndexUrl.get()}\"")
     }
     packaging {
         resources {
@@ -112,5 +120,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }

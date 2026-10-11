@@ -53,6 +53,7 @@ kotlin {
             implementation(project(":shared:core-navigation"))
             implementation(project(":shared:renderer-filament"))
             api(project(":shared:core-data"))
+            implementation(project(":shared:core-network"))
             api(project(":shared:feature-atlas"))
             api(project(":shared:feature-search"))
             api(project(":shared:feature-settings"))

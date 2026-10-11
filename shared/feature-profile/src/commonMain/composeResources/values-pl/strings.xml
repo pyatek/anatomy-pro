@@ -36,7 +36,6 @@
     <string name="packs_failed_network">Połączenie zostało przerwane. Pobrana część została zachowana.</string>
     <string name="packs_failed_checksum">Plik dotarł uszkodzony.</string>
     <string name="packs_failed_space">Na urządzeniu brakuje wolnego miejsca.</string>
-    <string name="packs_failed_other">Pobieranie nie powiodło się.</string>
     <string name="packs_download">Pobierz</string>
     <string name="packs_resume">Wznów</string>
     <string name="packs_restart">Zacznij od nowa</string>

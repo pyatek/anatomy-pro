@@ -75,7 +75,7 @@ class CdnPackRepository(
     private val installed: InstalledPacks,
     private val scope: CoroutineScope,
     /** The language packs are named in on screen, Latin where the index has no such name. */
-    private val locale: () -> String,
+    private val locale: suspend () -> String,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : PackRepository {
 
@@ -105,7 +105,6 @@ class CdnPackRepository(
                 label = entry.labels[language] ?: entry.labels["la"] ?: entry.id,
                 byteSize = entry.byteSize,
                 checksum = entry.sha256,
-                entitlement = null,
                 status = if (PackId(entry.id) in onDevice) PackStatus.Installed else PackStatus.Available,
             )
         }

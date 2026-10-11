@@ -1,11 +1,10 @@
 package com.ptk.anatomypro.core.data.model
 
 import com.ptk.anatomypro.core.model.PackId
-import com.ptk.anatomypro.core.model.SystemId
 
 /**
- * The manifest fields §10 names, minus the download URL: that is issued server-side
- * against entitlements and never belongs in UI state.
+ * A pack as the index of the bucket lists it (backend spec §9.1), and what this device has
+ * done about it. Packs are free, so nothing here says who may have one (all-screens §15.2).
  */
 data class PackState(
     val id: PackId,
@@ -13,7 +12,6 @@ data class PackState(
     val label: String,
     val byteSize: Long,
     val checksum: String,
-    val entitlement: SystemId?,
     val status: PackStatus,
 )
 
@@ -34,4 +32,4 @@ sealed interface PackStatus {
     data class Failed(val reason: PackFailure, val resumable: Boolean) : PackStatus
 }
 
-enum class PackFailure { NETWORK, CHECKSUM, OUT_OF_SPACE, NOT_ENTITLED }
+enum class PackFailure { NETWORK, CHECKSUM, OUT_OF_SPACE }

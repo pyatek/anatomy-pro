@@ -30,7 +30,6 @@
     <string name="download_failed_network">Połączenie zostało przerwane.</string>
     <string name="download_failed_checksum">Plik dotarł uszkodzony.</string>
     <string name="download_failed_space">Na urządzeniu brakuje wolnego miejsca.</string>
-    <string name="download_failed_entitlement">Ten pakiet nie jest dostępny dla tego konta.</string>
     <string name="download_failed_kept">Pobrana część została zachowana.</string>
     <string name="download_resume">Wznów pobieranie</string>
     <string name="download_restart">Zacznij od nowa</string>

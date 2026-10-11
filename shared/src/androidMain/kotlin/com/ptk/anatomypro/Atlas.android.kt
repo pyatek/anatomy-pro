@@ -56,3 +56,9 @@ actual fun rememberBundledPack(): BundledPack {
         }
     }
 }
+
+@Composable
+actual fun rememberPackDirectory(): String {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { File(context.filesDir, "packs").absolutePath }
+}

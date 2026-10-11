@@ -60,7 +60,11 @@ actual fun AnatomyCanvas(
     // Loaded is not drawn: a pack's uploads are only queued when it reports loaded. The
     // frame loop says when the backend has drawn it.
     var packDrawn by remember(renderer) { mutableStateOf(false) }
-    val pack = remember { resolveBundledPack() }
+    // A downloaded pack where packs are downloaded; the one shipped in the app otherwise.
+    val drawn = LocalDrawnPack.current
+    val pack = remember(drawn) {
+        drawn?.let { BundledPack(id = it.id, mesh = it.mesh, manifestJson = null, label = it.label) } ?: resolveBundledPack()
+    }
     val currentOnPicked by rememberUpdatedState(onPicked)
     val currentOnStats by rememberUpdatedState(onStats)
 

@@ -143,7 +143,7 @@ class PacksViewModelTest {
     fun a_confirmation_is_dropped_when_its_pack_is_no_longer_there_to_delete() = runTest(dispatcher) {
         // Review Focus 3. The list changes under the question.
         val listed = MutableStateFlow(
-            listOf(PackState(skeletal, 1, "Układ kostny", 48_300_000, "sha256:2f1c0a", entitlement = null, status = PackStatus.Installed)),
+            listOf(PackState(skeletal, 1, "Układ kostny", 48_300_000, "sha256:2f1c0a", status = PackStatus.Installed)),
         )
         val repository = object : PackRepository {
             override val packs: Flow<List<PackState>> = listed

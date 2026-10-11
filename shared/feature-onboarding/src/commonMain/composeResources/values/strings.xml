@@ -28,7 +28,6 @@
     <string name="download_failed_network">The connection dropped.</string>
     <string name="download_failed_checksum">The file arrived damaged.</string>
     <string name="download_failed_space">There is not enough free space on this device.</string>
-    <string name="download_failed_entitlement">This pack is not available to this account.</string>
     <string name="download_failed_kept">What was downloaded is kept.</string>
     <string name="download_resume">Resume download</string>
     <string name="download_restart">Start again</string>

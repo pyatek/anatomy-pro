@@ -46,7 +46,6 @@ class FakePackRepository(
                 label = "Układ kostny",
                 byteSize = 48_300_000,
                 checksum = "sha256:2f1c0a",
-                entitlement = null,
                 status = initialStatus(PackId("skeletal-body")),
             ),
             PackState(
@@ -55,7 +54,6 @@ class FakePackRepository(
                 label = "Układ mięśniowy",
                 byteSize = 112_700_000,
                 checksum = "sha256:9b4e17",
-                entitlement = null,
                 status = initialStatus(PackId("muscular-body")),
             ),
             PackState(
@@ -64,7 +62,6 @@ class FakePackRepository(
                 label = "Układ nerwowy",
                 byteSize = 67_400_000,
                 checksum = "sha256:c30d82",
-                entitlement = null,
                 status = initialStatus(PackId("nervous-body")),
             ),
         ),

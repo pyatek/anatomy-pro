@@ -28,7 +28,6 @@ import anatomypro.shared.feature_profile.generated.resources.packs_downloading
 import anatomypro.shared.feature_profile.generated.resources.packs_failed
 import anatomypro.shared.feature_profile.generated.resources.packs_failed_checksum
 import anatomypro.shared.feature_profile.generated.resources.packs_failed_network
-import anatomypro.shared.feature_profile.generated.resources.packs_failed_other
 import anatomypro.shared.feature_profile.generated.resources.packs_failed_space
 import anatomypro.shared.feature_profile.generated.resources.packs_installed
 import anatomypro.shared.feature_profile.generated.resources.packs_loading
@@ -184,8 +183,6 @@ private fun PackCard(
                     PackFailure.NETWORK -> Res.string.packs_failed_network
                     PackFailure.CHECKSUM -> Res.string.packs_failed_checksum
                     PackFailure.OUT_OF_SPACE -> Res.string.packs_failed_space
-                    // Cannot occur: packs carry no entitlement (all-screens spec §15.2).
-                    PackFailure.NOT_ENTITLED -> Res.string.packs_failed_other
                 }
                 Text(stringResource(message), style = type.caption, color = IncorrectAmber)
             }

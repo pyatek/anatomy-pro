@@ -55,7 +55,11 @@ actual fun AnatomyCanvas(
 ) {
     val context = LocalContext.current
     val renderer = remember { FilamentAnatomyRenderer() }
-    val pack = remember(context) { resolvePack(context) }
+    // A downloaded pack where packs are downloaded; the one shipped in the app otherwise.
+    val drawn = LocalDrawnPack.current
+    val pack = remember(context, drawn) {
+        drawn?.let { HarnessPack(id = it.id, source = it.mesh, label = it.label) } ?: resolvePack(context)
+    }
     // Filament paces against this. Reading it from the display rather than assuming 60
     // is the difference between measuring the renderer and measuring the assumption.
     val refreshHz = remember(context) {

@@ -27,7 +27,6 @@ import anatomypro.shared.feature_onboarding.generated.resources.download_fact_si
 import anatomypro.shared.feature_onboarding.generated.resources.download_fact_stored
 import anatomypro.shared.feature_onboarding.generated.resources.download_fact_stored_value
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_checksum
-import anatomypro.shared.feature_onboarding.generated.resources.download_failed_entitlement
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_kept
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_network
 import anatomypro.shared.feature_onboarding.generated.resources.download_failed_space
@@ -203,5 +202,4 @@ private fun failureText(reason: PackFailure): StringResource = when (reason) {
     PackFailure.NETWORK -> Res.string.download_failed_network
     PackFailure.CHECKSUM -> Res.string.download_failed_checksum
     PackFailure.OUT_OF_SPACE -> Res.string.download_failed_space
-    PackFailure.NOT_ENTITLED -> Res.string.download_failed_entitlement
 }

@@ -1,8 +1,10 @@
 package com.ptk.anatomypro
 
 import androidx.compose.runtime.Composable
-import com.ptk.anatomypro.core.data.AppDependencies
 
-/** Production: Room for what exists, refusals for the rest (all-screens spec §6). */
+/**
+ * Production: Room for what exists, refusals for the rest (all-screens spec §6). Packs are
+ * downloaded where the build was given an index to download them from.
+ */
 @Composable
-internal fun appDependencies(): AppDependencies = rememberAppDependencies()
+internal fun appEntry(): AppEntry = rememberAppEntry(BuildConfig.PACK_INDEX_URL)

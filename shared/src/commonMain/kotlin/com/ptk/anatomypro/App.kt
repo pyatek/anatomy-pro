@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -79,7 +80,12 @@ import org.jetbrains.compose.resources.stringResource
  * system's (§13).
  */
 @Composable
-fun App(dependencies: AppDependencies) {
+fun App(dependencies: AppDependencies, pack: DrawnPack? = null) {
+    CompositionLocalProvider(LocalDrawnPack provides pack) { AppContent(dependencies) }
+}
+
+@Composable
+private fun AppContent(dependencies: AppDependencies) {
     AnatomyTheme {
         val settingsModel: SettingsViewModel = viewModel { SettingsViewModel(dependencies.settings) }
         val settingsState: SettingsUiState by settingsModel.state.collectAsState()

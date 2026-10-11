@@ -68,12 +68,6 @@ class FakeCommerceTest {
     }
 
     @Test
-    fun no_pack_is_entitled_to_anything_because_packs_are_free() = runTest {
-        // All-screens spec §15.2: entitlements gate quiz topics, not packs.
-        assertTrue(FakePackRepository().packs.first().all { it.entitlement == null })
-    }
-
-    @Test
     fun the_free_pack_is_installed_and_a_paid_one_is_merely_available() = runTest {
         val packs = FakePackRepository().packs.first()
 

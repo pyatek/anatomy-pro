@@ -36,7 +36,6 @@
     <string name="packs_failed_network">The connection dropped. What was downloaded is kept.</string>
     <string name="packs_failed_checksum">The file arrived damaged.</string>
     <string name="packs_failed_space">Not enough free space on this device.</string>
-    <string name="packs_failed_other">The download failed.</string>
     <string name="packs_download">Download</string>
     <string name="packs_resume">Resume</string>
     <string name="packs_restart">Start again</string>
