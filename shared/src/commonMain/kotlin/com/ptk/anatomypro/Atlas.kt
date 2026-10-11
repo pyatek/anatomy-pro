@@ -6,6 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlin.time.Clock
+import com.ptk.anatomypro.core.data.quiz.GeneratedQuizRepository
+import com.ptk.anatomypro.core.data.progress.RoomProgressRepository
 import com.ptk.anatomypro.core.data.AnatomyDatabase
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.PackInstaller
@@ -72,7 +77,8 @@ fun rememberSettingsRepository(): SettingsRepository {
 /**
  * The production set.
  *
- * Six of the eight repositories refuse rather than answer; see notBuiltAppDependencies.
+ * Four of the eight repositories still refuse rather than answer; see
+ * notBuiltAppDependencies. The atlas, settings, the quiz and progress are real.
  * Replacing one when Phase 3 builds it is a one-line change here and nothing else.
  *
  * The atlas is installed here, at the entry point, rather than inside the Atlas tab: above
@@ -83,5 +89,22 @@ fun rememberSettingsRepository(): SettingsRepository {
 fun rememberAppDependencies(): AppDependencies {
     val atlas = rememberAtlas()
     val settings = rememberSettingsRepository()
-    return remember(atlas, settings) { notBuiltAppDependencies(atlas = atlas?.repository, settings = settings) }
+    val database = rememberAnatomyDatabase()
+    // Progress is kept on the device from the first session, in the user's own days
+    // (all-screens spec §4.2).
+    val progress = remember(database) {
+        RoomProgressRepository(
+            database,
+            today = { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date },
+            now = { Clock.System.now().toEpochMilliseconds() },
+        )
+    }
+    return remember(atlas, settings, progress) {
+        val base = notBuiltAppDependencies(atlas = atlas?.repository, settings = settings).copy(progress = progress)
+        // The quiz is generated from the installed atlas (§8.2), so there is none until the
+        // pack is in. It asks only about names that have been verified (§7): with nothing
+        // reviewed yet its topic grid is empty, and says so.
+        val graph = atlas?.quizGraph ?: return@remember base
+        base.copy(quiz = GeneratedQuizRepository(graph, mastered = progress::mastered))
+    }
 }

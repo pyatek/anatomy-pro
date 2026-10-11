@@ -53,9 +53,19 @@ class TopicsViewModel(
     init {
         load()
         viewModelScope.launch {
-            entitlements.entitlements.collect { current ->
-                held = current
-                publish()
+            try {
+                entitlements.entitlements.collect { current ->
+                    held = current
+                    publish()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Could not be read: nothing bought is what [held] already says.
+            } catch (_: NotImplementedError) {
+                // No way to read what was bought — a build that has the quiz before it has a
+                // store. Nothing bought is what [held] already says: free topics open, the
+                // rest locked.
             }
         }
     }
@@ -67,8 +77,17 @@ class TopicsViewModel(
         load()
     }
 
+    /**
+     * The grid was come back to. A session may have been played since the topics were read,
+     * and their mastery with it. What is on screen stays until the new reading arrives.
+     */
+    fun refresh() {
+        if (_state.value.isLoading) return
+        load()
+    }
+
     private fun load() {
-        _state.update { it.copy(isLoading = true, failed = false) }
+        _state.update { it.copy(isLoading = it.cells.isEmpty(), failed = false) }
         viewModelScope.launch {
             try {
                 topics = quiz.topics(locale)

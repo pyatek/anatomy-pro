@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.feature.quiz
 
+import com.ptk.anatomypro.core.data.NotBuiltEntitlementRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeEntitlementRepository
 import com.ptk.anatomypro.core.data.fake.FakeQuizRepository
@@ -122,5 +123,41 @@ class TopicsViewModelTest {
 
         assertFalse(model.state.value.failed)
         assertEquals(3, model.state.value.cells.size)
+    }
+
+    @Test
+    fun a_build_with_no_billing_yet_shows_the_topics_as_a_free_user_would_see_them() = runTest(dispatcher) {
+        // A release build has the quiz before it has a store: its entitlements refuse
+        // (all-screens spec §6). That must read as "nothing bought", not take the grid down.
+        val model = TopicsViewModel(FakeQuizRepository(), NotBuiltEntitlementRepository, locale = "la")
+        advanceUntilIdle()
+
+        val cells = model.state.value.cells
+        assertFalse(model.state.value.failed)
+        assertTrue(cells.isNotEmpty())
+        assertTrue(cells.filter { it.topic.system.value == "skeletal-system" }.none { it.locked }, "the skeleton is free")
+        assertTrue(cells.filter { it.topic.system.value != "skeletal-system" }.all { it.locked }, "the rest is not")
+    }
+
+    @Test
+    fun the_topics_are_read_again_when_the_grid_is_come_back_to() = runTest(dispatcher) {
+        // Mastery changes while a session is played. The grid kept the topics it first
+        // loaded, so a topic just practised still read "not started".
+        var asked = 0
+        val real = FakeQuizRepository()
+        val counting = object : QuizRepository by real {
+            override suspend fun topics(locale: String) = real.topics(locale).also { asked++ }
+        }
+        val model = TopicsViewModel(counting, FakeEntitlementRepository(), locale = "la")
+        advanceUntilIdle()
+        val before = model.state.value.cells
+
+        model.refresh()
+        // What is on screen stays while the new reading is on its way.
+        assertEquals(before, model.state.value.cells)
+        assertFalse(model.state.value.isLoading)
+        advanceUntilIdle()
+
+        assertEquals(2, asked)
     }
 }

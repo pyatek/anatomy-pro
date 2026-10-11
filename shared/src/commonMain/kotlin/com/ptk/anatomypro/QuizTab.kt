@@ -91,6 +91,8 @@ internal fun QuizTopicsRoute(
         TopicsViewModel(dependencies.quiz, dependencies.entitlements, settings.interfaceLocale)
     }
     val state by topics.state.collectAsState()
+    // Read again each time the grid is shown: a session just played changed its mastery.
+    LaunchedEffect(topics) { topics.refresh() }
 
     TopicsScreen(
         state = state,

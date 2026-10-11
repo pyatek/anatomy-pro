@@ -36,4 +36,28 @@ class AndroidDatabaseTest {
             database.close()
         }
     }
+
+    /** The progress tables on a real Android database: written in one transaction, read back. */
+    @Test
+    fun records_a_session_into_a_real_android_database() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val database = anatomyDatabase(context, name = "anatomy-test-${System.nanoTime()}.db")
+        try {
+            PackInstaller(database).install(SAMPLE_MANIFEST, version = 1, meshUri = "file:///m.glb")
+            val progress = database.progress()
+
+            progress.record(
+                com.ptk.anatomypro.core.data.entity.QuizSessionEntity(day = "2026-10-11", finishedAt = 5, correct = 1, total = 2, elapsedMillis = 900),
+                listOf("1168-clavicula-left" to true, "1169-scapula-left" to false),
+            )
+
+            assertEquals(listOf("1168-clavicula-left"), progress.mastered())
+            val skeletal = progress.masteryBySystem().single { it.systemId == "skeletal-system" }
+            assertEquals(1, skeletal.seen)
+            assertEquals(2, skeletal.total)
+            assertEquals(2, progress.activity("2026-10-01", "2026-10-31").single().questions)
+        } finally {
+            database.close()
+        }
+    }
 }

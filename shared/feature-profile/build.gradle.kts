@@ -8,6 +8,8 @@ kotlin {
             implementation(libs.compose.components.resources)
             api(project(":shared:core-data"))
             implementation(project(":shared:core-designsystem"))
+            // For systemNames: the system names are written down once, in feature-atlas.
+            implementation(project(":shared:feature-atlas"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

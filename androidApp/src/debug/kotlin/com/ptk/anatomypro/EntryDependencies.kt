@@ -1,5 +1,9 @@
 package com.ptk.anatomypro
 
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlin.time.Clock
+import com.ptk.anatomypro.core.data.progress.RoomProgressRepository
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -39,8 +43,23 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Composable
 internal fun appDependencies(): AppDependencies {
-    val atlas = rememberAtlas()
     val intent = LocalActivity.current?.intent
+    //   production: true runs this debug build on exactly what a release build is given —
+    //   the real quiz and progress store, and refusals for everything not built yet.
+    if (intent?.getBooleanExtra("production", false) == true) return rememberAppDependencies()
+
+    val atlas = rememberAtlas()
+    //   realProgress: true keeps sessions in the database instead of showing the fixture's
+    //   history, so mastery, the streak and the calendar can be watched changing.
+    val realProgress = intent?.getBooleanExtra("realProgress", false) ?: false
+    val database = rememberAnatomyDatabase()
+    val stored = remember(database) {
+        RoomProgressRepository(
+            database,
+            today = { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date },
+            now = { Clock.System.now().toEpochMilliseconds() },
+        )
+    }
     val onboarding = intent?.getBooleanExtra("onboarding", false) ?: false
     val packFailure = intent?.getStringExtra("packFailure")
         ?.let { name -> PackFailure.entries.firstOrNull { it.name == name } }
@@ -81,7 +100,7 @@ internal fun appDependencies(): AppDependencies {
             )
         }
     }
-    return remember(atlas, fakes, dailyState) {
+    return remember(atlas, fakes, dailyState, realProgress) {
         val installed = atlas?.repository
             // Until the pack is installed there is no quiz and no daily, and their tabs say
             // so. Either one built over the fixture here would be captured by its
@@ -94,10 +113,14 @@ internal fun appDependencies(): AppDependencies {
         // in the pack, so nothing a fixture quiz highlighted could be seen and nothing
         // tapped could be right. Over a harness — UnreviewedAtlas switches §7's
         // verified-only rule off, which would leave an unreviewed atlas with nothing to ask.
-        val quiz = GeneratedQuizRepository(UnreviewedAtlas(atlas.quizGraph))
+        val quiz = GeneratedQuizRepository(
+            UnreviewedAtlas(atlas.quizGraph),
+            mastered = { if (realProgress) stored.mastered() else emptySet() },
+        )
         fakes.copy(
             atlas = installed,
             quiz = quiz,
+            progress = if (realProgress) stored else fakes.progress,
             // The daily quiz practises on the same questions, so it shares the repository,
             // and asks about its first topic: the atlas may have no "costae".
             daily = FakeDailyRepository(

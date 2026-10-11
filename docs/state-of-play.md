@@ -60,6 +60,43 @@ anything on iOS or on a device.
 - **The ranking opened from the lobby stays on top of Today's stack**, so DZIŚ returns to it.
 - The design-spec addenda the three screen plans ask for are not written.
 
+## 2026-10-11: progress is kept, and the quiz is real in release builds (branch `feature/progress-store`, not merged)
+
+**Release builds now have the quiz and a progress store.** `rememberAppDependencies()` supplies
+`GeneratedQuizRepository` over the installed atlas and `RoomProgressRepository`. Four
+repositories still refuse there: the daily, the leaderboard, entitlements and packs.
+
+- **The quiz in a release build asks only about verified names (§7), and nothing is verified
+  yet**, so its topic grid is empty and says so. That is the honest state until the reviewer
+  tool produces verifications. Debug builds still ask about everything, through
+  `UnreviewedAtlas`.
+- **Entitlements refuse in a release build**; the topic grid reads that as "nothing bought":
+  skeletal topics open, the rest locked, and a locked topic opens the paywall's placeholder.
+- **Progress** is two tables added by migration 3 → 4: `quiz_session` (one row a finished
+  session, with the user's own day) and `structure_progress` (right and wrong counts per
+  structure). The streak, the calendar and mastery are read from them; nothing is held in
+  memory. A quiz summary now says which structure each question was about and whether it was
+  answered rightly (`QuizSummary.answered`), which is what progress is kept from.
+- **Mastery** is "answered rightly at least once". A topic's is the share of its names; a
+  system's is counted over every drawn structure in it, verified or not, both sides — so the
+  two are not the same measure, and a system's total is larger than what can be asked.
+- **Not known yet:** whether a day's daily quiz was completed (`dailyCompleted` is always
+  false; the server's to say, Phase 3), and system names in the progress contract — the
+  profile takes them from `systemNames` instead.
+- Each of `rememberAtlas`, `rememberSettingsRepository` and now the progress store opens its
+  own connection to the one database file. It works; it is three where one would do.
+
+Debug extras added: `--ez production true` runs a debug build on exactly the release
+dependencies; `--ez realProgress true` keeps sessions in the database instead of showing the
+fixture's history.
+
+**Seen on the Android emulator:** with `realProgress`, an empty streak; a session of seven
+with two right; then a streak of 1, today marked on the calendar, 2 of 86 skeletal structures,
+and Costae at 28 % — all still there after the app was restarted. With `production`: two-step
+onboarding, an empty Test grid, the Today and Ranking placeholders, PROFIL opening settings.
+**Not seen:** anything on iOS beyond the simulator tests; a real release APK installed; a
+streak across midnight.
+
 ## 2026-10-11: the prototype's design (branch `feature/prototype-design`, on top of the P1 batch)
 
 Until now every screen carried the prototype's colours and states and none of its look: no

@@ -65,6 +65,7 @@ import com.ptk.anatomypro.core.designsystem.TextSecondary
 import com.ptk.anatomypro.core.designsystem.TextStrong
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import com.ptk.anatomypro.core.designsystem.megabytes
+import com.ptk.anatomypro.feature.atlas.layers.systemNames
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -149,13 +150,16 @@ fun ProfileScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     Overline(stringResource(Res.string.profile_mastery_heading), color = TextSecondary)
                     for (system in state.mastery) {
+                        // Named as the atlas names its systems, Latin leading: a repository
+                        // can only offer the id where the pack has no structure for the system.
+                        val names = systemNames(system.system)
                         val spoken = stringResource(Res.string.profile_mastery, system.structuresSeen, system.structuresTotal)
                         Column(
-                            modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "${system.title}. $spoken" },
+                            modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "${names.local}. $spoken" },
                             verticalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                                Text(system.title, style = type.latin.copy(fontSize = 15.sp), color = TextPrimary, modifier = Modifier.clearAndSetSemantics { })
+                                Text(names.latin, style = type.latin.copy(fontSize = 15.sp), color = TextPrimary, modifier = Modifier.clearAndSetSemantics { })
                                 Text(
                                     stringResource(
                                         Res.string.profile_mastery_value,
