@@ -29,6 +29,7 @@
     <string name="feedback_expected">The answer</string>
     <string name="feedback_chosen">You chose</string>
     <string name="feedback_no_choice">No structure from this topic was chosen.</string>
+    <string name="feedback_shared_heading">HOW THEY RELATE</string>
     <string name="feedback_shared">Both belong to %1$s.</string>
     <string name="feedback_next">Next question</string>
     <string name="feedback_finish">See the result</string>
@@ -36,6 +37,10 @@
     <string name="summary_score">%1$d of %2$d correct</string>
     <string name="summary_perfect">Every answer was right.</string>
     <string name="summary_review">TO REVIEW</string>
+    <string name="summary_percent">%1$d % correct</string>
+    <string name="summary_time_label">TIME</string>
+    <string name="summary_per_question">AVG / QUESTION</string>
+    <string name="summary_seconds">%1$d s</string>
     <string name="summary_again">Same topic again</string>
     <string name="summary_done">Back to topics</string>
     <string name="summary_time">%1$d s in total</string>

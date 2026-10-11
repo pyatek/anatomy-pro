@@ -66,6 +66,18 @@ val FooterHairline = Color(0xFF1A1F23)
 val FreeOutline = Color(0xFF2E5541)
 /** A quieter accent outline, for a chosen plan or a marked row. */
 val AccentMuted = Color(0xFF7A2E25)
+// ── Verdicts, read off prototype screens 11 and 12 ──
+/** The word "Correct" and its labels: lighter than [CorrectGreen], which is for fills and outlines. */
+val CorrectText = Color(0xFF8FE0B4)
+/** Ink on a [CorrectGreen] fill: the tick in its disc. */
+val OnCorrect = Color(0xFF08170F)
+/** The word for a wrong answer and its labels. */
+val IncorrectText = Color(0xFFF0D9A2)
+/** The dashed outline round the learner's wrong answer. */
+val IncorrectOutline = Color(0xFF7A6428)
+/** Ink on an [IncorrectAmber] fill: the cross in its disc. */
+val OnIncorrect = Color(0xFF1A1204)
+
 /** The square behind a monogram or a glyph on a row. */
 val MonogramFill = Color(0xFF1E2429)
 /** The warm top of the daily quiz's card, fading into [Surface]. */

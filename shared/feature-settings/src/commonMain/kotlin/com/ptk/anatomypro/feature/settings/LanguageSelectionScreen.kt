@@ -1,20 +1,14 @@
 package com.ptk.anatomypro.feature.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import anatomypro.shared.feature_settings.generated.resources.Res
 import anatomypro.shared.feature_settings.generated.resources.language_body
@@ -29,7 +23,14 @@ import anatomypro.shared.feature_settings.generated.resources.locale_note_examin
 import anatomypro.shared.feature_settings.generated.resources.locale_note_examination_la
 import anatomypro.shared.feature_settings.generated.resources.locale_note_interface_en
 import anatomypro.shared.feature_settings.generated.resources.locale_note_interface_pl
-import com.ptk.anatomypro.core.designsystem.Accent
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
+import com.ptk.anatomypro.core.designsystem.Overline
+import com.ptk.anatomypro.core.designsystem.PrimaryButton
+import com.ptk.anatomypro.core.designsystem.RadioCard
+import com.ptk.anatomypro.core.designsystem.ScreenFooter
+import com.ptk.anatomypro.core.designsystem.StepHeader
+import com.ptk.anatomypro.core.designsystem.TextPrimary
+import com.ptk.anatomypro.core.designsystem.TextSecondary
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -50,53 +51,44 @@ fun LanguageSelectionScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val type = LocalAnatomyType.current
     val settings = state.settings
 
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Text(stringResource(Res.string.language_step, stepCount), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
-        Text(
-            stringResource(Res.string.language_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            stringResource(Res.string.language_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextTertiary,
-        )
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StepHeader(label = stringResource(Res.string.language_step, stepCount), step = 1, stepCount = stepCount)
+            Text(stringResource(Res.string.language_title), style = type.title, color = TextPrimary, modifier = Modifier.padding(top = 10.dp))
+            Text(stringResource(Res.string.language_body), style = type.body, color = TextSecondary)
 
-        Picker(
-            label = stringResource(Res.string.language_interface_label),
-            options = state.interfaceOptions,
-            noteOf = ::interfaceNote,
-            selected = settings.interfaceLocale,
-            onSelect = onInterfaceLocale,
-        )
-        Picker(
-            label = stringResource(Res.string.language_examination_label),
-            options = state.examinationOptions,
-            noteOf = ::examinationNote,
-            selected = settings.examinationLocale,
-            onSelect = onExaminationLocale,
-        )
-
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
-            Text(
-                text = stringResource(
-                    Res.string.language_summary,
-                    settings.interfaceLocale.uppercase(),
-                    settings.examinationLocale.uppercase(),
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-                modifier = Modifier.padding(bottom = 8.dp),
+            Picker(
+                label = stringResource(Res.string.language_interface_label),
+                options = state.interfaceOptions,
+                noteOf = ::interfaceNote,
+                selected = settings.interfaceLocale,
+                onSelect = onInterfaceLocale,
             )
-            Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text(stringResource(Res.string.language_continue))
-            }
+            Picker(
+                label = stringResource(Res.string.language_examination_label),
+                options = state.examinationOptions,
+                noteOf = ::examinationNote,
+                selected = settings.examinationLocale,
+                onSelect = onExaminationLocale,
+            )
+        }
+
+        ScreenFooter {
+            Text(
+                stringResource(Res.string.language_summary, settings.interfaceLocale.uppercase(), settings.examinationLocale.uppercase()),
+                style = type.note,
+                color = TextTertiary,
+            )
+            PrimaryButton(stringResource(Res.string.language_continue), onClick = onContinue)
         }
     }
 }
@@ -109,26 +101,18 @@ private fun Picker(
     selected: String,
     onSelect: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+    Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Overline(label, color = TextSecondary, modifier = Modifier.padding(bottom = 2.dp))
         for (option in options) {
-            val isSelected = option.code == selected
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .clickable { onSelect(option.code) },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text(option.name, style = MaterialTheme.typography.bodyMedium)
-                    noteOf(option.code)?.let { note ->
-                        Text(stringResource(note), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
-                    }
-                }
-                if (isSelected) {
-                    Text(stringResource(Res.string.language_selected), style = MaterialTheme.typography.labelSmall, color = Accent)
-                }
-            }
+            RadioCard(
+                selected = option.code == selected,
+                onSelect = { onSelect(option.code) },
+                title = option.name,
+                subtitle = noteOf(option.code)?.let { stringResource(it) },
+                selectedBadge = stringResource(Res.string.language_selected),
+                // Latin leads in the serif wherever it is named.
+                serifTitle = option.code == "la",
+            )
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -24,10 +25,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
@@ -38,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /*
  * The prototype's recurring pieces (spec §19), so a screen is assembled from them rather
@@ -236,6 +241,49 @@ fun ChoiceCard(
     }
 }
 
+/**
+ * One of several, exactly one of which is chosen: a language, a way of showing names.
+ *
+ * The chosen card carries [selectedBadge] in words beside its filled dot (§12), and each is
+ * a radio button to a screen reader. [serifTitle] is for a title that is Latin.
+ */
+@Composable
+fun RadioCard(
+    selected: Boolean,
+    onSelect: () -> Unit,
+    title: String,
+    subtitle: String?,
+    selectedBadge: String,
+    modifier: Modifier = Modifier,
+    serifTitle: Boolean = false,
+) {
+    val type = LocalAnatomyType.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(ControlShape)
+            .background(if (selected) SurfaceRaised else Surface)
+            .border(BorderStroke(1.dp, if (selected) Accent else Hairline), ControlShape)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(22.dp).border(BorderStroke(2.dp, if (selected) Accent else ControlOutline), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(Accent))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = if (serifTitle) type.latin else type.button, color = TextPrimary)
+            if (subtitle != null) Text(subtitle, style = type.note, color = TextSecondary)
+        }
+        if (selected) Badge(selectedBadge, color = Accent, outline = AccentMuted)
+    }
+}
+
 /** The one thing a screen most wants pressed. */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
@@ -296,6 +344,41 @@ fun QuietAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
     ) {
         Text(text, style = LocalAnatomyType.current.body, color = color, textAlign = TextAlign.Center)
     }
+}
+
+/** A glyph in a filled disc: the tick of a right answer, the cross of a wrong one. */
+@Composable
+fun GlyphDisc(glyph: String, fill: Color, ink: Color, modifier: Modifier = Modifier, size: Dp = 26.dp) {
+    Box(modifier = modifier.size(size).clip(CircleShape).background(fill).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
+        Text(glyph, style = LocalAnatomyType.current.code.copy(fontWeight = FontWeight.Bold, fontSize = (size.value * 0.55f).sp), color = ink)
+    }
+}
+
+/**
+ * A panel whose outline is dashed: the learner's wrong answer, told from the right one by
+ * the line itself and not only its colour (§12).
+ */
+@Composable
+fun DashedPanel(modifier: Modifier = Modifier, outline: Color, spacing: Dp = 5.dp, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(PanelShape)
+            .background(Surface)
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                drawRoundRect(
+                    color = outline,
+                    topLeft = Offset(stroke / 2, stroke / 2),
+                    size = Size(size.width - stroke, size.height - stroke),
+                    cornerRadius = CornerRadius(14.dp.toPx()),
+                    style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                )
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+        content = content,
+    )
 }
 
 /** A bordered panel on the screen's ground. */

@@ -31,6 +31,7 @@
     <string name="feedback_expected">Odpowiedź</string>
     <string name="feedback_chosen">Twój wybór</string>
     <string name="feedback_no_choice">Nie wybrano żadnej struktury z tego tematu.</string>
+    <string name="feedback_shared_heading">CO JE ŁĄCZY</string>
     <string name="feedback_shared">Obie należą do: %1$s.</string>
     <string name="feedback_next">Następne pytanie</string>
     <string name="feedback_finish">Zobacz wynik</string>
@@ -38,6 +39,10 @@
     <string name="summary_score">Poprawnie: %1$d z %2$d</string>
     <string name="summary_perfect">Wszystkie odpowiedzi były poprawne.</string>
     <string name="summary_review">DO POWTÓRKI</string>
+    <string name="summary_percent">%1$d % poprawnych</string>
+    <string name="summary_time_label">CZAS</string>
+    <string name="summary_per_question">ŚR. / PYT.</string>
+    <string name="summary_seconds">%1$d s</string>
     <string name="summary_again">Ten sam temat jeszcze raz</string>
     <string name="summary_done">Wróć do tematów</string>
     <string name="summary_time">Łącznie %1$d s</string>
