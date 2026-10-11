@@ -38,6 +38,32 @@ import anatomypro.shared.feature_settings.generated.resources.settings_timer_tit
 import anatomypro.shared.feature_settings.generated.resources.settings_title
 import anatomypro.shared.feature_settings.generated.resources.settings_tree_subtitle
 import anatomypro.shared.feature_settings.generated.resources.settings_tree_title
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import com.ptk.anatomypro.core.designsystem.AccentOnLight
+import com.ptk.anatomypro.core.designsystem.AccentOnLightSurface
+import com.ptk.anatomypro.core.designsystem.LightGround
+import com.ptk.anatomypro.core.designsystem.LightHairline
+import com.ptk.anatomypro.core.designsystem.LightRule
+import com.ptk.anatomypro.core.designsystem.LightSurface
+import com.ptk.anatomypro.core.designsystem.LightTextPrimary
+import com.ptk.anatomypro.core.designsystem.LightTextTertiary
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
 import com.ptk.anatomypro.core.data.model.NameDisplay
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
@@ -55,72 +81,79 @@ fun SettingsScreen(
     onPatternsNotColour: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val type = LocalAnatomyType.current
+    // The other of the prototype's two light screens.
     if (state.isLoading) {
-        Text(stringResource(Res.string.settings_loading), modifier = modifier.padding(16.dp))
+        Text(
+            stringResource(Res.string.settings_loading),
+            style = type.body,
+            color = LightTextTertiary,
+            modifier = modifier.fillMaxSize().background(LightGround).padding(20.dp),
+        )
         return
     }
     val settings = state.settings
-
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        modifier = modifier.fillMaxSize().background(LightGround).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(stringResource(Res.string.settings_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(Res.string.settings_title), style = type.heading.copy(fontSize = 19.sp), color = LightTextPrimary)
 
         Group(stringResource(Res.string.settings_group_languages)) {
-            Choice(
-                title = stringResource(Res.string.settings_interface_title),
-                subtitle = stringResource(Res.string.settings_interface_subtitle),
-                options = state.interfaceOptions,
-                selected = settings.interfaceLocale,
-                onSelect = onInterfaceLocale,
-            )
-            Choice(
-                title = stringResource(Res.string.settings_examination_title),
-                subtitle = stringResource(Res.string.settings_examination_subtitle),
-                options = state.examinationOptions,
-                selected = settings.examinationLocale,
-                onSelect = onExaminationLocale,
-            )
+            Card {
+                Choice(
+                    title = stringResource(Res.string.settings_interface_title),
+                    subtitle = stringResource(Res.string.settings_interface_subtitle),
+                    options = state.interfaceOptions,
+                    selected = settings.interfaceLocale,
+                    onSelect = onInterfaceLocale,
+                )
+                HorizontalDivider(color = LightHairline, thickness = 1.dp)
+                Choice(
+                    title = stringResource(Res.string.settings_examination_title),
+                    subtitle = stringResource(Res.string.settings_examination_subtitle),
+                    options = state.examinationOptions,
+                    selected = settings.examinationLocale,
+                    onSelect = onExaminationLocale,
+                )
+            }
         }
 
         Group(stringResource(Res.string.settings_group_names)) {
-            for (display in NameDisplay.entries) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                        .clickable { onNameDisplay(display) },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(display.label(), style = MaterialTheme.typography.bodyMedium)
-                    if (settings.nameDisplay == display) {
-                        Text("✓", color = Accent, style = MaterialTheme.typography.bodyMedium)
+            Card {
+                Row(modifier = Modifier.padding(14.dp).height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (display in NameDisplay.entries) {
+                        Chip(display.label(), selected = settings.nameDisplay == display, modifier = Modifier.weight(1f).fillMaxHeight()) { onNameDisplay(display) }
                     }
                 }
             }
         }
 
         Group(stringResource(Res.string.settings_group_accessibility)) {
-            Toggle(
-                title = stringResource(Res.string.settings_timer_title),
-                subtitle = stringResource(
-                    if (settings.quizTimerEnabled) Res.string.settings_timer_on else Res.string.settings_timer_off,
-                ),
-                checked = settings.quizTimerEnabled,
-                onChange = onQuizTimer,
-            )
-            Toggle(
-                title = stringResource(Res.string.settings_tree_title),
-                subtitle = stringResource(Res.string.settings_tree_subtitle),
-                checked = settings.structureTreeMode,
-                onChange = onStructureTreeMode,
-            )
-            Toggle(
-                title = stringResource(Res.string.settings_patterns_title),
-                subtitle = stringResource(Res.string.settings_patterns_subtitle),
-                checked = settings.patternsNotColour,
-                onChange = onPatternsNotColour,
-            )
+            Card {
+                Toggle(
+                    title = stringResource(Res.string.settings_timer_title),
+                    subtitle = stringResource(
+                        if (settings.quizTimerEnabled) Res.string.settings_timer_on else Res.string.settings_timer_off,
+                    ),
+                    checked = settings.quizTimerEnabled,
+                    onChange = onQuizTimer,
+                )
+                HorizontalDivider(color = LightHairline, thickness = 1.dp)
+                Toggle(
+                    title = stringResource(Res.string.settings_tree_title),
+                    subtitle = stringResource(Res.string.settings_tree_subtitle),
+                    checked = settings.structureTreeMode,
+                    onChange = onStructureTreeMode,
+                )
+                HorizontalDivider(color = LightHairline, thickness = 1.dp)
+                Toggle(
+                    title = stringResource(Res.string.settings_patterns_title),
+                    subtitle = stringResource(Res.string.settings_patterns_subtitle),
+                    checked = settings.patternsNotColour,
+                    onChange = onPatternsNotColour,
+                )
+            }
         }
     }
 }
@@ -134,11 +167,47 @@ private fun NameDisplay.label() = stringResource(
     },
 )
 
+
 @Composable
 private fun Group(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+        Text(label, style = LocalAnatomyType.current.label, color = LightTextTertiary)
         content()
+    }
+}
+
+/** A white card on the light ground. */
+@Composable
+private fun Card(content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(shape).background(LightSurface).border(BorderStroke(1.dp, LightHairline), shape),
+        content = content,
+    )
+}
+
+/**
+ * One of a few, as a chip. The chosen one is filled and ticked: the tick is what says so
+ * without colour (§12).
+ */
+@Composable
+private fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onSelect: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clip(shape)
+            .then(if (selected) Modifier.background(AccentOnLight) else Modifier.border(BorderStroke(1.dp, LightRule), shape))
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (selected) "✓ $text" else text,
+            style = LocalAnatomyType.current.caption.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            color = if (selected) AccentOnLightSurface else LightTextPrimary,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -150,18 +219,13 @@ private fun Choice(
     selected: String,
     onSelect: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyMedium)
-        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    val type = LocalAnatomyType.current
+    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = type.bodyStrong, color = LightTextPrimary)
+        Text(subtitle, style = type.note, color = LightTextTertiary)
+        Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (option in options) {
-                Text(
-                    text = option.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (option.code == selected) Accent else TextTertiary,
-                    modifier = Modifier.heightIn(min = 44.dp)
-                        .clickable { onSelect(option.code) }.padding(top = 12.dp),
-                )
+                Chip(option.name, selected = option.code == selected) { onSelect(option.code) }
             }
         }
     }
@@ -169,15 +233,32 @@ private fun Choice(
 
 @Composable
 private fun Toggle(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val type = LocalAnatomyType.current
+    // The whole row is the switch, so a screen reader hears its text as the label.
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = type.bodyStrong, color = LightTextPrimary)
+            Text(subtitle, style = type.note, color = LightTextTertiary)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = AccentOnLight,
+                checkedThumbColor = LightSurface,
+                checkedBorderColor = AccentOnLight,
+                uncheckedTrackColor = LightHairline,
+                uncheckedThumbColor = LightSurface,
+                uncheckedBorderColor = LightRule,
+            ),
+        )
     }
 }

@@ -1,4 +1,5 @@
 <resources>
+    <string name="search_clear">Clear the search</string>
     <string name="search_field">Search</string>
     <string name="search_scope">SEARCHES LAT · POL · ENG</string>
     <string name="search_searching">Searching…</string>

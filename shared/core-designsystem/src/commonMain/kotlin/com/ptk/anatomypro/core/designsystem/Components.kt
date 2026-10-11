@@ -20,6 +20,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SwitchColors
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -169,6 +171,43 @@ fun Monogram(text: String, modifier: Modifier = Modifier, fill: Color = Monogram
         Text(text, style = LocalAnatomyType.current.code, color = color)
     }
 }
+
+/** A square control holding a glyph or a short code: search, layers, settings. [label] is what it is called aloud. */
+@Composable
+fun SquareButton(glyph: String, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(11.dp)
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(shape)
+            .background(Surface)
+            .border(BorderStroke(1.dp, Hairline), shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            glyph,
+            style = if (glyph.length > 1) LocalAnatomyType.current.code else LocalAnatomyType.current.button,
+            color = TextStrong,
+            modifier = Modifier.clearAndSetSemantics { },
+        )
+    }
+}
+
+/** The prototype's switch: accent when on, a quiet outline when off. Its row says the state in words. */
+@Composable
+fun anatomySwitchColors(): SwitchColors = SwitchDefaults.colors(
+    checkedTrackColor = Accent,
+    checkedThumbColor = OnAccent,
+    checkedBorderColor = Accent,
+    uncheckedTrackColor = MonogramFill,
+    uncheckedThumbColor = TextTertiary,
+    uncheckedBorderColor = ControlOutline,
+    disabledUncheckedTrackColor = Surface,
+    disabledUncheckedThumbColor = Hairline,
+    disabledUncheckedBorderColor = Hairline,
+)
 
 /** A numbered line in a list of rules or reasons. */
 @Composable

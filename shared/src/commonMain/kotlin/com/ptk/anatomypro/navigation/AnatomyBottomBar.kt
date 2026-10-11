@@ -33,6 +33,7 @@ import anatomypro.shared.generated.resources.tab_profile
 import anatomypro.shared.generated.resources.tab_ranking
 import anatomypro.shared.generated.resources.tab_test
 import anatomypro.shared.generated.resources.tab_today
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.NavHairline
 import com.ptk.anatomypro.core.designsystem.NavSurface
@@ -81,8 +82,8 @@ fun AnatomyBottomBar(
                         Text(
                             text = destination.label(),
                             color = tint,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
+                            // The prototype sets the tabs in the monospaced voice.
+                            style = LocalAnatomyType.current.code,
                         )
                     }
                 }

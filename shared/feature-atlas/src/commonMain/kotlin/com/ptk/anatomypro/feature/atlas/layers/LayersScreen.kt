@@ -46,6 +46,27 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import com.ptk.anatomypro.core.designsystem.AccentMuted
+import com.ptk.anatomypro.core.designsystem.AccentWash
+import com.ptk.anatomypro.core.designsystem.CanvasAnnotation
+import com.ptk.anatomypro.core.designsystem.Hairline
+import com.ptk.anatomypro.core.designsystem.HighlightOutline
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
+import com.ptk.anatomypro.core.designsystem.Overline
+import com.ptk.anatomypro.core.designsystem.Surface
+import com.ptk.anatomypro.core.designsystem.SurfaceRaised
+import com.ptk.anatomypro.core.designsystem.TextPrimary
+import com.ptk.anatomypro.core.designsystem.TextSecondary
+import com.ptk.anatomypro.core.designsystem.TextStrong
+import com.ptk.anatomypro.core.designsystem.anatomySwitchColors
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
 import com.ptk.anatomypro.core.model.SystemId
@@ -75,16 +96,23 @@ fun LayersScreen(
             if (state.isolate && focusName != null) {
                 Text(
                     text = stringResource(Res.string.layers_canvas_isolated, focusName.uppercase(), state.ghostPercent),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextTertiary,
+                    style = LocalAnatomyType.current.code,
+                    color = CanvasAnnotation,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
                 )
             }
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            // The prototype's sheet, rising over the canvas.
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                .background(Surface)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -94,53 +122,59 @@ fun LayersScreen(
                         modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp)
                             .semantics { role = Role.Button; contentDescription = backLabel }
                             .clickable(onClick = onBack),
-                    ) { Text("‹", style = MaterialTheme.typography.titleLarge, color = Accent) }
-                    Text(stringResource(Res.string.layers_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    ) { Text("‹", style = LocalAnatomyType.current.title, color = TextStrong) }
+                    Text(stringResource(Res.string.layers_title), style = LocalAnatomyType.current.heading.copy(fontSize = 20.sp), color = TextPrimary)
                 }
                 // The panel's mutators do nothing until the systems have loaded, so no
                 // control is offered before then.
                 if (!state.isLoading) {
                     Text(
                         stringResource(Res.string.layers_reset),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Accent,
-                        modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onReset).padding(top = 14.dp),
+                        style = LocalAnatomyType.current.label,
+                        color = TextSecondary,
+                        modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button, onClick = onReset).padding(top = 15.dp),
                     )
                 }
             }
 
             if (state.isLoading) {
-                Text(stringResource(Res.string.atlas_loading), style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
+                Text(stringResource(Res.string.atlas_loading), style = LocalAnatomyType.current.body, color = TextTertiary)
                 return@Column
             }
 
             for (row in state.rows) LayerRowView(row, state.ghostPercent, onMode)
 
-            Text(stringResource(Res.string.layers_isolation_heading), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+            HorizontalDivider(color = Hairline, thickness = 1.dp, modifier = Modifier.padding(top = 6.dp))
+            Overline(stringResource(Res.string.layers_isolation_heading), color = TextSecondary, modifier = Modifier.padding(top = 6.dp))
             // The whole row is the switch, so a screen reader hears the row's text as its
             // label instead of a bare "switch, off".
             val canIsolate = state.focus != null || state.isolate
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                    .toggleable(value = state.isolate, role = Role.Switch, enabled = canIsolate, onValueChange = onIsolate),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SurfaceRaised)
+                    .border(BorderStroke(1.dp, if (state.isolate) Accent else Hairline), RoundedCornerShape(12.dp))
+                    .toggleable(value = state.isolate, role = Role.Switch, enabled = canIsolate, onValueChange = onIsolate)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(Res.string.layers_isolate), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(Res.string.layers_isolate), style = LocalAnatomyType.current.bodyStrong, color = if (canIsolate) TextPrimary else TextTertiary)
                     Text(
                         text = focusName?.let { stringResource(Res.string.layers_isolate_target, it) }
                             ?: stringResource(Res.string.layers_isolate_none),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary,
+                        style = LocalAnatomyType.current.note,
+                        color = TextSecondary,
                     )
                 }
-                Switch(checked = state.isolate, onCheckedChange = null, enabled = canIsolate)
+                Switch(checked = state.isolate, onCheckedChange = null, enabled = canIsolate, colors = anatomySwitchColors())
             }
 
             Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(Res.string.layers_ghost_opacity), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(stringResource(Res.string.layers_ghost_opacity), style = LocalAnatomyType.current.body, color = TextStrong, modifier = Modifier.weight(1f))
                 Step("−", stringResource(Res.string.layers_ghost_less)) { onGhostPercent(state.ghostPercent - GHOST_STEP) }
-                Text(stringResource(Res.string.layers_ghost_value, state.ghostPercent), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 8.dp))
+                Text(stringResource(Res.string.layers_ghost_value, state.ghostPercent), style = LocalAnatomyType.current.value, color = TextPrimary, modifier = Modifier.padding(horizontal = 8.dp))
                 Step("+", stringResource(Res.string.layers_ghost_more)) { onGhostPercent(state.ghostPercent + GHOST_STEP) }
             }
         }
@@ -150,17 +184,28 @@ fun LayersScreen(
 @Composable
 private fun LayerRowView(row: LayerRow, ghostPercent: Int, onMode: (SystemId, LayerMode) -> Unit) {
     val names = systemNames(row.system)
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(shape)
+            .background(SurfaceRaised)
+            // Fully visible is outlined, as in the prototype; the row says its state in words too.
+            .border(BorderStroke(1.dp, if (row.mode == LayerMode.Visible) Accent else Hairline), shape)
+            .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
-            Text(names.latin, style = MaterialTheme.typography.bodyMedium)
+            Text(names.latin, style = LocalAnatomyType.current.latin.copy(fontSize = 16.sp), color = TextPrimary)
             Text(
                 text = when (row.mode) {
                     LayerMode.Visible -> stringResource(Res.string.layers_state_visible)
                     LayerMode.Ghosted -> stringResource(Res.string.layers_state_ghosted, ghostPercent)
                     LayerMode.Hidden -> stringResource(Res.string.layers_state_hidden, names.local)
                 },
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
+                style = LocalAnatomyType.current.note,
+                color = TextSecondary,
             )
         }
         for (mode in LayerMode.entries) {
@@ -173,14 +218,19 @@ private fun LayerRowView(row: LayerRow, ghostPercent: Int, onMode: (SystemId, La
                         LayerMode.Hidden -> Res.string.layers_mode_hidden
                     },
                 ),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) Accent else TextTertiary,
+                style = LocalAnatomyType.current.code,
+                textAlign = TextAlign.Center,
+                color = if (isSelected) HighlightOutline else TextTertiary,
                 modifier = Modifier
-                    .heightIn(min = 44.dp).widthIn(min = 52.dp)
+                    .heightIn(min = 44.dp).widthIn(min = 48.dp)
                     .semantics { role = Role.RadioButton; selected = isSelected }
                     .clickable { onMode(row.system, mode) }
-                    .padding(top = 14.dp),
+                    .padding(horizontal = 2.dp, vertical = 8.dp)
+                    .then(
+                        if (isSelected) Modifier.clip(RoundedCornerShape(4.dp)).background(AccentWash).border(BorderStroke(1.dp, AccentMuted), RoundedCornerShape(4.dp))
+                        else Modifier,
+                    )
+                    .padding(horizontal = 4.dp, vertical = 7.dp),
             )
         }
     }
@@ -193,5 +243,5 @@ private fun Step(glyph: String, label: String, onClick: () -> Unit) {
         modifier = Modifier.heightIn(min = 44.dp).widthIn(min = 44.dp)
             .semantics { role = Role.Button; contentDescription = label }
             .clickable(onClick = onClick),
-    ) { Text(glyph, style = MaterialTheme.typography.titleLarge, color = Accent) }
+    ) { Text(glyph, style = LocalAnatomyType.current.heading, color = TextStrong) }
 }

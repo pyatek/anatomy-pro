@@ -1,4 +1,5 @@
 <resources>
+    <string name="atlas_selected">WYBRANE</string>
     <string name="atlas_select_prompt">wybierz strukturę</string>
     <string name="atlas_loading">Wczytywanie atlasu…</string>
     <string name="atlas_empty">Brak zainstalowanych struktur</string>

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import anatomypro.shared.generated.resources.Res
 import anatomypro.shared.generated.resources.atlas_layers
@@ -32,6 +34,13 @@ import anatomypro.shared.generated.resources.atlas_stats
 import anatomypro.shared.generated.resources.atlas_title
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.designsystem.Accent
+import com.ptk.anatomypro.core.designsystem.CanvasAnnotation
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
+import com.ptk.anatomypro.core.designsystem.Overline
+import com.ptk.anatomypro.core.designsystem.SquareButton
+import com.ptk.anatomypro.core.designsystem.TextPrimary
+import com.ptk.anatomypro.core.designsystem.TextSecondary
+import com.ptk.anatomypro.core.designsystem.TextStrong
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasScreen
 import com.ptk.anatomypro.feature.atlas.AtlasUiState
@@ -255,24 +264,20 @@ private fun BrowseRoute(
     }
 
     Column(Modifier.fillMaxSize()) {
+        // The prototype's bar: the screen's name in the serif, and its tools as squares.
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(Res.string.atlas_title), style = MaterialTheme.typography.labelSmall)
             Text(
-                text = stringResource(Res.string.atlas_layers),
-                style = MaterialTheme.typography.labelSmall,
-                color = Accent,
-                modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onLayers).padding(top = 14.dp),
+                stringResource(Res.string.atlas_title).lowercase().replaceFirstChar { it.uppercase() },
+                style = LocalAnatomyType.current.heading.copy(fontSize = 18.sp),
+                color = TextPrimary,
+                modifier = Modifier.weight(1f),
             )
-            Text(
-                text = stringResource(Res.string.atlas_search),
-                style = MaterialTheme.typography.labelSmall,
-                color = Accent,
-                modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onSearch).padding(top = 14.dp),
-            )
+            SquareButton("⌕", label = stringResource(Res.string.atlas_search), onClick = onSearch)
+            SquareButton("≡", label = stringResource(Res.string.atlas_layers), onClick = onLayers)
         }
 
         AtlasScreen(
@@ -309,7 +314,8 @@ private fun BrowseRoute(
                 stats.refreshHz,
                 ((stats.gpuMillis * 10).toInt() / 10f).toString(),
             ),
-            style = MaterialTheme.typography.labelSmall,
+            style = LocalAnatomyType.current.code,
+            color = CanvasAnnotation,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(6.dp),
         )
@@ -327,17 +333,17 @@ private suspend fun nameOf(repository: AtlasRepository, id: StructureId, locale:
 
 @Composable
 private fun TopBar(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp)) {
         Text(
             text = "‹",
-            style = MaterialTheme.typography.titleLarge,
-            color = Accent,
-            modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onBack).padding(horizontal = 8.dp, vertical = 8.dp),
+            style = LocalAnatomyType.current.title,
+            color = TextStrong,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .heightIn(min = 44.dp)
+                .clickable(role = Role.Button, onClick = onBack)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
         )
-        Text(title, style = MaterialTheme.typography.labelSmall)
+        Overline(title, color = TextSecondary, modifier = Modifier.align(Alignment.Center))
     }
 }

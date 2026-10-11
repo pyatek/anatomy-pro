@@ -27,6 +27,28 @@ import anatomypro.shared.feature_atlas.generated.resources.detail_not_found
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_definition
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_hierarchy
 import anatomypro.shared.feature_atlas.generated.resources.detail_section_structure
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import com.ptk.anatomypro.core.designsystem.AccentOnLight
+import com.ptk.anatomypro.core.designsystem.LightGround
+import com.ptk.anatomypro.core.designsystem.LightHairline
+import com.ptk.anatomypro.core.designsystem.LightRule
+import com.ptk.anatomypro.core.designsystem.LightSurface
+import com.ptk.anatomypro.core.designsystem.LightTextBody
+import com.ptk.anatomypro.core.designsystem.LightTextPrimary
+import com.ptk.anatomypro.core.designsystem.LightTextSecondary
+import com.ptk.anatomypro.core.designsystem.LightTextTertiary
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
 import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.designsystem.Accent
 import com.ptk.anatomypro.core.designsystem.TextTertiary
@@ -40,21 +62,28 @@ fun StructureDetailScreen(
     onAncestorSelected: (com.ptk.anatomypro.core.model.StructureId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    val type = LocalAnatomyType.current
+    // One of the prototype's two light screens: this one is for reading.
+    Column(modifier = modifier.fillMaxSize().background(LightGround)) {
+        Box(modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 12.dp)) {
             Text(
                 text = "‹",
-                fontSize = 24.sp,
-                color = Accent,
-                modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onBack).padding(horizontal = 8.dp),
+                style = type.title,
+                color = LightTextSecondary,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .heightIn(min = 44.dp)
+                    .clickable(role = Role.Button, onClick = onBack)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             )
-            SectionLabel(stringResource(Res.string.detail_section_structure))
+            Text(
+                stringResource(Res.string.detail_section_structure),
+                style = type.label,
+                color = LightTextTertiary,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
-
+        HorizontalDivider(color = LightHairline, thickness = 1.dp)
         when {
             state.isLoading -> Note(stringResource(Res.string.detail_loading))
             state.error != null -> Note(
@@ -67,38 +96,40 @@ fun StructureDetailScreen(
             )
             else -> Column(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                    .padding(horizontal = 22.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     state.title?.let {
-                        Text(it, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        Text(it, style = type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = LightTextPrimary)
                     }
                     // Which of a pair this is. "Costa prima" alone read the same for both.
-                    state.detail?.let { SideBadge(it.laterality) }
-                }
-
-                if (state.otherNames.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for ((locale, name) in state.otherNames) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(
-                                    text = locale.uppercase(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextTertiary,
-                                    modifier = Modifier.heightIn(min = 20.dp),
-                                )
-                                Text(name, style = MaterialTheme.typography.bodyMedium)
+                    state.detail?.let { SideBadge(it.laterality, color = LightTextTertiary) }
+                    if (state.otherNames.isNotEmpty()) {
+                        // The prototype's list of names, ruled down its left edge.
+                        Row(modifier = Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.width(2.dp).fillMaxHeight().background(LightRule))
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                for ((locale, name) in state.otherNames) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(locale.uppercase(), style = type.code, color = LightTextTertiary, modifier = Modifier.width(22.dp))
+                                        Text(
+                                            name,
+                                            // Latin in the serif, wherever it is named.
+                                            style = if (locale == "la") type.latin.copy(fontSize = 15.sp) else type.body.copy(fontSize = 15.sp),
+                                            color = LightTextPrimary,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
-
                 state.detail?.let { detail ->
                     detail.definition?.let {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                             SectionLabel(stringResource(Res.string.detail_section_definition))
-                            Text(it, style = MaterialTheme.typography.bodyMedium)
+                            Text(it, style = type.body, color = LightTextBody)
                             // Someone else's prose, never reviewed here: say whose, and say so.
                             val source = definitionSourceName(detail.definitionSource, detail.definitionLicence)
                             Text(
@@ -110,27 +141,46 @@ fun StructureDetailScreen(
                                         listOfNotNull(source, detail.definitionLicence).joinToString(" · "),
                                     )
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextTertiary,
+                                style = type.note,
+                                color = LightTextTertiary,
                             )
                         }
                     }
                 }
-
                 val ancestors = state.detail?.ancestors.orEmpty()
                 if (ancestors.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         SectionLabel(stringResource(Res.string.detail_section_hierarchy))
-                        ancestors.forEachIndexed { depth, ancestor ->
-                            Text(
-                                text = ancestor.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 44.dp)
-                                    .clickable { onAncestorSelected(ancestor.id) }
-                                    .padding(start = (depth * 12).dp, top = 12.dp),
-                            )
+                        val shape = RoundedCornerShape(12.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(shape)
+                                .background(LightSurface)
+                                .border(BorderStroke(1.dp, LightHairline), shape)
+                                .padding(horizontal = 14.dp, vertical = 4.dp),
+                        ) {
+                            ancestors.forEachIndexed { depth, ancestor ->
+                                Text(
+                                    text = ancestor.name,
+                                    style = type.caption,
+                                    color = LightTextTertiary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 44.dp)
+                                        .clickable(role = Role.Button) { onAncestorSelected(ancestor.id) }
+                                        .padding(start = (depth * 14).dp, top = 13.dp),
+                                )
+                            }
+                            // Where this structure sits beneath them: last, and in the accent.
+                            state.title?.let {
+                                Text(
+                                    it,
+                                    style = type.latin.copy(fontSize = 14.sp),
+                                    color = AccentOnLight,
+                                    modifier = Modifier.padding(start = (ancestors.size * 14).dp, top = 8.dp, bottom = 10.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -141,15 +191,10 @@ fun StructureDetailScreen(
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = TextTertiary,
-        fontWeight = FontWeight.Medium,
-    )
+    Text(text = text.uppercase(), style = LocalAnatomyType.current.label, color = LightTextTertiary)
 }
 
 @Composable
 private fun Note(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+    Text(text, style = LocalAnatomyType.current.body, color = LightTextTertiary, modifier = Modifier.padding(22.dp))
 }

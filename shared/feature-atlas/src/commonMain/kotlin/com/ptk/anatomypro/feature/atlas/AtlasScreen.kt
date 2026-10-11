@@ -26,6 +26,20 @@ import anatomypro.shared.feature_atlas.generated.resources.atlas_empty
 import anatomypro.shared.feature_atlas.generated.resources.atlas_load_failed
 import anatomypro.shared.feature_atlas.generated.resources.atlas_loading
 import anatomypro.shared.feature_atlas.generated.resources.atlas_select_prompt
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.unit.sp
+import anatomypro.shared.feature_atlas.generated.resources.atlas_selected
+import com.ptk.anatomypro.core.designsystem.AccentMuted
+import com.ptk.anatomypro.core.designsystem.Badge
+import com.ptk.anatomypro.core.designsystem.Ground
+import com.ptk.anatomypro.core.designsystem.Hairline
+import com.ptk.anatomypro.core.designsystem.HighlightOutline
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
+import com.ptk.anatomypro.core.designsystem.Surface
+import com.ptk.anatomypro.core.designsystem.SurfaceRaised
+import com.ptk.anatomypro.core.designsystem.TextPrimary
+import com.ptk.anatomypro.core.designsystem.TextSecondary
+import com.ptk.anatomypro.core.designsystem.TextTertiary
 import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.data.model.StructureSummary
 import com.ptk.anatomypro.core.model.StructureId
@@ -50,15 +64,26 @@ fun AtlasScreen(
     modifier: Modifier = Modifier,
     latinOnly: Boolean = false,
 ) {
+    val type = LocalAnatomyType.current
     Column(modifier = modifier.fillMaxSize()) {
         canvas(Modifier.fillMaxWidth().weight(1f))
-
-        Text(
-            text = selectedName ?: stringResource(Res.string.atlas_select_prompt),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-
+        // The prototype's sheet: what is selected, named in the serif, over the list.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Surface)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (selectedName != null) {
+                Text(selectedName, style = type.title.copy(fontSize = 22.sp, lineHeight = 26.sp), color = TextPrimary, modifier = Modifier.weight(1f))
+                Badge(stringResource(Res.string.atlas_selected), color = HighlightOutline, outline = AccentMuted)
+            } else {
+                Text(stringResource(Res.string.atlas_select_prompt), style = type.body, color = TextTertiary, modifier = Modifier.weight(1f))
+            }
+        }
+        HorizontalDivider(color = Hairline, thickness = 1.dp)
         when {
             state.isLoading -> Message(stringResource(Res.string.atlas_loading))
             state.error != null -> Message(stringResource(Res.string.atlas_load_failed))
@@ -86,8 +111,9 @@ private fun TaxonomyRow(
     onSelect: () -> Unit,
     latinOnly: Boolean,
 ) {
-    val background =
-        if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+    val type = LocalAnatomyType.current
+    // Selected is a filled row and an accent name; the name also heads the sheet above.
+    val background = if (isSelected) SurfaceRaised else Ground
 
     Row(
         modifier = Modifier
@@ -105,22 +131,27 @@ private fun TaxonomyRow(
             contentAlignment = Alignment.Center,
         ) {
             if (row.summary.hasChildren) {
-                Text(if (row.expanded) "–" else "+", style = MaterialTheme.typography.bodyMedium)
+                Text(if (row.expanded) "–" else "+", style = type.value, color = TextSecondary)
             }
         }
         Column(modifier = Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (latinOnly) row.summary.latinName ?: row.summary.name else row.summary.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
+                    // A group reads as a heading; Latin, wherever it leads, is in the serif.
+                    style = if (latinOnly || row.summary.latinName == row.summary.name) {
+                        type.latin.copy(fontSize = 15.sp, fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal)
+                    } else {
+                        type.body.copy(fontWeight = if (row.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal)
+                    },
+                    color = if (isSelected) HighlightOutline else TextPrimary,
                 )
                 SideBadge(row.summary.laterality)
             }
             if (!latinOnly) {
                 row.summary.latinName
                     ?.takeIf { it != row.summary.name }
-                    ?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                    ?.let { Text(it, style = type.note.copy(fontFamily = type.latin.fontFamily), color = TextSecondary) }
             }
         }
     }
@@ -132,6 +163,6 @@ private fun Message(text: String) {
         modifier = Modifier.fillMaxWidth().height(72.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = MaterialTheme.typography.bodySmall)
+        Text(text, style = LocalAnatomyType.current.caption, color = TextTertiary)
     }
 }

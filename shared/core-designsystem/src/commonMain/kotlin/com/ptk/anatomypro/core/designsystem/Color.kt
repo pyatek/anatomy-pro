@@ -91,6 +91,16 @@ val LightTextPrimary = Color(0xFF14181B)
 val LightTextTertiary = Color(0xFF5D666D)
 val AccentOnLight = Color(0xFFB23A2E)
 val AccentOnLightSurface = Color(0xFFFFF3F1)
+/** A card on the light ground. */
+val LightSurface = Color(0xFFFFFFFF)
+/** A card's outline and a bar's rule on the light ground. */
+val LightHairline = Color(0xFFDFE2E4)
+/** A heavier rule on light: the line beside a list of names, an idle control's outline. */
+val LightRule = Color(0xFFC9CFD3)
+/** Running prose on light. */
+val LightTextBody = Color(0xFF22282C)
+/** Second-rank text and glyphs on light. */
+val LightTextSecondary = Color(0xFF3B4349)
 
 /**
  * Converts to the plain ARGB int the renderer boundary uses, keeping renderer-api free of

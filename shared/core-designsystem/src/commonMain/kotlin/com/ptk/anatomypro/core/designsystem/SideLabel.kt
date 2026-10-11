@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import anatomypro.shared.core_designsystem.generated.resources.Res
 import anatomypro.shared.core_designsystem.generated.resources.side_left
 import anatomypro.shared.core_designsystem.generated.resources.side_right
@@ -33,12 +34,12 @@ fun withSide(name: String, side: String?): String = if (side == null) name else 
 
 /** The side as a small badge beside a name. Draws nothing for a median structure. */
 @Composable
-fun SideBadge(laterality: Laterality, modifier: Modifier = Modifier) {
+fun SideBadge(laterality: Laterality, modifier: Modifier = Modifier, color: Color = TextTertiary) {
     val side = sideLabel(laterality) ?: return
     Text(
         text = side.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = TextTertiary,
+        style = LocalAnatomyType.current.code,
+        color = color,
         modifier = modifier,
     )
 }

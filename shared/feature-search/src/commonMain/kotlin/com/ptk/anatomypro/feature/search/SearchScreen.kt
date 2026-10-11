@@ -25,6 +25,32 @@ import anatomypro.shared.feature_search.generated.resources.search_recent
 import anatomypro.shared.feature_search.generated.resources.search_results
 import anatomypro.shared.feature_search.generated.resources.search_scope
 import anatomypro.shared.feature_search.generated.resources.search_searching
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import anatomypro.shared.feature_search.generated.resources.search_clear
+import com.ptk.anatomypro.core.designsystem.AccentMuted
+import com.ptk.anatomypro.core.designsystem.Badge
+import com.ptk.anatomypro.core.designsystem.FooterHairline
+import com.ptk.anatomypro.core.designsystem.Hairline
+import com.ptk.anatomypro.core.designsystem.HighlightOutline
+import com.ptk.anatomypro.core.designsystem.LocalAnatomyType
+import com.ptk.anatomypro.core.designsystem.Overline
+import com.ptk.anatomypro.core.designsystem.Surface
+import com.ptk.anatomypro.core.designsystem.TextPrimary
+import com.ptk.anatomypro.core.designsystem.TextSecondary
+import com.ptk.anatomypro.core.designsystem.TextStrong
 import com.ptk.anatomypro.core.data.model.SearchHit
 import com.ptk.anatomypro.core.designsystem.SideBadge
 import com.ptk.anatomypro.core.designsystem.Accent
@@ -41,70 +67,103 @@ fun SearchScreen(
     onRecentSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val type = LocalAnatomyType.current
+    val fieldShape = RoundedCornerShape(12.dp)
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = onQueryChanged,
-            singleLine = true,
-            label = { Text(stringResource(Res.string.search_field)) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        )
+        // The prototype's field: a glyph, the query, and a way to clear it.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .heightIn(min = 48.dp)
+                .clip(fieldShape)
+                .background(Surface)
+                .border(BorderStroke(1.dp, Hairline), fieldShape)
+                .padding(start = 14.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("⌕", style = type.button, color = TextSecondary, modifier = Modifier.clearAndSetSemantics { })
+            val fieldLabel = stringResource(Res.string.search_field)
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (state.query.isEmpty()) Text(fieldLabel, style = type.button.copy(fontWeight = FontWeight.Normal), color = TextTertiary, modifier = Modifier.clearAndSetSemantics { })
+                BasicTextField(
+                    value = state.query,
+                    onValueChange = onQueryChanged,
+                    singleLine = true,
+                    textStyle = type.button.copy(fontWeight = FontWeight.Normal, color = TextPrimary),
+                    cursorBrush = SolidColor(Accent),
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = fieldLabel },
+                )
+            }
+            if (state.query.isNotEmpty()) {
+                val clear = stringResource(Res.string.search_clear)
+                Box(
+                    modifier = Modifier.size(44.dp).clickable(role = Role.Button) { onQueryChanged("") }.semantics { contentDescription = clear },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("×", style = type.button, color = TextTertiary, modifier = Modifier.clearAndSetSemantics { })
+                }
+            }
+        }
 
         Text(
             text = when {
                 !state.hasQuery -> stringResource(Res.string.search_scope)
                 state.isSearching -> stringResource(Res.string.search_searching)
                 else -> pluralStringResource(Res.plurals.search_results, state.hits.size, state.hits.size)
-            },
-            style = MaterialTheme.typography.labelSmall,
+            }.uppercase(),
+            style = type.code,
             color = TextTertiary,
-            modifier = Modifier.padding(vertical = 6.dp),
+            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
         )
 
         if (!state.hasQuery) {
             if (state.recent.isNotEmpty()) {
-                Text(stringResource(Res.string.search_recent), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+                Overline(stringResource(Res.string.search_recent), color = TextSecondary)
                 for (term in state.recent) {
-                    Text(
-                        text = term,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                            .clickable { onRecentSelected(term) }.padding(top = 12.dp),
-                    )
+                    Column {
+                        Text(
+                            text = term,
+                            style = type.body,
+                            color = TextStrong,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { onRecentSelected(term) }.padding(top = 12.dp),
+                        )
+                        HorizontalDivider(color = FooterHairline, thickness = 1.dp)
+                    }
                 }
             }
             return@Column
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.hits, key = { it.summary.id.value }) { hit ->
+                val cardShape = RoundedCornerShape(12.dp)
                 Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                        .clickable { onHitSelected(hit) }.padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .clip(cardShape)
+                        .background(Surface)
+                        .border(BorderStroke(1.dp, Hairline), cardShape)
+                        .clickable(role = Role.Button) { onHitSelected(hit) }
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = hit.summary.latinName ?: hit.summary.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (hit.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal,
+                            // Latin leads, in the serif; a group reads as a heading.
+                            style = type.latin.copy(fontWeight = if (hit.summary.isGroup) FontWeight.SemiBold else FontWeight.Normal),
+                            color = TextPrimary,
+                            modifier = Modifier.weight(1f),
                         )
                         SideBadge(hit.summary.laterality)
-                        Text(
-                            text = stringResource(Res.string.search_match, hit.matchedLocale.uppercase()),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Accent,
-                        )
+                        // Which language the query was found in: said, never implied by position.
+                        Badge(stringResource(Res.string.search_match, hit.matchedLocale.uppercase()), color = HighlightOutline, outline = AccentMuted)
                     }
                     if (hit.summary.name != hit.summary.latinName) {
-                        Text(
-                            text = hit.summary.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextTertiary,
-                        )
+                        Text(hit.summary.name, style = type.body, color = TextStrong)
                     }
                 }
             }
