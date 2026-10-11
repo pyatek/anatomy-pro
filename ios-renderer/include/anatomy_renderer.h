@@ -150,6 +150,15 @@ void ar_set_camera(ar_renderer_ref renderer, const float eye[3], const float tar
 void ar_set_picking_enabled(ar_renderer_ref renderer, bool enabled);
 /* Asynchronous: the result arrives as AR_EVENT_PICKED after subsequent frames render. */
 void ar_pick_at(ar_renderer_ref renderer, float x_px, float y_px);
+/*
+ * A tap with a reach. Asks the pixel at each of `count` offsets from the tap, given as
+ * x, y pairs in pixels, and reports one AR_EVENT_PICKED: what the first offset found that
+ * found anything, in the order given. The caller lists the tap itself first and the rest
+ * nearest first, so what is under the finger wins and a miss takes the nearest thing.
+ * An offset that falls outside the view found nothing.
+ */
+void ar_pick_near(ar_renderer_ref renderer, float x_px, float y_px,
+                  const float* offsets_xy, size_t count);
 
 /*
  * Renders one frame.

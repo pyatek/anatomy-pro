@@ -30,7 +30,7 @@ import com.ptk.anatomypro.renderer.filament.cinterop.ar_load_model
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_count
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_nodes_bounds
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_node_name_at
-import com.ptk.anatomypro.renderer.filament.cinterop.ar_pick_at
+import com.ptk.anatomypro.renderer.filament.cinterop.ar_pick_near
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_poll_event
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_render_frame
 import com.ptk.anatomypro.renderer.filament.cinterop.ar_renderer_ref
@@ -239,9 +239,23 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
         return frame
     }
 
-    /** Reports a tap in view coordinates, origin top-left. Result arrives as [RendererEvent.Picked]. */
-    fun pickAt(xPx: Float, yPx: Float) {
-        ar_pick_at(handle, xPx, yPx)
+    /**
+     * Reports a tap in view coordinates, origin top-left, as one [RendererEvent.Picked].
+     *
+     * A tap reaches [reachPx] around itself: what is under it wins, and when nothing is, the
+     * nearest thing within reach is taken ([TapProbe]). Zero asks the one pixel, which is
+     * what a test wants when it is looking for an edge.
+     */
+    fun pickAt(xPx: Float, yPx: Float, reachPx: Float = TapProbe.REACH_DP * pixelsPerDp) {
+        val probes = TapProbe.offsets(reachPx)
+        memScoped {
+            val offsets = allocArray<FloatVar>(probes.size * 2)
+            probes.forEachIndexed { index, (dx, dy) ->
+                offsets[index * 2] = dx
+                offsets[index * 2 + 1] = dy
+            }
+            ar_pick_near(handle, xPx, yPx, offsets, probes.size.toULong())
+        }
     }
 
     fun dispose() {

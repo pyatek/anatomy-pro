@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.renderer.filament
 
+import java.util.concurrent.atomic.AtomicInteger
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
@@ -439,15 +440,39 @@ class FilamentAnatomyRenderer : AnatomyRenderer {
     /** Test-only: blocks until the GPU has caught up, so picking results are deterministic. */
     fun waitForGpu() = engine.flushAndWait()
 
-    /** Reports a tap in view coordinates, origin top-left. */
-    fun pickAt(xPx: Float, yPx: Float) {
+    /**
+     * Reports a tap in view coordinates, origin top-left, as one [RendererEvent.Picked].
+     *
+     * A tap reaches [reachPx] around itself: what is under it wins, and when nothing is, the
+     * nearest thing within reach is taken ([TapProbe]). Zero asks the one pixel, which is
+     * what a test wants when it is looking for an edge.
+     */
+    fun pickAt(xPx: Float, yPx: Float, reachPx: Float = TapProbe.REACH_DP * pixelsPerDp) {
         if (!pickingEnabled) return
-        // Filament's picking viewport has its origin at the bottom left; callers work in
-        // touch coordinates, whose origin is top left.
-        val x = xPx.toInt().coerceAtLeast(0)
-        val y = (height - yPx).toInt().coerceAtLeast(0)
-        view.pick(x, y, inlineExecutor) { result ->
-            _events.tryEmit(RendererEvent.Picked(entityToStructure[result.renderable]))
+        val probes = TapProbe.offsets(reachPx)
+        val found = arrayOfNulls<StructureId>(probes.size)
+        val waiting = AtomicInteger(probes.size)
+        fun answered() {
+            if (waiting.decrementAndGet() == 0) _events.tryEmit(RendererEvent.Picked(TapProbe.nearest(found.asList())))
+        }
+        probes.forEachIndexed { index, (dx, dy) ->
+            // Filament's picking viewport has its origin at the bottom left; callers work in
+            // touch coordinates, whose origin is top left.
+            val x = (xPx + dx).toInt()
+            val y = (height - (yPx + dy)).toInt()
+            when {
+                // The tap itself is always asked, pulled inside the view as it always was.
+                index == 0 -> view.pick(x.coerceAtLeast(0), y.coerceAtLeast(0), inlineExecutor) { result ->
+                    found[index] = entityToStructure[result.renderable]
+                    answered()
+                }
+                // A probe that falls outside the view found nothing.
+                x !in 0 until width || y !in 0 until height -> answered()
+                else -> view.pick(x, y, inlineExecutor) { result ->
+                    found[index] = entityToStructure[result.renderable]
+                    answered()
+                }
+            }
         }
     }
 

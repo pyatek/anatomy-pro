@@ -2,6 +2,7 @@
 
 #include "OutlinePass.h"
 
+#include <memory>
 #include <backend/CallbackHandler.h>
 #include <backend/PixelBufferDescriptor.h>
 #include <filament/Box.h>
@@ -734,6 +735,67 @@ void ar_pick_at(ar_renderer_ref r, float x, float y) {
         }
         r->push(std::move(picked));
     }, &immediateHandler());
+}
+
+void ar_pick_near(ar_renderer_ref r, float x, float y, const float* offsets, size_t count) {
+    if (!r || !r->engine || !r->view || !r->pickingEnabled) return;
+    if (!offsets || count == 0) {
+        ar_pick_at(r, x, y);
+        return;
+    }
+
+    // One answer for the tap, however many pixels it asks. Filament delivers each result on
+    // its backend thread, so what the probes share is counted atomically and the event is
+    // pushed by whichever of them answers last.
+    struct Tap {
+        ar_renderer* renderer = nullptr;
+        std::vector<std::string> found;
+        std::atomic<size_t> waiting{0};
+
+        void answered() {
+            if (waiting.fetch_sub(1) != 1) return;
+            QueuedEvent picked;
+            picked.type = AR_EVENT_PICKED;
+            for (const std::string& name : found) {
+                if (!name.empty()) {
+                    picked.nodeName = name;
+                    break;
+                }
+            }
+            renderer->push(std::move(picked));
+        }
+    };
+    // A picking callback has room for little more than a pointer, so each probe's share of
+    // the tap is on the heap and the callback frees it.
+    struct Probe {
+        std::shared_ptr<Tap> tap;
+        size_t index = 0;
+    };
+    auto tap = std::make_shared<Tap>();
+    tap->renderer = r;
+    tap->found.resize(count);
+    tap->waiting = count;
+
+    for (size_t index = 0; index < count; ++index) {
+        // Callers work in touch coordinates, whose origin is top-left; Filament's picking
+        // viewport has its origin at the bottom-left.
+        const float px = x + offsets[index * 2];
+        const float py = float(r->height) - (y + offsets[index * 2 + 1]);
+        if (px < 0.0f || py < 0.0f || px >= float(r->width) || py >= float(r->height)) {
+            tap->answered();
+            continue;
+        }
+        auto* probe = new Probe{tap, index};
+        r->view->pick(uint32_t(px), uint32_t(py), [probe](View::PickingQueryResult const& result) {
+            std::unique_ptr<Probe> owned(probe);
+            ar_renderer* renderer = owned->tap->renderer;
+            if (!result.renderable.isNull()) {
+                const auto entry = renderer->entityToNode.find(result.renderable.getId());
+                if (entry != renderer->entityToNode.end()) owned->tap->found[owned->index] = entry->second;
+            }
+            owned->tap->answered();
+        }, &immediateHandler());
+    }
 }
 
 namespace {

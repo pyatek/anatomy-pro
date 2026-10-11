@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.renderer.filament
 
+import kotlinx.coroutines.flow.SharedFlow
 import com.ptk.anatomypro.core.model.PackId
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.renderer.api.AnatomyRenderer
@@ -73,6 +74,64 @@ class FilamentAnatomyRendererContractTest : AnatomyRendererContract() {
 
     @Test fun centres_a_focused_structure() = runBlocking { verifyFocusingTheCameraCentresAStructure() }
     @Test fun returns_to_the_whole_model() = runBlocking { verifyFramingAllReturnsTheCentreToTheWholeModel() }
+    /**
+     * A tap a few pixels off a structure still selects it. Vessels and nerves are a pixel
+     * or two wide; a finger does not land on them. Found by walking up from the cube until
+     * the pixel under the tap is empty, then tapping just past that.
+     */
+    @Test fun selects_what_is_nearest_when_the_tap_lands_just_beside_it() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            settle(renderer)
+            val centre = VIEWPORT / 2f
+
+            var edge = centre
+            while (edge > 0f && pickedAt(renderer, centre, edge, reachPx = 0f) == hitStructure) edge -= 4f
+            assertTrue(edge > 40f, "the cube fills the view; there is no edge to tap beside")
+            val beside = edge - 2f
+
+            assertEquals(null, pickedAt(renderer, centre, beside, reachPx = 0f), "the pixel beside it")
+            assertEquals(hitStructure, pickedAt(renderer, centre, beside), "a finger beside it")
+            assertEquals(null, pickedAt(renderer, centre, beside - 30f), "a finger well clear of it")
+        } finally {
+            renderer.dispose()
+        }
+    }
+
+    /** One tap, one answer, however many pixels it asked. */
+    @Test fun reports_one_pick_for_one_tap() = runBlocking {
+        val renderer = FilamentAnatomyRenderer()
+        try {
+            renderer.attachHeadless(VIEWPORT, VIEWPORT)
+            renderer.loadPack(pack, source)
+            settle(renderer)
+            val before = picks(renderer).size
+
+            renderer.pickAt(VIEWPORT / 2f, VIEWPORT / 2f)
+            settle(renderer)
+            settle(renderer)
+
+            assertEquals(before + 1, picks(renderer).size)
+        } finally {
+            renderer.dispose()
+        }
+    }
+
+    private fun picks(renderer: FilamentAnatomyRenderer): List<RendererEvent.Picked> =
+        (renderer.events as SharedFlow<RendererEvent>).replayCache.filterIsInstance<RendererEvent.Picked>()
+
+    /** Taps and returns what was picked, or fails if the tap was never answered. */
+    private suspend fun pickedAt(renderer: FilamentAnatomyRenderer, x: Float, y: Float, reachPx: Float? = null): StructureId? {
+        val before = picks(renderer).size
+        if (reachPx == null) renderer.pickAt(x, y) else renderer.pickAt(x, y, reachPx)
+        repeat(4) { if (picks(renderer).size == before) settle(renderer) }
+        val after = picks(renderer)
+        assertTrue(after.size > before, "the tap at $x, $y was never answered")
+        return after.last().structure
+    }
+
     @Test fun signals_ready_then_pack_loaded() = runBlocking { verifyLoadingAPackSignalsReadyThenLoaded() }
     @Test fun reports_a_pick() = runBlocking { verifyPickingAStructureReportsIt() }
     @Test fun reports_a_miss() = runBlocking { verifyPickingEmptySpaceReportsNothing() }
