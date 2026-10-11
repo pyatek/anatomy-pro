@@ -1,5 +1,12 @@
 package com.ptk.anatomypro.core.data
 
+import kotlinx.coroutines.flow.first
+import kotlinx.datetime.LocalDate
+import com.ptk.anatomypro.core.model.StructureId
+import com.ptk.anatomypro.core.model.QuizSessionId
+import com.ptk.anatomypro.core.data.model.StreakState
+import com.ptk.anatomypro.core.data.model.QuizSummary
+import com.ptk.anatomypro.core.data.model.AnsweredStructure
 import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +72,76 @@ class DatabaseTest {
 
         dao.upsertVerification(StructureVerificationEntity("1168-clavicula-left", "en", "VERIFIED", 3_000L, "the-hash-of-an-older-name"))
         assertEquals(0, source.nodes("en").count { it.verified })
+    }
+
+    // --- progress ---------------------------------------------------------------------
+
+    private fun progressRepository(today: LocalDate) =
+        com.ptk.anatomypro.core.data.progress.RoomProgressRepository(database, today = { today }, now = { 1_000L })
+
+    private fun summary(vararg answered: Pair<String, Boolean>) = QuizSummary(
+        session = QuizSessionId("s"),
+        correct = answered.count { it.second },
+        total = answered.size,
+        elapsedMillis = 9_000,
+        needsReview = emptyList(),
+        answered = answered.map { AnsweredStructure(StructureId(it.first), it.second) },
+    )
+
+    @Test
+    fun a_finished_session_is_kept_and_read_back_by_a_repository_made_later() = runTest {
+        // "Survives a restart": nothing is held in the repository; a second one sees it all.
+        install()
+        val day = LocalDate(2026, 10, 11)
+        progressRepository(day).recordSession(summary("1168-clavicula-left" to true, "1169-scapula-left" to false))
+
+        val later = progressRepository(day)
+
+        assertEquals(StreakState(currentDays = 1, longestDays = 1, lastStudied = day), later.streak.first())
+        assertEquals(setOf(StructureId("1168-clavicula-left")), later.mastered())
+        val activity = later.activity(day, day).getValue(day)
+        assertEquals(1, activity.sessions)
+        assertEquals(2, activity.questionsAnswered)
+    }
+
+    @Test
+    fun sessions_on_days_in_a_row_make_a_streak_and_a_calendar() = runTest {
+        install()
+        val first = LocalDate(2026, 10, 9)
+        for (offset in 0..2) {
+            progressRepository(LocalDate.fromEpochDays(first.toEpochDays() + offset)).recordSession(summary("1168-clavicula-left" to true))
+        }
+        val today = LocalDate(2026, 10, 11)
+        val repository = progressRepository(today)
+
+        assertEquals(3, repository.streak.first().currentDays)
+        val calendar = repository.activity(LocalDate(2026, 10, 8), today)
+        assertEquals(setOf(LocalDate(2026, 10, 9), LocalDate(2026, 10, 10), today), calendar.keys)
+    }
+
+    @Test
+    fun mastery_by_system_counts_drawn_structures_answered_rightly_and_names_the_system() = runTest {
+        install()
+        val repository = progressRepository(LocalDate(2026, 10, 11))
+        repository.recordSession(summary("1168-clavicula-left" to true))
+        // Wrong, then right, on another day's session: right once is enough to count.
+        repository.recordSession(summary("1168-clavicula-left" to false))
+
+        val skeletal = repository.masteryBySystem("en").single { it.system.value == "skeletal-system" }
+
+        assertEquals(1, skeletal.structuresSeen)
+        assertTrue(skeletal.structuresTotal > 1, "the sample pack draws more than one bone")
+        assertTrue(skeletal.title.isNotBlank())
+    }
+
+    @Test
+    fun a_structure_answered_only_wrongly_is_not_mastered() = runTest {
+        install()
+        val repository = progressRepository(LocalDate(2026, 10, 11))
+        repository.recordSession(summary("1168-clavicula-left" to false))
+
+        assertEquals(emptySet(), repository.mastered())
+        assertEquals(0, repository.masteryBySystem("en").single { it.system.value == "skeletal-system" }.structuresSeen)
     }
 
     @Test

@@ -4,6 +4,9 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import com.ptk.anatomypro.core.data.dao.ProgressDao
+import com.ptk.anatomypro.core.data.entity.QuizSessionEntity
+import com.ptk.anatomypro.core.data.entity.StructureProgressEntity
 import com.ptk.anatomypro.core.data.dao.PreferenceDao
 import com.ptk.anatomypro.core.data.dao.StructureDao
 import com.ptk.anatomypro.core.data.entity.MeshRefEntity
@@ -27,14 +30,17 @@ import com.ptk.anatomypro.core.data.entity.StructureVerificationEntity
         PackEntity::class,
         StructureSearchEntity::class,
         PreferenceEntity::class,
+        QuizSessionEntity::class,
+        StructureProgressEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @ConstructedBy(AnatomyDatabaseConstructor::class)
 abstract class AnatomyDatabase : RoomDatabase() {
     abstract fun structures(): StructureDao
     abstract fun preferences(): PreferenceDao
+    abstract fun progress(): ProgressDao
 }
 
 /** Room generates the actual per platform; the expect declaration has no body by design. */

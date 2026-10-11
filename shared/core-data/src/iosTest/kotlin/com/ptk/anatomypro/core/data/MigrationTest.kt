@@ -21,6 +21,40 @@ import kotlin.test.assertNull
 class MigrationTest {
 
     @Test
+    fun a_version_3_database_opens_with_somewhere_to_keep_progress_and_everything_it_had() = runTest {
+        val path = NSTemporaryDirectory() + "anatomy-migration-${NSUUID().UUIDString}.db"
+        BundledSQLiteDriver().open(path).use { old ->
+            VERSION_3_SCHEMA.forEach(old::execSQL)
+            old.execSQL(
+                "INSERT INTO structure VALUES " +
+                    "('1168-clavicula-left', '1168', NULL, 'skeletal-system', 'trunk', 'L', 'skeletal-trunk', 0)"
+            )
+            old.execSQL("INSERT INTO structure_text VALUES ('1168-clavicula-left', 'la', 'Clavicula', 'bbbbbbbb')")
+            old.execSQL("INSERT INTO structure_verification VALUES ('1168-clavicula-left', 'la', 'VERIFIED', 1000, 'bbbbbbbb')")
+            old.execSQL("INSERT INTO preference VALUES ('onboarded', 'true')")
+            old.execSQL("PRAGMA user_version = 3")
+        }
+
+        val database = Room.databaseBuilder<AnatomyDatabase>(name = path).openAnatomyDatabase()
+        try {
+            // What was there is still there: a reviewer's work and a user's settings.
+            assertNotNull(database.structures().currentVerification("1168-clavicula-left", "la"))
+            assertEquals("true", database.preferences().all().single { it.key == "onboarded" }.value)
+
+            // And progress has a home, empty.
+            val progress = database.progress()
+            assertEquals(emptyList(), progress.mastered())
+            progress.record(
+                com.ptk.anatomypro.core.data.entity.QuizSessionEntity(day = "2026-10-11", finishedAt = 5, correct = 1, total = 1, elapsedMillis = 900),
+                listOf("1168-clavicula-left" to true),
+            )
+            assertEquals(listOf("1168-clavicula-left"), progress.mastered())
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
     fun a_version_2_database_opens_with_definitions_moved_out_and_names_rehashed() = runTest {
         val path = NSTemporaryDirectory() + "anatomy-migration-${NSUUID().UUIDString}.db"
         BundledSQLiteDriver().open(path).use { old ->
@@ -63,6 +97,26 @@ class MigrationTest {
         }
     }
 }
+
+/** `schemas/…/3.json`, as the statements Room would have run. */
+private val VERSION_3_SCHEMA = listOf(
+    "CREATE TABLE IF NOT EXISTS `structure` (`id` TEXT NOT NULL, `taCode` TEXT, `parentId` TEXT, `systemId` TEXT, `regionId` TEXT, `laterality` TEXT NOT NULL, `packId` TEXT NOT NULL, `isGroup` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+    "CREATE INDEX IF NOT EXISTS `index_structure_parentId` ON `structure` (`parentId`)",
+    "CREATE INDEX IF NOT EXISTS `index_structure_systemId` ON `structure` (`systemId`)",
+    "CREATE INDEX IF NOT EXISTS `index_structure_regionId` ON `structure` (`regionId`)",
+    "CREATE INDEX IF NOT EXISTS `index_structure_packId` ON `structure` (`packId`)",
+    "CREATE TABLE IF NOT EXISTS `structure_text` (`structureId` TEXT NOT NULL, `locale` TEXT NOT NULL, `name` TEXT NOT NULL, `contentHash` TEXT NOT NULL, PRIMARY KEY(`structureId`, `locale`))",
+    "CREATE TABLE IF NOT EXISTS `structure_definition` (`structureId` TEXT NOT NULL, `locale` TEXT NOT NULL, `text` TEXT NOT NULL, `sourceUrl` TEXT, `licence` TEXT, PRIMARY KEY(`structureId`, `locale`))",
+    "CREATE TABLE IF NOT EXISTS `structure_synonym` (`structureId` TEXT NOT NULL, `locale` TEXT NOT NULL, `synonym` TEXT NOT NULL, PRIMARY KEY(`structureId`, `locale`, `synonym`))",
+    "CREATE TABLE IF NOT EXISTS `mesh_ref` (`structureId` TEXT NOT NULL, `packId` TEXT NOT NULL, `nodeName` TEXT NOT NULL, PRIMARY KEY(`structureId`, `packId`, `nodeName`))",
+    "CREATE INDEX IF NOT EXISTS `index_mesh_ref_packId` ON `mesh_ref` (`packId`)",
+    "CREATE TABLE IF NOT EXISTS `structure_verification` (`structureId` TEXT NOT NULL, `locale` TEXT NOT NULL, `state` TEXT NOT NULL, `verifiedAt` INTEGER NOT NULL, `verifiedTextHash` TEXT NOT NULL, PRIMARY KEY(`structureId`, `locale`))",
+    "CREATE TABLE IF NOT EXISTS `pack` (`id` TEXT NOT NULL, `version` INTEGER NOT NULL, `installedAt` INTEGER, `meshUri` TEXT, PRIMARY KEY(`id`))",
+    "CREATE TABLE IF NOT EXISTS `structure_search` (`structureId` TEXT NOT NULL, `locale` TEXT NOT NULL, `normalised` TEXT NOT NULL, PRIMARY KEY(`structureId`, `locale`, `normalised`))",
+    "CREATE INDEX IF NOT EXISTS `index_structure_search_normalised` ON `structure_search` (`normalised`)",
+    "CREATE INDEX IF NOT EXISTS `index_structure_search_locale` ON `structure_search` (`locale`)",
+    "CREATE TABLE IF NOT EXISTS `preference` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+)
 
 /** `schemas/…/2.json`, as the statements Room would have run. */
 private val VERSION_2_SCHEMA = listOf(

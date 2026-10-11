@@ -73,8 +73,31 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/**
+ * Adds somewhere to keep progress: finished sessions, and how each structure has gone.
+ *
+ * Two new tables and nothing else touched. The statements are Room's own for these
+ * entities (`schemas/…/4.json`); Room checks the result against them when it opens.
+ */
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `quiz_session` " +
+                "(`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `day` TEXT NOT NULL, " +
+                "`finishedAt` INTEGER NOT NULL, `correct` INTEGER NOT NULL, `total` INTEGER NOT NULL, " +
+                "`elapsedMillis` INTEGER NOT NULL)"
+        )
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_quiz_session_day` ON `quiz_session` (`day`)")
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `structure_progress` " +
+                "(`structureId` TEXT NOT NULL, `timesCorrect` INTEGER NOT NULL, `timesWrong` INTEGER NOT NULL, " +
+                "`lastAnsweredAt` INTEGER NOT NULL, PRIMARY KEY(`structureId`))"
+        )
+    }
+}
+
 fun RoomDatabase.Builder<AnatomyDatabase>.openAnatomyDatabase(): AnatomyDatabase =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
         .setDriver(BundledSQLiteDriver())
         // Dispatchers.IO is not in the common source set; Default is the portable
         // equivalent here, and queries are short.
