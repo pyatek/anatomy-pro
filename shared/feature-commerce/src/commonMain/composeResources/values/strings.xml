@@ -17,6 +17,7 @@
     <string name="paywall_subscribed_body">Every quiz, the daily quiz and the ranking are open.</string>
     <string name="paywall_notice_purchase_failed">The purchase did not go through. You have not been charged by this app.</string>
     <string name="paywall_notice_nothing_to_restore">No earlier purchase was found for this account.</string>
+    <string name="paywall_notice_restore_failed">The store could not be reached, so your purchase could not be looked for. Try again.</string>
     <string name="paywall_notice_plans_failed">The plans could not be loaded.</string>
     <string name="paywall_retry">Try again</string>
 </resources>

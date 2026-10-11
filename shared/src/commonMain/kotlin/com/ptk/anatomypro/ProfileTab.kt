@@ -1,6 +1,7 @@
 package com.ptk.anatomypro
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,6 +34,8 @@ internal fun ProfileHomeRoute(dependencies: AppDependencies, locale: String, nav
         )
     }
     val state by model.state.collectAsState()
+    // The model outlives a tab switch; a session finished meanwhile is not in its calendar.
+    LaunchedEffect(model) { model.refresh() }
 
     // Read here rather than in the ViewModel: it is one flag, and only where there is
     // something to subscribe to.

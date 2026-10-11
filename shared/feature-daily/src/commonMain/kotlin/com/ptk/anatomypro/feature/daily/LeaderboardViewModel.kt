@@ -70,13 +70,23 @@ class LeaderboardViewModel(
 
     fun onRetry() = load()
 
-    private fun load() {
+    /**
+     * The screen was come back to. This model outlives a tab switch, and what it holds may
+     * be from before the user played today. The board on screen stays until the new one
+     * arrives.
+     */
+    fun refresh() = load(keepShown = true)
+
+    private fun load(keepShown: Boolean = false) {
         if (!_state.value.subscribed) return
         // The latest request wins: a board that answers late must not replace the one the
         // user has since switched to.
         loading?.cancel()
         val board = _state.value.board
-        _state.update { it.copy(isLoading = true, failed = false, leaderboard = null) }
+        _state.update {
+            val kept = it.leaderboard.takeIf { keepShown }
+            it.copy(isLoading = kept == null, failed = false, leaderboard = kept)
+        }
         loading = viewModelScope.launch {
             try {
                 val loaded = when (board) {

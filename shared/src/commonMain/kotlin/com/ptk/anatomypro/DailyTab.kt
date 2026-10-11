@@ -90,7 +90,9 @@ internal fun LobbyRoute(
                     modifier = modifier,
                     highlights = canvas.highlights,
                     render = RenderState(hidden = hidden, ghosted = emptySet(), ghostAlpha = 1f),
-                    focus = FocusRequest(canvas.focus, DAILY_FOCUS_MILLIS, serial = playing.asking.index),
+                    // With what is framed alongside, as the quiz passes it: a "find the structure"
+                    // question frames its whole region, never its target alone.
+                    focus = FocusRequest(canvas.focus, DAILY_FOCUS_MILLIS, serial = playing.asking.index, alongside = canvas.framedWith),
                     onPicked = { picked -> if (canvas.pickable && picked != null) daily.answer(picked) },
                     onStats = {},
                     onReady = { canvasReady = it },
@@ -128,6 +130,8 @@ internal fun LeaderboardRoute(dependencies: AppDependencies, navController: NavH
         )
     }
     val state by model.state.collectAsState()
+    // The model outlives a tab switch; the board may be from before today's quiz was played.
+    LaunchedEffect(model) { model.refresh() }
 
     LeaderboardScreen(
         state = state,

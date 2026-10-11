@@ -160,4 +160,40 @@ class LeaderboardViewModelTest {
         assertEquals(Board.STREAK, model.state.value.board)
         assertEquals(88, model.state.value.leaderboard?.me?.rank)
     }
+
+    @Test
+    fun the_board_is_read_again_when_the_screen_is_come_back_to() = runTest(dispatcher) {
+        // The model outlives a tab switch. A user who played the daily and came back was
+        // still shown the board from before, without their place on it.
+        var asked = 0
+        val real = FakeLeaderboardRepository()
+        val counting = object : LeaderboardRepository by real {
+            override suspend fun daily(date: LocalDate): Leaderboard { asked++; return real.daily(date) }
+        }
+        val model = model(leaderboard = counting)
+        advanceUntilIdle()
+        assertEquals(1, asked)
+
+        model.refresh()
+        advanceUntilIdle()
+
+        assertEquals(2, asked)
+        assertEquals(412, model.state.value.leaderboard?.me?.rank)
+    }
+
+    @Test
+    fun coming_back_as_a_free_user_still_asks_for_no_board() = runTest(dispatcher) {
+        var asked = 0
+        val real = FakeLeaderboardRepository()
+        val counting = object : LeaderboardRepository by real {
+            override suspend fun daily(date: LocalDate): Leaderboard { asked++; return real.daily(date) }
+        }
+        val model = model(leaderboard = counting, entitlements = FakeEntitlementRepository())
+        advanceUntilIdle()
+
+        model.refresh()
+        advanceUntilIdle()
+
+        assertEquals(0, asked)
+    }
 }

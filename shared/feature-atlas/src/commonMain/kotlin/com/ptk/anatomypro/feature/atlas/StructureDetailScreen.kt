@@ -39,6 +39,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import anatomypro.shared.feature_atlas.generated.resources.layers_back
 import com.ptk.anatomypro.core.designsystem.AccentOnLight
 import com.ptk.anatomypro.core.designsystem.LightGround
 import com.ptk.anatomypro.core.designsystem.LightHairline
@@ -63,6 +66,7 @@ fun StructureDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val type = LocalAnatomyType.current
+    val backLabel = stringResource(Res.string.layers_back)
     // One of the prototype's two light screens: this one is for reading.
     Column(modifier = modifier.fillMaxSize().background(LightGround)) {
         Box(modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 12.dp)) {
@@ -74,6 +78,8 @@ fun StructureDetailScreen(
                     .align(Alignment.CenterStart)
                     .heightIn(min = 44.dp)
                     .clickable(role = Role.Button, onClick = onBack)
+                    // A glyph says nothing aloud.
+                    .semantics { contentDescription = backLabel }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
             Text(

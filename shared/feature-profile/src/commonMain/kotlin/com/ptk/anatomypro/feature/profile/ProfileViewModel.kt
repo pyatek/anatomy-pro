@@ -70,8 +70,17 @@ class ProfileViewModel(
         load()
     }
 
+    /**
+     * The screen was come back to. This model outlives a tab switch, so a session finished
+     * meanwhile is not in what it holds. What is on screen stays until the new reading arrives.
+     */
+    fun refresh() {
+        if (_state.value.isLoading) return
+        load()
+    }
+
     private fun load() {
-        _state.update { it.copy(isLoading = true, failed = false) }
+        _state.update { it.copy(isLoading = it.calendar.isEmpty(), failed = false) }
         viewModelScope.launch {
             try {
                 val end = today()

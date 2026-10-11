@@ -11,4 +11,5 @@
     <string name="not_built_yet">%1$s — jeszcze nie zbudowane</string>
     <string name="atlas_layers">WARSTWY</string>
     <string name="screen_paywall">SUBSKRYPCJA</string>
+    <string name="nav_back">Wstecz</string>
 </resources>

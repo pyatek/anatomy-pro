@@ -92,6 +92,13 @@ class DailyViewModel(
     private var shownAt: Long? = null
     private var shown = false
 
+    /**
+     * When the current question became the current one. What the double-tap guard measures
+     * from — not the answer clock, which waits for the model to be drawn while the options
+     * can already be pressed.
+     */
+    private var questionAt = 0L
+
     init {
         viewModelScope.launch {
             entitlements.entitlements.collect { current ->
@@ -113,6 +120,10 @@ class DailyViewModel(
     fun refresh() {
         if (!held.subscribed) return
         if (_stage.value is DailyStage.Playing || _stage.value == DailyStage.Submitting) return
+        // Answers are being held for another try at sending them (§14: retry, do not
+        // replay). The server still calls the day "in progress", and reading that as a
+        // fresh start would throw them away.
+        if (_stage.value == DailyStage.Failed(DailyFailure.SUBMIT)) return
         _stage.value = DailyStage.Loading
         viewModelScope.launch {
             try {
@@ -158,12 +169,13 @@ class DailyViewModel(
 
     fun answer(chosen: StructureId) {
         val playing = _stage.value as? DailyStage.Playing ?: return
+        if (now() - questionAt < MIN_ANSWER_MILLIS) return
         val elapsed = elapsed()
-        if (elapsed < MIN_ANSWER_MILLIS) return
         val asking = playing.asking
         answers += QuizAnswer(asking.question.id, chosen, elapsed)
         elapsedBefore = 0
         shownAt = shownAt?.let { now() }
+        questionAt = now()
         if (asking.index == asking.session.questions.lastIndex) {
             submit()
         } else {
@@ -187,6 +199,7 @@ class DailyViewModel(
         answers.clear()
         elapsedBefore = 0
         shownAt = null
+        questionAt = now()
         if (started.questions.isEmpty()) {
             submit()
             return

@@ -38,6 +38,7 @@ import anatomypro.shared.feature_commerce.generated.resources.paywall_loading
 import anatomypro.shared.feature_commerce.generated.resources.paywall_notice_nothing_to_restore
 import anatomypro.shared.feature_commerce.generated.resources.paywall_notice_plans_failed
 import anatomypro.shared.feature_commerce.generated.resources.paywall_notice_purchase_failed
+import anatomypro.shared.feature_commerce.generated.resources.paywall_notice_restore_failed
 import anatomypro.shared.feature_commerce.generated.resources.paywall_plans
 import anatomypro.shared.feature_commerce.generated.resources.paywall_restore
 import anatomypro.shared.feature_commerce.generated.resources.paywall_restoring
@@ -113,6 +114,7 @@ fun PaywallScreen(
                 val notice = when (state.notice) {
                     PaywallNotice.PURCHASE_FAILED -> Res.string.paywall_notice_purchase_failed
                     PaywallNotice.NOTHING_TO_RESTORE -> Res.string.paywall_notice_nothing_to_restore
+                    PaywallNotice.RESTORE_FAILED -> Res.string.paywall_notice_restore_failed
                     PaywallNotice.PLANS_FAILED -> Res.string.paywall_notice_plans_failed
                     null -> null
                 }
@@ -121,7 +123,13 @@ fun PaywallScreen(
 
             when {
                 state.isLoading -> Text(stringResource(Res.string.paywall_loading), style = type.body, color = TextTertiary)
-                state.notice == PaywallNotice.PLANS_FAILED -> OutlineButton(stringResource(Res.string.paywall_retry), onClick = onRetry)
+                state.plansFailed -> {
+                    // Said here as well as in the notice above, which the next action replaces.
+                    if (state.notice != PaywallNotice.PLANS_FAILED) {
+                        Text(stringResource(Res.string.paywall_notice_plans_failed), style = type.body, color = TextTertiary)
+                    }
+                    OutlineButton(stringResource(Res.string.paywall_retry), onClick = onRetry)
+                }
                 else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Overline(stringResource(Res.string.paywall_plans), color = TextSecondary)
                     state.plans.forEachIndexed { index, plan ->

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** What the paywall has to tell the user, as a kind. The screen supplies the words. */
-enum class PaywallNotice { PURCHASE_FAILED, NOTHING_TO_RESTORE, PLANS_FAILED }
+enum class PaywallNotice { PURCHASE_FAILED, NOTHING_TO_RESTORE, RESTORE_FAILED, PLANS_FAILED }
 
 data class PaywallUiState(
     val subscribed: Boolean = false,
@@ -24,6 +24,11 @@ data class PaywallUiState(
     val purchasing: String? = null,
     val restoring: Boolean = false,
     val notice: PaywallNotice? = null,
+    /**
+     * The plans could not be loaded. Its own field, not only a notice: a notice is replaced
+     * by the next thing that happens, and the way to try again must outlast it.
+     */
+    val plansFailed: Boolean = false,
 ) {
     /** A purchase or a restore is under way: nothing else may be started. */
     val busy: Boolean get() = purchasing != null || restoring
@@ -77,12 +82,18 @@ class PaywallViewModel(private val entitlements: EntitlementRepository) : ViewMo
             val notice = try {
                 val outcome = entitlements.restore()
                 val restored = outcome is PurchaseOutcome.Succeeded && outcome.entitlements.subscribed
-                // A restore that finds nothing must say so, or it reads as a dead button.
-                if (restored) null else PaywallNotice.NOTHING_TO_RESTORE
+                when {
+                    restored -> null
+                    // The store could not be asked. Not the same as having nothing: a
+                    // subscriber told they bought nothing would believe it.
+                    outcome is PurchaseOutcome.Failed -> PaywallNotice.RESTORE_FAILED
+                    // A restore that finds nothing must say so, or it reads as a dead button.
+                    else -> PaywallNotice.NOTHING_TO_RESTORE
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                PaywallNotice.NOTHING_TO_RESTORE
+                PaywallNotice.RESTORE_FAILED
             }
             _state.update { it.copy(restoring = false, notice = notice) }
         }
@@ -94,7 +105,7 @@ class PaywallViewModel(private val entitlements: EntitlementRepository) : ViewMo
     }
 
     private fun loadPlans() {
-        _state.update { it.copy(isLoading = true, notice = null) }
+        _state.update { it.copy(isLoading = true, notice = null, plansFailed = false) }
         viewModelScope.launch {
             try {
                 val plans = entitlements.plans()
@@ -102,7 +113,7 @@ class PaywallViewModel(private val entitlements: EntitlementRepository) : ViewMo
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _state.update { it.copy(isLoading = false, notice = PaywallNotice.PLANS_FAILED) }
+                _state.update { it.copy(isLoading = false, notice = PaywallNotice.PLANS_FAILED, plansFailed = true) }
             }
         }
     }

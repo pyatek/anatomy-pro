@@ -32,7 +32,8 @@ class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizReposit
         val results = mutableListOf<AnswerResult>()
     }
 
-    private val running = mutableMapOf<QuizSessionId, Running>()
+    /** In the order they were started: the eldest is the first to go. */
+    private val running = LinkedHashMap<QuizSessionId, Running>()
     private var nextSession = 0
 
     override suspend fun topics(locale: String): List<QuizTopic> = QuizGraph(source.nodes(locale)).topics()
@@ -54,6 +55,9 @@ class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizReposit
             locale = locale,
         )
         running[session.id] = Running(session, graph)
+        // A session ended by its "end" button is never finished, and each holds a copy of
+        // the atlas. Only so many are kept; one older than that is not coming back.
+        while (running.size > SESSIONS_KEPT) running.remove(running.keys.first())
         return session
     }
 
@@ -97,5 +101,10 @@ class GeneratedQuizRepository(private val source: QuizGraphSource) : QuizReposit
                 .sortedByDescending { it.elapsedMillis }
                 .map { it.expected },
         )
+    }
+
+    companion object {
+        /** The quiz and the daily can each have one running; the rest is slack. */
+        const val SESSIONS_KEPT = 4
     }
 }

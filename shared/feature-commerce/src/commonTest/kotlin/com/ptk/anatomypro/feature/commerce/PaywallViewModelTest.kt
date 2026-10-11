@@ -187,6 +187,50 @@ class PaywallViewModelTest {
     }
 
     @Test
+    fun plans_that_failed_to_load_can_still_be_retried_after_a_restore() = runTest(dispatcher) {
+        // The retry was shown while the notice said the plans had failed, and a restore
+        // replaces the notice: the plans stayed missing with nothing left to press.
+        var broken = true
+        val real = FakeEntitlementRepository()
+        val repository = object : EntitlementRepository by real {
+            override suspend fun plans() = if (broken) throw IllegalStateException("no plans") else real.plans()
+        }
+        val model = PaywallViewModel(repository)
+        advanceUntilIdle()
+        assertTrue(model.state.value.plansFailed)
+
+        model.onRestore()
+        advanceUntilIdle()
+        assertTrue(model.state.value.plansFailed)
+
+        broken = false
+        model.onRetry()
+        advanceUntilIdle()
+        assertFalse(model.state.value.plansFailed)
+        assertEquals(2, model.state.value.plans.size)
+    }
+
+    @Test
+    fun a_restore_that_fails_says_it_failed_not_that_there_was_nothing_to_restore() = runTest(dispatcher) {
+        // A subscriber on a new phone with no connection must not be told they bought nothing.
+        val real = FakeEntitlementRepository()
+        val thrown = PaywallViewModel(object : EntitlementRepository by real {
+            override suspend fun restore(): PurchaseOutcome = throw IllegalStateException("store unreachable")
+        })
+        val refused = PaywallViewModel(object : EntitlementRepository by real {
+            override suspend fun restore(): PurchaseOutcome = PurchaseOutcome.Failed("store said no")
+        })
+        advanceUntilIdle()
+
+        thrown.onRestore()
+        refused.onRestore()
+        advanceUntilIdle()
+
+        assertEquals(PaywallNotice.RESTORE_FAILED, thrown.state.value.notice)
+        assertEquals(PaywallNotice.RESTORE_FAILED, refused.state.value.notice)
+    }
+
+    @Test
     fun there_is_no_paywall_where_the_repository_refuses() {
         // All-screens spec §6: a release build must never present a purchase that cannot happen.
         assertFalse(commerceIsBuilt(NotBuiltEntitlementRepository))

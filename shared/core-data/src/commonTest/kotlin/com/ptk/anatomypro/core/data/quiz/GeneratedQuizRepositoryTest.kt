@@ -129,4 +129,18 @@ class GeneratedQuizRepositoryTest {
             repository.submit(QuizSessionId("no-such-session"), QuizAnswer(session.questions[0].id, null, 1))
         }
     }
+
+    @Test
+    fun only_the_last_few_sessions_are_kept_so_abandoned_ones_do_not_pile_up() = runTest {
+        // A session left by its "end" button is never finished, and each one held a copy of
+        // the whole atlas for as long as the app ran.
+        val first = session()
+        val later = (1..GeneratedQuizRepository.SESSIONS_KEPT).map { session(seed = it.toLong()) }
+
+        assertFailsWith<IllegalArgumentException> {
+            repository.submit(first.id, QuizAnswer(first.questions[0].id, null, 1))
+        }
+        val newest = later.last()
+        assertTrue(repository.submit(newest.id, QuizAnswer(newest.questions[0].id, newest.target(0), 1)).correct)
+    }
 }

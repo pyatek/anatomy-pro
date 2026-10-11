@@ -11,4 +11,5 @@
     <string name="not_built_yet">%1$s — not built yet</string>
     <string name="atlas_layers">LAYERS</string>
     <string name="screen_paywall">SUBSCRIPTION</string>
+    <string name="nav_back">Back</string>
 </resources>

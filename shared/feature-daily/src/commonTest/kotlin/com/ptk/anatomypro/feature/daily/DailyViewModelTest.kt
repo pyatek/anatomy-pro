@@ -312,4 +312,50 @@ class DailyViewModelTest {
         val question = assertIs<DailyStage.Playing>(model.stage.value).asking.question as QuizQuestion.NameTheHighlighted
         assertEquals(true, question.options.all { it.name.startsWith("Rib ") })
     }
+
+    @Test
+    fun reading_the_day_again_after_a_failed_submit_does_not_throw_the_answers_away() = runTest(dispatcher) {
+        // Going back to the home screen reads the day again. The server still says "in
+        // progress", and treating that as a fresh start replayed the one attempt of the day.
+        var failNext = true
+        var received = 0
+        val real = FakeDailyRepository()
+        val flaky = object : DailyRepository by real {
+            override suspend fun submit(answers: List<QuizAnswer>): DailyResult {
+                if (failNext) { failNext = false; throw IllegalStateException("connection dropped") }
+                received = answers.size
+                return real.submit(answers)
+            }
+        }
+        val model = model(daily = flaky)
+        playing(model)
+        repeat(10) { answerRight(model) }
+        runCurrent()
+
+        model.refresh()
+        runCurrent()
+        assertEquals(DailyStage.Failed(DailyFailure.SUBMIT), model.stage.value)
+
+        model.retry()
+        runCurrent()
+        assertEquals(10, received)
+    }
+
+    @Test
+    fun an_answer_counts_while_the_model_has_not_been_drawn_yet() = runTest(dispatcher) {
+        // The option cards are on screen and can be pressed before the canvas is ready. The
+        // guard against a double tap used the canvas's clock, so those presses were dropped
+        // without a word — for good, if the model never came.
+        val model = model()
+        runCurrent()
+        model.start(locale = "la")
+        runCurrent()
+        advanceTimeBy(MIN_ANSWER_MILLIS)
+
+        val first = assertIs<DailyStage.Playing>(model.stage.value)
+        model.answer(first.asking.question.right())
+        runCurrent()
+
+        assertEquals(1, assertIs<DailyStage.Playing>(model.stage.value).asking.index)
+    }
 }

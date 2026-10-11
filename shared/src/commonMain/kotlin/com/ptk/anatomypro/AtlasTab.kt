@@ -30,6 +30,7 @@ import anatomypro.shared.generated.resources.Res
 import anatomypro.shared.generated.resources.atlas_layers
 import anatomypro.shared.generated.resources.atlas_opening
 import anatomypro.shared.generated.resources.atlas_search
+import anatomypro.shared.generated.resources.nav_back
 import anatomypro.shared.generated.resources.atlas_stats
 import anatomypro.shared.generated.resources.atlas_title
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
@@ -41,6 +42,7 @@ import com.ptk.anatomypro.core.designsystem.SquareButton
 import com.ptk.anatomypro.core.designsystem.TextPrimary
 import com.ptk.anatomypro.core.designsystem.TextSecondary
 import com.ptk.anatomypro.core.designsystem.TextStrong
+import com.ptk.anatomypro.core.designsystem.TopBar
 import com.ptk.anatomypro.core.model.StructureId
 import com.ptk.anatomypro.feature.atlas.AtlasScreen
 import com.ptk.anatomypro.feature.atlas.AtlasUiState
@@ -149,7 +151,7 @@ fun SearchRoute(repository: AtlasRepository?, onBack: () -> Unit, onOpenDetail: 
     val model: SearchViewModel = viewModel { SearchViewModel(repository) }
     val state: SearchUiState by model.state.collectAsState()
     Column(Modifier.fillMaxSize()) {
-        TopBar(title = stringResource(Res.string.atlas_search), onBack = onBack)
+        TopBar(title = stringResource(Res.string.atlas_search), backLabel = stringResource(Res.string.nav_back), onBack = onBack)
         SearchScreen(
             state = state,
             onQueryChanged = model::onQueryChanged,
@@ -329,21 +331,4 @@ private suspend fun nameOf(repository: AtlasRepository, id: StructureId, locale:
     throw e
 } catch (e: Exception) {
     null
-}
-
-@Composable
-private fun TopBar(title: String, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp)) {
-        Text(
-            text = "‹",
-            style = LocalAnatomyType.current.title,
-            color = TextStrong,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .heightIn(min = 44.dp)
-                .clickable(role = Role.Button, onClick = onBack)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-        )
-        Overline(title, color = TextSecondary, modifier = Modifier.align(Alignment.Center))
-    }
 }

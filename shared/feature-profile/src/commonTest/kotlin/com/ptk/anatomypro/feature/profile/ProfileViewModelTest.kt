@@ -124,4 +124,24 @@ class ProfileViewModelTest {
         assertFalse(profileIsBuilt(FakeProgressRepository(), NotBuiltPackRepository))
         assertTrue(profileIsBuilt(FakeProgressRepository(), FakePackRepository()))
     }
+
+    @Test
+    fun the_calendar_and_mastery_are_read_again_when_the_screen_is_come_back_to() = runTest(dispatcher) {
+        // The model outlives a tab switch: a session finished on the Test tab was not in
+        // the calendar until the app was restarted.
+        var asked = 0
+        val real = FakeProgressRepository()
+        val counting = object : ProgressRepository by real {
+            override suspend fun activity(from: LocalDate, to: LocalDate): Map<LocalDate, DayActivity> { asked++; return real.activity(from, to) }
+        }
+        val model = model(progress = counting)
+        advanceUntilIdle()
+        assertEquals(1, asked)
+
+        model.refresh()
+        advanceUntilIdle()
+
+        assertEquals(2, asked)
+        assertFalse(model.state.value.isLoading)
+    }
 }
