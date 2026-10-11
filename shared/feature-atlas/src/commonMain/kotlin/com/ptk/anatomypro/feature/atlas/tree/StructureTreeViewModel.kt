@@ -32,6 +32,15 @@ data class TreeUiState(
     /** 1 at the top, as the prototype counts it ("POZIOM 3"). */
     val level: Int get() = path.size + 1
     val focused: StructureSummary? get() = focusedIndex?.let(items::getOrNull)
+
+    /** Whether any row here can be entered: a level of leaves must not promise an arrow. */
+    val anyDeeper: Boolean get() = items.any { it.hasChildren }
+
+    /**
+     * The path worth remembering, or null when there is none to trust: a level still
+     * loading, or one that failed, has an empty path that would overwrite the saved one.
+     */
+    val pathToSave: List<StructureId>? get() = if (isLoading || error != null) null else path.map { it.id }
 }
 
 /**
@@ -99,11 +108,15 @@ class StructureTreeViewModel(
         show(path = current.path.dropLast(1), focus = current.path.last().id)
     }
 
+    /**
+     * Goes to [path]. By its ids, through [reload], and not with the summaries in hand: they
+     * are named in whatever language the rows on screen were loaded in, which is the old one
+     * while a language change is still loading.
+     */
     private fun show(path: List<StructureSummary>, focus: StructureId?) {
         targetPath = path.map { it.id }
         targetFocus = focus
-        loading?.cancel()
-        loading = viewModelScope.launch { load(path, focus) }
+        reload()
     }
 
     /** Loads the target again from its ids, in the current language. */
@@ -112,15 +125,20 @@ class StructureTreeViewModel(
         val focus = targetFocus
         loading?.cancel()
         loading = viewModelScope.launch {
-            val path = try {
-                ids.map { requireNotNull(repository.summary(it, locale)) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // A path that no longer resolves is not worth an error: start from the top.
-                targetPath = emptyList()
-                emptyList()
+            // As far as the path still resolves. One id a pack no longer has is not a
+            // reason to forget the levels above it, and none of this is worth an error.
+            val path = mutableListOf<StructureSummary>()
+            for (id in ids) {
+                val summary = try {
+                    repository.summary(id, locale)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+                path += summary ?: break
             }
+            if (path.size != ids.size) targetPath = path.map { it.id }
             load(path, focus)
         }
     }

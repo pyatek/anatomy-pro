@@ -184,9 +184,10 @@ private fun MainScaffold(
     var barHeightPx by remember { mutableStateOf(0) }
     val barHeight = with(LocalDensity.current) { barHeightPx.toDp() }
 
-    val settingsScreen: @Composable () -> Unit = {
+    val settingsScreen: @Composable (onBack: (() -> Unit)?) -> Unit = { onBack ->
         SettingsScreen(
             state = state,
+            onBack = onBack,
             onInterfaceLocale = model::onInterfaceLocale,
             onExaminationLocale = model::onExaminationLocale,
             onNameDisplay = model::onNameDisplay,
@@ -248,9 +249,11 @@ private fun MainScaffold(
                 // Settings live behind the profile, as in the prototype. Production has no
                 // profile to show — its repositories refuse — so there the tab opens settings.
                 composable<ProfileRoute.Profile> {
-                    if (profileBuilt) ProfileHomeRoute(dependencies, locale, navController) else settingsScreen()
+                    if (profileBuilt) ProfileHomeRoute(dependencies, locale, navController) else settingsScreen(null)
                 }
-                composable<ProfileRoute.Settings> { settingsScreen() }
+                // Behind the profile, settings need their own way back: iOS has no system gesture
+                // for it inside a tab.
+                composable<ProfileRoute.Settings> { settingsScreen { navController.popBackStack() } }
                 composable<ProfileRoute.Packs> {
                     if (profileBuilt) PacksRoute(dependencies, navController)
                 }
@@ -284,6 +287,9 @@ private fun MainScaffold(
                                 )
                                 navController.selectTab(TopLevel.Test, current = tab)
                             },
+                            // The ranking is a tab. Pushed onto Today's stack instead it
+                            // stayed there, and DZIŚ came back to it rather than to home.
+                            onLeaderboard = { navController.selectTab(TopLevel.Ranking, current = tab) },
                         )
                     }
                 }

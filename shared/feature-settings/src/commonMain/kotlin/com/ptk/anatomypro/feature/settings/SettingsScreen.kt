@@ -55,6 +55,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import anatomypro.shared.feature_settings.generated.resources.settings_back
+import com.ptk.anatomypro.core.designsystem.LightTextSecondary
 import com.ptk.anatomypro.core.designsystem.AccentOnLight
 import com.ptk.anatomypro.core.designsystem.AccentOnLightSurface
 import com.ptk.anatomypro.core.designsystem.LightGround
@@ -80,6 +85,8 @@ fun SettingsScreen(
     onStructureTreeMode: (Boolean) -> Unit,
     onPatternsNotColour: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** Set where settings were opened from another screen; null where they are a tab's first. */
+    onBack: (() -> Unit)? = null,
 ) {
     val type = LocalAnatomyType.current
     // The other of the prototype's two light screens.
@@ -97,7 +104,22 @@ fun SettingsScreen(
         modifier = modifier.fillMaxSize().background(LightGround).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(stringResource(Res.string.settings_title), style = type.heading.copy(fontSize = 19.sp), color = LightTextPrimary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) {
+                val back = stringResource(Res.string.settings_back)
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .clickable(role = Role.Button, onClick = onBack)
+                        .semantics { contentDescription = back }
+                        .padding(end = 16.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text("‹", style = type.title, color = LightTextSecondary, modifier = Modifier.clearAndSetSemantics { })
+                }
+            }
+            Text(stringResource(Res.string.settings_title), style = type.heading.copy(fontSize = 19.sp), color = LightTextPrimary)
+        }
 
         Group(stringResource(Res.string.settings_group_languages)) {
             Card {

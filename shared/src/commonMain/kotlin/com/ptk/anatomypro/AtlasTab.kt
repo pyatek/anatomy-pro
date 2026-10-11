@@ -119,21 +119,21 @@ fun TreeRoute(
     // The model is the only source of the saved path, so what is written is never older
     // than what is shown. Nothing is written while the first level is still loading: the
     // empty path of a model that has not opened yet would wipe the one it is restoring.
-    LaunchedEffect(state.path, state.isLoading) {
-        if (!state.isLoading) pathIds.value = state.path.joinToString(",") { it.id.value }
+    // Nor after a load that failed: its empty path is not where the tree was.
+    val pathToSave = state.pathToSave
+    LaunchedEffect(pathToSave) {
+        if (pathToSave != null) pathIds.value = pathToSave.joinToString(",") { it.value }
+    }
+    // The scene keeps the selection, so the atlas highlights and names it when tree mode is
+    // left. Keyed on the focused row, not on a tap: going up a level, or a level restored
+    // after a language change, moves the cursor too.
+    val focused = state.focused
+    LaunchedEffect(focused?.id) {
+        if (focused != null) scene.onTreeFocus(focused.id, isGroup = focused.isGroup)
     }
     TreeScreen(
         state = state,
-        onFocus = { index ->
-            model.onFocus(index)
-            state.items.getOrNull(index)?.let { item ->
-                // The scene keeps the selection, so the atlas highlights and names it when
-                // tree mode is left. A group draws nothing: asking the camera to frame one
-                // would do nothing except replace a request that is still waiting.
-                scene.onStructureSelected(item.id, isGroup = item.isGroup)
-                if (!item.isGroup) scene.focusCamera(item.id)
-            }
-        },
+        onFocus = model::onFocus,
         onEnter = model::onEnter,
         onUp = model::onUp,
         onOpen = { state.focused?.let { onOpenDetail(it.id) } },

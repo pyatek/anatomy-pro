@@ -63,6 +63,7 @@ internal fun LobbyRoute(
     settings: AppSettings,
     navController: NavHostController,
     onPractice: (QuizTopic) -> Unit,
+    onLeaderboard: () -> Unit,
 ) {
     val stage by daily.stage.collectAsState()
 
@@ -111,7 +112,7 @@ internal fun LobbyRoute(
         onPractice = onPractice,
         onSubscribe = { navController.navigate(ProfileRoute.Paywall) },
         onBack = { navController.popBackStack() },
-        onLeaderboard = { navController.navigate(DailyRoute.Leaderboard) },
+        onLeaderboard = onLeaderboard,
     )
 }
 

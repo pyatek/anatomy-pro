@@ -141,6 +141,18 @@ class AtlasSceneViewModel(private val repository: AtlasRepository) : ViewModel()
         launchResolve()
     }
 
+    /**
+     * Tree mode's cursor moved to [id], by a tap or because a level was restored.
+     *
+     * A structure is selected and framed. A group is selected and frames nothing, but a
+     * camera still holding the structure that was focused before it would be showing
+     * something the atlas no longer names, so it goes back to the whole model.
+     */
+    fun onTreeFocus(id: StructureId, isGroup: Boolean) {
+        onStructureSelected(id, isGroup = isGroup)
+        if (!isGroup) focusCamera(id) else if (_cameraFocus.value?.structure != null) frameWholeModel()
+    }
+
     /** An explicit request to frame [id]: tree mode, or isolation turning on. */
     fun focusCamera(id: StructureId) {
         _cameraFocus.value = FocusRequest(id, FOCUS_DURATION_MS, ++serial)

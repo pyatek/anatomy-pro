@@ -7,6 +7,7 @@ import anatomypro.shared.feature_atlas.generated.resources.tree_announce_focused
 import anatomypro.shared.feature_atlas.generated.resources.tree_announce_level
 import anatomypro.shared.feature_atlas.generated.resources.tree_badge
 import anatomypro.shared.feature_atlas.generated.resources.tree_count
+import anatomypro.shared.feature_atlas.generated.resources.tree_count_plain
 import anatomypro.shared.feature_atlas.generated.resources.tree_enter
 import anatomypro.shared.feature_atlas.generated.resources.tree_focused_badge
 import anatomypro.shared.feature_atlas.generated.resources.tree_level
@@ -97,7 +98,16 @@ fun TreeScreen(
                         ?: stringResource(Res.string.tree_level_top),
                     color = TextSecondary,
                 )
-                Text(pluralStringResource(Res.plurals.tree_count, state.items.size, state.items.size), style = type.caption, color = TextStrong)
+                Text(
+                    // The arrow is promised only where a row has one.
+                    pluralStringResource(
+                        if (state.anyDeeper) Res.plurals.tree_count else Res.plurals.tree_count_plain,
+                        state.items.size,
+                        state.items.size,
+                    ),
+                    style = type.caption,
+                    color = TextStrong,
+                )
                 // Shown as a status line, and announced by screen readers because it is a polite live region.
                 Text(
                     text = announcementText(state.announcement),

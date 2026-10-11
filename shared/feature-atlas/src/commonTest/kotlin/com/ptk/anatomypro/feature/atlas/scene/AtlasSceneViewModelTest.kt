@@ -97,6 +97,45 @@ class AtlasSceneViewModelTest {
         assertTrue(seventhRib !in render.hidden && seventhRib !in render.ghosted)
     }
 
+    // --- tree mode's cursor ----------------------------------------------------------
+
+    @Test
+    fun a_structure_focused_in_tree_mode_is_selected_and_framed() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+
+        model.onTreeFocus(seventhRib, isGroup = false)
+        advanceUntilIdle()
+
+        assertEquals(seventhRib, model.panel.value.selected)
+        assertEquals(seventhRib, model.cameraFocus.value?.structure)
+    }
+
+    @Test
+    fun a_group_focused_in_tree_mode_after_a_structure_sends_the_camera_back_to_the_whole_model() = runTest(dispatcher) {
+        // The atlas was left named after the group, with the camera still on the structure before it.
+        val model = model()
+        advanceUntilIdle()
+        model.onTreeFocus(seventhRib, isGroup = false)
+
+        model.onTreeFocus(ribs, isGroup = true)
+        advanceUntilIdle()
+
+        assertEquals(ribs, model.panel.value.selected)
+        assertNull(assertNotNull(model.cameraFocus.value).structure)
+    }
+
+    @Test
+    fun a_group_focused_in_tree_mode_asks_nothing_of_a_camera_that_frames_no_structure() = runTest(dispatcher) {
+        val model = model()
+        advanceUntilIdle()
+
+        model.onTreeFocus(ribs, isGroup = true)
+        advanceUntilIdle()
+
+        assertNull(model.cameraFocus.value)
+    }
+
     @Test
     fun isolating_frames_the_isolated_structure() = runTest(dispatcher) {
         val model = model()

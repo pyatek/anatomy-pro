@@ -149,18 +149,73 @@ class StructureTreeViewModelTest {
     }
 
     @Test
-    fun an_initial_path_with_an_unknown_id_falls_back_to_the_top_level() = runTest(dispatcher) {
+    fun an_initial_path_is_followed_as_far_as_it_still_resolves() = runTest(dispatcher) {
+        // One id a pack no longer has used to throw the whole saved path away.
         val model = StructureTreeViewModel(
             FakeAtlasRepository(),
             locale = "en",
-            initialPath = listOf(StructureId("muscular"), StructureId("no-such-structure")),
+            initialPath = listOf(StructureId("muscular"), StructureId("no-such-structure"), StructureId("musculi-thoracis")),
         )
+        advanceUntilIdle()
+
+        assertEquals(listOf("Muscular system"), model.state.value.path.map { it.name })
+        assertEquals(2, model.state.value.level)
+        assertEquals(false, model.state.value.isLoading)
+        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun an_initial_path_whose_first_id_is_unknown_opens_at_the_top() = runTest(dispatcher) {
+        val model = StructureTreeViewModel(FakeAtlasRepository(), locale = "en", initialPath = listOf(StructureId("no-such-structure")))
         advanceUntilIdle()
 
         assertEquals(1, model.state.value.level)
         assertEquals(listOf("Skeletal system", "Muscular system"), model.names())
-        assertEquals(false, model.state.value.isLoading)
-        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun a_level_says_whether_anything_on_it_goes_deeper() = runTest(dispatcher) {
+        // The count line promised an arrow on levels where every row is a leaf.
+        val model = model()
+        advanceUntilIdle()
+        assertEquals(true, model.state.value.anyDeeper)
+
+        val leaves = StructureTreeViewModel(
+            FakeAtlasRepository(), locale = "en", initialPath = listOf(StructureId("muscular"), StructureId("musculi-thoracis")),
+        )
+        advanceUntilIdle()
+        assertEquals(false, leaves.state.value.anyDeeper)
+    }
+
+    @Test
+    fun a_level_entered_while_a_language_change_is_loading_is_named_in_the_new_language() = runTest(dispatcher) {
+        // The rows on screen are still in the old language when the tap lands; the path
+        // used to be built from them and kept their names.
+        val model = model()
+        advanceUntilIdle()
+
+        model.onLocale("pl")
+        model.onEnter(1) // Muscular system, still listed in English
+        advanceUntilIdle()
+
+        assertEquals(listOf("Układ mięśniowy"), model.state.value.path.map { it.name })
+        assertEquals("Mięśnie klatki piersiowej", model.state.value.items.first().name)
+    }
+
+    @Test
+    fun there_is_no_path_to_save_until_a_level_has_loaded_and_none_when_it_failed() = runTest(dispatcher) {
+        // A failed first load after the process was recreated wrote its empty path over the saved one.
+        val ids = listOf(StructureId("muscular"))
+        val loading = StructureTreeViewModel(FakeAtlasRepository(), locale = "en", initialPath = ids)
+        assertNull(loading.state.value.pathToSave)
+        advanceUntilIdle()
+        assertEquals(ids, loading.state.value.pathToSave)
+
+        val failed = StructureTreeViewModel(
+            FakeAtlasRepository(FakeBehaviour(failure = { IllegalStateException("no database") })), locale = "en", initialPath = ids,
+        )
+        advanceUntilIdle()
+        assertNull(failed.state.value.pathToSave)
     }
 
     @Test
