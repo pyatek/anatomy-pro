@@ -12,6 +12,7 @@ application {
 
 dependencies {
     implementation(project(":shared:api-contract"))
+    implementation(project(":shared:core-quiz"))
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.contentNegotiation)
     implementation(libs.ktor.server.statusPages)
@@ -26,6 +27,7 @@ dependencies {
     implementation(libs.logback)
 
     testImplementation(libs.kotlin.test)
+    testImplementation(project(":shared:core-quiz-fixtures"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.server.testHost)
     testImplementation(libs.ktor.client.contentNegotiation)
