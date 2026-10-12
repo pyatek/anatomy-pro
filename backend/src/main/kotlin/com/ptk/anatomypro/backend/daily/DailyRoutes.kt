@@ -10,6 +10,7 @@ import com.ptk.anatomypro.api.DailyStartRequest
 import com.ptk.anatomypro.api.DailyState
 import com.ptk.anatomypro.api.DailyStateResponse
 import com.ptk.anatomypro.api.DailySubmitRequest
+import com.ptk.anatomypro.api.EntitlementsResponse
 import com.ptk.anatomypro.api.LeaderboardResponse
 import com.ptk.anatomypro.backend.ApiException
 import com.ptk.anatomypro.backend.Settings
@@ -87,6 +88,12 @@ fun Route.dailyRoutes(
             ranked = attempt.ranked,
             rank = if (attempt.ranked) attempts.rankOf(account, set.date) else null,
         )
+    }
+
+    // Not gated: this is how a device learns which side of the gate it is on (§8.1).
+    get(ApiPaths.ENTITLEMENTS) {
+        val account = call.account(accounts)
+        call.respond(EntitlementsResponse(subscribed = subscribers.isSubscribed(account.id)))
     }
 
     get(ApiPaths.DAILY_TODAY) {

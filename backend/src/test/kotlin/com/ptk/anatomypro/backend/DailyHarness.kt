@@ -36,7 +36,7 @@ import javax.sql.DataSource
  * device makes.
  */
 class DailyHarness(
-    private val settings: Settings = Settings(everyoneIsSubscribed = true, requestsPerTokenPerMinute = 10_000, accountsPerAddressPerMinute = 10_000),
+    val settings: Settings = Settings(everyoneIsSubscribed = true, requestsPerTokenPerMinute = 10_000, accountsPerAddressPerMinute = 10_000),
     seed: (Content) -> Unit = {
         it.ingest(SampleContent.manifest())
         it.verify(SampleContent.verifications())
