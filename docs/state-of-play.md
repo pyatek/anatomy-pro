@@ -6,6 +6,32 @@ the shorter question: where things stand and what to do next.
 
 
 
+
+## 2026-10-12 — a server that runs (backend plan, stage 3)
+
+- **`backend/`** (new, Kotlin/JVM): Ktor on Netty, HikariCP, Flyway, plain JDBC. Run its
+  tests with `./gradlew :backend:test` — `allTests` does not include them.
+- **What it does:** `GET /health`; `POST /v1/auth/anonymous` (256-bit device token, stored
+  only as its SHA-256; a generated `student-NNNN` nickname); `GET /v1/account`;
+  `PUT /v1/account/nickname` (3 to 20 letters, digits, `_`, `-`; unique whatever the case;
+  blocklist; the 30-day lock is honoured, nothing sets it yet); `DELETE /v1/account`. Every
+  refusal is an `ApiError`. Account creation is limited per address and everything else per
+  token. Request logs carry method, path and status, never a header.
+- **Tests run against a real PostgreSQL 18, but not through Testcontainers.** This machine
+  has no container runtime (the `docker` CLI is installed, no daemon behind it), so the
+  tests use `io.zonky.test:embedded-postgres`, which downloads PostgreSQL's own binaries and
+  runs them as a process. Each test gets a schema migrated from empty. This departs from the
+  plan's wording and keeps its reason (design §15: no in-memory stand-in); `TestDatabase.kt`
+  is the one place to change if Testcontainers is wanted later.
+- **Never run:** `backend/Dockerfile`, `compose.yaml` and `Caddyfile` are written and have
+  not been built or started, for the same reason; so the plan's "done when" (`docker compose
+  up` serving `/health` over TLS, an account made with `curl`) is not met. `main()` itself
+  (reading the environment, starting Netty) is not covered by a test. The image copies a
+  distribution built on the host (`./gradlew :backend:installDist`), because building inside
+  it would need the Android SDK for the shared wire types.
+- **Left out on purpose:** the nickname report table (§5.2) until there is an endpoint that
+  writes to it; sign-out (plan 6.2).
+
 ## 2026-10-12 — what both ends share (backend plan, stage 2)
 
 - **`shared/core-quiz`**: `QuizNode`, `QuizGraph` and the quiz model types (`Quiz.kt`,

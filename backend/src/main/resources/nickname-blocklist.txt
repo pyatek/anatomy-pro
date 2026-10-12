@@ -1,0 +1,6 @@
+# Words a nickname may not contain, one per line, lower case (backend spec §5.2).
+# Matched after everything but letters and digits is removed, so "a-d_m.i.n" is "admin".
+# This is a starting list, not a moderation policy; it is meant to be added to.
+admin
+moderator
+anatomypro

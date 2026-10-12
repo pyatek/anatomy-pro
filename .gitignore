@@ -25,3 +25,6 @@ __pycache__/
 
 # The Z-Anatomy source the pipeline reads; fetched, never committed (see pipeline/README.md).
 pipeline/source/
+
+# The server's secrets (backend/.env.example says what goes in it).
+backend/.env

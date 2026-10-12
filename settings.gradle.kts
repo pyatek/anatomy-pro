@@ -30,6 +30,7 @@ dependencyResolutionManagement {
 }
 
 include(":androidApp")
+include(":backend")
 include(":ios-renderer")
 include(":renderer-materials")
 include(":shared")

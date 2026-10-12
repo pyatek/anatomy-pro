@@ -1,0 +1,55 @@
+# One box: the proxy, the server, the database (backend spec §11.1).
+#
+#     ./gradlew :backend:installDist
+#     cp backend/.env.example backend/.env      # then set the password
+#     docker compose -f backend/compose.yaml up --build
+#
+# Caddy is the only thing listening publicly. With DOMAIN unset it serves https://localhost
+# with a certificate of its own making; with a real name it gets one from Let's Encrypt.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - backend
+
+  backend:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/anatomypro
+      DATABASE_USER: anatomypro
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env}
+      # Caddy is in front, and nothing else can reach this port.
+      TRUST_FORWARDED_HEADERS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    # The version the tests run against.
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: anatomypro
+      POSTGRES_USER: anatomypro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anatomypro -d anatomypro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  caddy-data:
