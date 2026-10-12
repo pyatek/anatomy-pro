@@ -28,6 +28,8 @@ dependencies {
 
     testImplementation(libs.kotlin.test)
     testImplementation(project(":shared:core-quiz-fixtures"))
+    testImplementation(project(":shared:api-client"))
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.server.testHost)
     testImplementation(libs.ktor.client.contentNegotiation)
