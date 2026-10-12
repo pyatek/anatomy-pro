@@ -20,6 +20,8 @@ dependencies {
     implementation(libs.ktor.server.rateLimit)
     implementation(libs.ktor.server.forwardedHeader)
     implementation(libs.ktor.serialization.json)
+    // Signature checking is not something to write by hand.
+    implementation(libs.nimbus.jose.jwt)
     implementation(libs.hikari)
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
