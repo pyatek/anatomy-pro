@@ -68,6 +68,10 @@ val phase0PackId = providers.gradleProperty("anatomypro.pack").orElse("trunk-all
 // the pack above is staged into the APK, as it has been since Phase 0.
 val packIndexUrl = providers.gradleProperty("anatomypro.packs.indexUrl").orElse("")
 
+// The server behind the daily, the boards and entitlements (backend spec §5 to §8). Without
+// it those tabs keep their placeholders.
+val apiBaseUrl = providers.gradleProperty("anatomypro.api.baseUrl").orElse("")
+
 val stagePhase0Pack by tasks.registering(StagePhase0Pack::class) {
     description = "Copies the generated Phase 0 content pack into the app's assets."
     packId.set(phase0PackId)
@@ -99,6 +103,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         buildConfigField("String", "PACK_INDEX_URL", "\"${packIndexUrl.get()}\"")
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
     }
     packaging {
         resources {

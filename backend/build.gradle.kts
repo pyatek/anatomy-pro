@@ -44,3 +44,12 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// The server on a laptop with nothing to install. See DevServer.kt for what it fakes.
+tasks.register<JavaExec>("devServer") {
+    group = "application"
+    description = "Runs the server over a throwaway PostgreSQL with fixture reviews, on port 8080."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.ptk.anatomypro.backend.dev.DevServerKt")
+    workingDir = rootProject.projectDir
+}

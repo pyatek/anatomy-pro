@@ -62,3 +62,9 @@ actual fun rememberPackDirectory(): String {
     val context = LocalContext.current.applicationContext
     return remember(context) { File(context.filesDir, "packs").absolutePath }
 }
+
+@Composable
+actual fun rememberClientStore(): com.ptk.anatomypro.api.client.ClientStore {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { com.ptk.anatomypro.api.client.KeystoreClientStore(context) }
+}

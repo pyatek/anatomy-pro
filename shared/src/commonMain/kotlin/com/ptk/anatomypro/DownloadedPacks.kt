@@ -7,6 +7,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.ptk.anatomypro.api.client.ApiClient
+import com.ptk.anatomypro.api.client.ClientStore
+import com.ptk.anatomypro.api.client.KtorDailyRepository
+import com.ptk.anatomypro.api.client.KtorLeaderboardRepository
+import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.PackState
 import com.ptk.anatomypro.core.data.model.PackStatus
@@ -137,9 +142,47 @@ fun rememberDownloadedApp(packIndexUrl: String): AppEntry {
     }
 }
 
-/** Downloaded packs where there is an index to download them from; the shipped pack otherwise. */
+/** Where this device keeps its token: the Keychain, or a Keystore-encrypted file. */
 @Composable
-fun rememberAppEntry(packIndexUrl: String?): AppEntry =
-    if (packIndexUrl.isNullOrBlank()) AppEntry(rememberAppDependencies(), pack = null) else rememberDownloadedApp(packIndexUrl)
+expect fun rememberClientStore(): ClientStore
+
+/**
+ * What a build is given decides what it is made of.
+ *
+ * [packIndexUrl]: packs are downloaded from there (backend spec §9); without it the pack
+ * shipped inside the app is drawn. [apiBaseUrl]: the daily, the boards and entitlements
+ * come from that server (§5 to §8); without it their tabs keep their placeholders.
+ */
+@Composable
+fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntry {
+    val entry = if (packIndexUrl.isNullOrBlank()) AppEntry(rememberAppDependencies(), pack = null) else rememberDownloadedApp(packIndexUrl)
+    if (apiBaseUrl.isNullOrBlank()) return entry
+
+    val settings = entry.dependencies.settings
+    val store = rememberClientStore()
+    val server = remember(apiBaseUrl, store, settings) {
+        val api = ApiClient(platformHttpClient(), apiBaseUrl, store)
+        Triple(
+            KtorDailyRepository(api, timed = { settings.settings.first().quizTimerEnabled }),
+            KtorLeaderboardRepository(api),
+            ServerEntitlementRepository(api, store),
+        )
+    }
+    return remember(entry, server) {
+        // Not before the atlas is in. The daily's model is made once and keeps what it is
+        // first given, and until the pack is installed that would be a quiz that is not
+        // there: its practice mode would be asking a placeholder.
+        if (entry.dependencies.atlas == null) {
+            entry
+        } else {
+            AppEntry(
+                dependencies = entry.dependencies.copy(daily = server.first, leaderboard = server.second, entitlements = server.third),
+                pack = entry.pack,
+                downloadsPacks = entry.downloadsPacks,
+                packMissing = entry.packMissing,
+            )
+        }
+    }
+}
 
 private const val INDEX_RETRY_MILLIS = 5_000L

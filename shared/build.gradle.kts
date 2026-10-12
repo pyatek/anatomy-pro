@@ -54,6 +54,7 @@ kotlin {
             implementation(project(":shared:renderer-filament"))
             api(project(":shared:core-data"))
             implementation(project(":shared:core-network"))
+            implementation(project(":shared:api-client"))
             api(project(":shared:feature-atlas"))
             api(project(":shared:feature-search"))
             api(project(":shared:feature-settings"))

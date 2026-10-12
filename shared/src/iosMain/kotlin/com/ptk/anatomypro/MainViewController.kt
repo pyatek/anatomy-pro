@@ -9,10 +9,13 @@ import platform.Foundation.NSBundle
  * release build is that this path never constructs a fake (all-screens spec §5, §6).
  *
  * `AnatomyProPackIndexURL` in Info.plist is where packs are downloaded from (backend spec
- * §9). Without it the app draws the pack shipped inside it.
+ * §9). Without it the app draws the pack shipped inside it. `AnatomyProApiURL` is the
+ * server behind the daily, the boards and entitlements; without it their tabs keep their
+ * placeholders.
  */
 fun MainViewController() = ComposeUIViewController {
     val packIndexUrl = remember { NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProPackIndexURL") as? String }
-    val entry = rememberAppEntry(packIndexUrl)
+    val apiBaseUrl = remember { NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProApiURL") as? String }
+    val entry = rememberAppEntry(packIndexUrl, apiBaseUrl)
     App(entry)
 }

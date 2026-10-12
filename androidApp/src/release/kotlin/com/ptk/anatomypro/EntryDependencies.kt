@@ -4,7 +4,8 @@ import androidx.compose.runtime.Composable
 
 /**
  * Production: Room for what exists, refusals for the rest (all-screens spec §6). Packs are
- * downloaded where the build was given an index to download them from.
+ * downloaded where the build was given an index to download them from, and the daily and
+ * the boards are real where it was given a server.
  */
 @Composable
-internal fun appEntry(): AppEntry = rememberAppEntry(BuildConfig.PACK_INDEX_URL)
+internal fun appEntry(): AppEntry = rememberAppEntry(BuildConfig.PACK_INDEX_URL, BuildConfig.API_BASE_URL)

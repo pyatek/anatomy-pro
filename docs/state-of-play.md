@@ -8,6 +8,44 @@ the shorter question: where things stand and what to do next.
 
 
 
+
+## 2026-10-12 — the app talks to the server (backend plan, stage 5)
+
+- **`shared/api-client`** (new; Android, iOS, JVM): `ApiClient` (makes the anonymous
+  account on first use, keeps its token, replaces a token the server no longer knows),
+  `KtorDailyRepository`, `KtorLeaderboardRepository`, `ServerEntitlementRepository`. The
+  contracts they implement (`Daily.kt`, `Entitlements.kt`, the three repository interfaces)
+  moved from `core-data` to `core-quiz`, packages unchanged, so the JVM can reach them.
+- **Client against server:** `ClientAgainstServerTest` in `backend` runs the real server
+  in-process and drives it through those repositories — 21 cases, including a submit
+  retried across midnight and a day that turns while the lobby is open.
+- **Where the token is kept:** `KeystoreClientStore` (Android; AES-GCM under a Keystore key,
+  four tests on the emulator) and `KeychainClientStore` (iOS). **The iOS store's tests are
+  `@Ignore`d**: a test binary on the simulator has no keychain (`SecItemAdd` → -25291). It
+  compiles and has never run.
+- **A build is given a server, or it is not.** Gradle property `anatomypro.api.baseUrl`
+  (Android), `AnatomyProApiURL` in Info.plist (iOS), or `--es apiUrl <url>` on a debug
+  Android build. With one, the daily, the boards and entitlements are the server's once the
+  atlas is installed. Without one nothing has changed.
+- **`./gradlew :backend:devServer`**: the server on a laptop with nothing installed —
+  PostgreSQL as a process, the pipeline's skeleton, port 8080. It marks every Latin name
+  reviewed by nobody and treats every account as a subscriber, which is why it lives in the
+  test sources. The server had never run outside a test before this.
+- **Brought forward from stage 7:** `GET /v1/entitlements`, answered from the same gate as
+  the daily. The app remembers the last answer, so a subscriber offline keeps their topics.
+- **Seen on the Android emulator**, against the dev server and the local bucket: Today
+  showed the day's ten questions; the round was played and scored by the server (3 of 10,
+  place 1 of 1, 102 s on the server's clock); the ranking listed the player; a relaunch
+  made no second account; with the server stopped Today said the daily needs a connection.
+- **Not done, not seen:**
+  - Nothing of this on iOS in the app (plain HTTP to a laptop needs an ATS exception).
+  - Buying: `plans()` is empty and `purchase()` fails. With a server configured the paywall
+    is reachable and can sell nothing until stage 7.
+  - The daily's `start` cannot return "unavailable" (its type has no such state), so with no
+    connection it throws and the screen offers it again — spec §6.4 said otherwise.
+  - A day that turned while the lobby was open is started as the new day, not re-read.
+  - Nickname: the server has one per account and no screen shows or changes it (stage 6).
+
 ## 2026-10-12 — content, the daily, the boards (backend plan, stage 4)
 
 - **Shared with the app, not restated:** the manifest's shape, the name hash and the rule

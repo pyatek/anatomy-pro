@@ -47,8 +47,11 @@ internal fun appEntry(): AppEntry {
     //   packIndex: the URL of a pack index. The app then runs as a release build given that
     //   index does: nothing shipped inside it, the skeleton fetched by onboarding's third step.
     //   adb shell am start -n com.ptk.anatomypro/.MainActivity --es packIndex http://10.0.2.2:8099/index.json
+    //   apiUrl: the server behind the daily, the boards and entitlements, in place of the fakes.
+    //   adb shell am start -n com.ptk.anatomypro/.MainActivity --es packIndex … --es apiUrl http://10.0.2.2:8080
     val packIndex = intent?.getStringExtra("packIndex") ?: BuildConfig.PACK_INDEX_URL
-    if (packIndex.isNotBlank()) return rememberDownloadedApp(packIndex)
+    val apiUrl = intent?.getStringExtra("apiUrl") ?: BuildConfig.API_BASE_URL
+    if (packIndex.isNotBlank() || apiUrl.isNotBlank()) return rememberAppEntry(packIndex, apiUrl)
     return AppEntry(fakeOrProductionDependencies(), pack = null)
 }
 

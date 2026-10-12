@@ -74,3 +74,7 @@ actual fun rememberPackDirectory(): String = remember {
     ).first() as String
     "$support/packs"
 }
+
+@Composable
+actual fun rememberClientStore(): com.ptk.anatomypro.api.client.ClientStore =
+    remember { com.ptk.anatomypro.api.client.KeychainClientStore() }

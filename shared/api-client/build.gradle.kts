@@ -6,7 +6,13 @@ plugins { id("anatomypro.kmp.library") }
 // on one side.
 kotlin {
     jvm()
-    android { namespace = "com.ptk.anatomypro.api.client" }
+    android {
+        namespace = "com.ptk.anatomypro.api.client"
+        // The Keystore exists only on a device, so the Android store is proven on one.
+        withDeviceTestBuilder { sourceSetTreeName = "test" }.configure {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -15,6 +21,15 @@ kotlin {
             api(libs.ktor.client.core)
             implementation(libs.kotlinx.coroutines.core)
         }
-        commonTest.dependencies { implementation(libs.kotlin.test) }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        getByName("androidDeviceTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.test.runner)
+            implementation(libs.kotlinx.coroutines.core)
+        }
     }
 }
