@@ -8,6 +8,11 @@ import com.ptk.anatomypro.backend.accounts.NicknameRules
 import com.ptk.anatomypro.backend.accounts.accountRoutes
 import com.ptk.anatomypro.backend.accounts.anonymousAccountRoute
 import com.ptk.anatomypro.backend.accounts.bearerToken
+import com.ptk.anatomypro.backend.content.Content
+import com.ptk.anatomypro.backend.daily.Attempts
+import com.ptk.anatomypro.backend.daily.DailySets
+import com.ptk.anatomypro.backend.daily.SubscriberCheck
+import com.ptk.anatomypro.backend.daily.dailyRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -27,6 +32,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import javax.sql.DataSource
@@ -45,10 +51,15 @@ private val log = LoggerFactory.getLogger("com.ptk.anatomypro.backend")
 fun Application.backend(
     database: DataSource,
     settings: Settings = Settings(),
-    today: () -> LocalDate = { LocalDate.now(ZoneOffset.UTC) },
+    now: () -> Instant = Instant::now,
+    subscribers: SubscriberCheck = SubscriberCheck { settings.everyoneIsSubscribed },
 ) {
     val nicknames = NicknameRules(settings.nicknameBlocklist)
     val accounts = Accounts(database, nicknames)
+    val sets = DailySets(database, Content(database), settings)
+    val attempts = Attempts(database, settings)
+    // Every date the server speaks of is UTC: the daily is the world's day.
+    val today: () -> LocalDate = { now().atOffset(ZoneOffset.UTC).toLocalDate() }
 
     if (settings.trustForwardedHeaders) install(XForwardedHeaders)
     // Method, path and status. Headers are never written, so a token never is (§11.2).
@@ -97,6 +108,9 @@ fun Application.backend(
             if (answers) call.respond(mapOf("status" to "ok")) else call.respond(HttpStatusCode.ServiceUnavailable, ApiError())
         }
         rateLimit(BY_ADDRESS) { anonymousAccountRoute(accounts) }
-        rateLimit(BY_TOKEN) { accountRoutes(accounts, nicknames, today) }
+        rateLimit(BY_TOKEN) {
+            accountRoutes(accounts, nicknames, today)
+            dailyRoutes(accounts, sets, attempts, subscribers, settings, now)
+        }
     }
 }

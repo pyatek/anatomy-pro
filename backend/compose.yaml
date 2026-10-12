@@ -30,6 +30,9 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env}
       # Caddy is in front, and nothing else can reach this port.
       TRUST_FORWARDED_HEADERS: "true"
+      # The daily and the boards are for subscribers, and nobody is one until purchases are
+      # verified (plan stage 7). Set to "true" in backend/.env to try them before that.
+      EVERYONE_IS_SUBSCRIBED: ${EVERYONE_IS_SUBSCRIBED:-false}
     depends_on:
       postgres:
         condition: service_healthy

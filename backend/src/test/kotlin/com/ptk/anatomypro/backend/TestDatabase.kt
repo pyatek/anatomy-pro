@@ -12,7 +12,11 @@ import javax.sql.DataSource
  * proves the migrations run on an empty database.
  */
 object TestDatabase {
-    private val postgres: EmbeddedPostgres by lazy { EmbeddedPostgres.builder().start() }
+    // Every test opens a pool of its own and none is closed before the run ends, so the
+    // server is told to expect a crowd and each pool is kept small.
+    private val postgres: EmbeddedPostgres by lazy {
+        EmbeddedPostgres.builder().setServerConfig("max_connections", "1000").start()
+    }
     private val counter = AtomicInteger()
 
     fun fresh(): DataSource {
@@ -24,6 +28,7 @@ object TestDatabase {
                 user = "postgres",
                 password = "postgres",
                 schema = schema,
+                poolSize = 4,
             ),
         )
     }

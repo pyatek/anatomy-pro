@@ -11,6 +11,7 @@ data class DatabaseConfig(
     val password: String,
     /** Tests give each test a schema of its own; production uses the default one. */
     val schema: String? = null,
+    val poolSize: Int = 10,
 )
 
 object Database {
@@ -26,7 +27,7 @@ object Database {
                 jdbcUrl = config.jdbcUrl
                 username = config.user
                 password = config.password
-                maximumPoolSize = 10
+                maximumPoolSize = config.poolSize
                 config.schema?.let { schema = it }
             },
         )
