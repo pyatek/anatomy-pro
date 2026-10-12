@@ -7,9 +7,6 @@ import com.ptk.anatomypro.core.data.entity.StructureEntity
 import com.ptk.anatomypro.core.data.entity.StructureSearchEntity
 import com.ptk.anatomypro.core.data.entity.StructureSynonymEntity
 import com.ptk.anatomypro.core.data.entity.StructureTextEntity
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Turns a pipeline `manifest.json` into rows.
@@ -21,10 +18,8 @@ import kotlinx.serialization.json.Json
 object PackIngest {
 
     /** Latin is the canonical key; English is a display locale (spec section 13). */
-    const val LOCALE_LATIN = "la"
-    const val LOCALE_ENGLISH = "en"
-
-    private val json = Json { ignoreUnknownKeys = true }
+    const val LOCALE_LATIN = PackManifest.LOCALE_LATIN
+    const val LOCALE_ENGLISH = PackManifest.LOCALE_ENGLISH
 
     data class Rows(
         val pack: PackEntity,
@@ -37,7 +32,7 @@ object PackIngest {
     )
 
     fun parse(manifestJson: String, version: Long, meshUri: String?): Rows {
-        val manifest = json.decodeFromString<Manifest>(manifestJson)
+        val manifest = PackManifest.parse(manifestJson)
         val packId = manifest.packId
 
         val structures = mutableListOf<StructureEntity>()
@@ -105,25 +100,8 @@ object PackIngest {
     private fun searchRow(structureId: String, locale: String, term: String) =
         StructureSearchEntity(structureId, locale, normalise(term))
 
-    /**
-     * Identifies the exact name a reviewer approved.
-     *
-     * The name and nothing else. A verification says this mesh is this term; the definition
-     * is an encyclopedia extract with its own source, and hashing it in made approving a
-     * name mean approving an article (spec section 30).
-     *
-     * FNV-1a rather than `hashCode`, so the value is defined here and cannot drift with a
-     * compiler or platform change. A hash that silently stopped matching would either
-     * resurrect stale approvals or discard sound ones (spec section 7).
-     */
-    fun contentHash(name: String): String {
-        var hash = 0x811C9DC5u
-        for (byte in name.encodeToByteArray()) {
-            hash = hash xor byte.toUByte().toUInt()
-            hash *= 0x01000193u
-        }
-        return hash.toString(16).padStart(8, '0')
-    }
+    /** The hash that says which name a reviewer approved; the server computes the same one. */
+    fun contentHash(name: String): String = PackManifest.contentHash(name)
 
     /** Lowercased and accent-folded, so search rows and queries meet in one form. */
     fun normalise(term: String): String = buildString {
@@ -146,27 +124,4 @@ object PackIngest {
             }
         }
     }.trim()
-
-    @Serializable
-    private data class Manifest(
-        @SerialName("pack_id") val packId: String,
-        val structures: List<ManifestStructure>,
-    )
-
-    @Serializable
-    private data class ManifestStructure(
-        @SerialName("structure_id") val structureId: String,
-        @SerialName("ta2_id") val ta2Id: String? = null,
-        val english: String,
-        val latin: String? = null,
-        val definition: String? = null,
-        @SerialName("definition_source") val definitionSource: String? = null,
-        @SerialName("definition_licence") val definitionLicence: String? = null,
-        val system: String? = null,
-        val region: String? = null,
-        @SerialName("parent_id") val parentId: String? = null,
-        val laterality: String,
-        @SerialName("is_group") val isGroup: Boolean = false,
-        val nodes: List<String> = emptyList(),
-    )
 }
