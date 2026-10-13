@@ -58,13 +58,14 @@ sealed interface DailyRoute {
     @Serializable data object Leaderboard : DailyRoute
 }
 
-/** Screens 17, 18, 19, 20. */
+/** Screens 17, 18, 19, 20, and the account, which the prototype does not draw. */
 @Serializable
 sealed interface ProfileRoute {
     @Serializable data object Profile : ProfileRoute
     @Serializable data object Settings : ProfileRoute
     @Serializable data object Packs : ProfileRoute
     @Serializable data object Paywall : ProfileRoute
+    @Serializable data object Account : ProfileRoute
 }
 
 /** Screens 01, 02, 03 — shown before the tabs exist. */

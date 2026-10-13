@@ -57,6 +57,7 @@ import com.ptk.anatomypro.feature.atlas.scene.AtlasSceneViewModel
 import com.ptk.anatomypro.feature.commerce.commerceIsBuilt
 import com.ptk.anatomypro.feature.daily.DailyViewModel
 import com.ptk.anatomypro.feature.daily.dailyIsBuilt
+import com.ptk.anatomypro.feature.profile.accountIsBuilt
 import com.ptk.anatomypro.feature.profile.profileIsBuilt
 import com.ptk.anatomypro.feature.quiz.QuizSessionViewModel
 import com.ptk.anatomypro.feature.quiz.quizIsBuilt
@@ -276,6 +277,9 @@ private fun MainScaffold(
                 composable<ProfileRoute.Packs> {
                     if (profileBuilt) PacksRoute(dependencies, navController)
                 }
+                composable<ProfileRoute.Account> {
+                    if (accountIsBuilt(dependencies.account)) AccountRoute(dependencies, navController)
+                }
                 // A release build must never present a purchase that cannot happen.
                 composable<ProfileRoute.Paywall> {
                     if (commerceIsBuilt(dependencies.entitlements)) PaywallRoute(dependencies, navController)
@@ -370,7 +374,7 @@ private fun NavDestination.tab(): TopLevel? = when {
         hasRoute<QuizRoute.Feedback>() || hasRoute<QuizRoute.Summary>() -> TopLevel.Test
     // Not the paywall: every tab can open it, and it stays under the one that did.
     hasRoute<ProfileRoute.Profile>() || hasRoute<ProfileRoute.Settings>() ||
-        hasRoute<ProfileRoute.Packs>() -> TopLevel.Profile
+        hasRoute<ProfileRoute.Packs>() || hasRoute<ProfileRoute.Account>() -> TopLevel.Profile
     hasRoute<AtlasRoute.Browse>() || hasRoute<AtlasRoute.Search>() || hasRoute<AtlasRoute.Layers>() ||
         hasRoute<AtlasRoute.Tree>() || hasRoute<AtlasRoute.Detail>() -> TopLevel.Atlas
     else -> null
