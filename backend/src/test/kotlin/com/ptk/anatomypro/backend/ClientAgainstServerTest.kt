@@ -2,11 +2,15 @@ package com.ptk.anatomypro.backend
 
 import com.ptk.anatomypro.api.ApiErrorCode
 import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.api.Plan
+import com.ptk.anatomypro.api.PlanPeriod
+import com.ptk.anatomypro.api.PurchaseVerdict
 import com.ptk.anatomypro.api.client.ApiClient
 import com.ptk.anatomypro.api.client.ApiFailure
 import com.ptk.anatomypro.api.client.ClientStore
 import com.ptk.anatomypro.api.client.KtorDailyRepository
 import com.ptk.anatomypro.api.client.KtorLeaderboardRepository
+import com.ptk.anatomypro.api.client.PurchaseProof
 import com.ptk.anatomypro.api.client.ServerAccount
 import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.model.DailyQuiz
@@ -57,7 +61,7 @@ class ClientAgainstServerTest {
     private val harness = DailyHarness()
 
     private fun server(harness: DailyHarness = this.harness, test: suspend (HttpClient) -> Unit) = testApplication {
-        application { backend(harness.database, harness.serverSettings, now = { harness.now }, fetchKeys = harness.identities::fetch) }
+        application { harness.serve(this) }
         test(createClient { })
     }
 
@@ -308,6 +312,99 @@ class ClientAgainstServerTest {
     @Test
     fun a_device_that_has_never_asked_and_cannot_ask_is_not_a_subscriber() = server { _ ->
         assertEquals(listOf(false), Device(unreachable).entitlements.entitlements.toList().map { it.subscribed })
+    }
+
+    // --- buying (§8.1) ------------------------------------------------------------------
+
+    /** A server where nobody is a subscriber by decree, and its stand-in stores. */
+    private val paying by lazy { DailyHarness(Settings(requestsPerTokenPerMinute = 10_000, accountsPerAddressPerMinute = 10_000)) }
+    private val inAMonth get() = paying.now.plus(Duration.ofDays(30))
+
+    @Test
+    fun what_is_on_sale_is_read_from_the_server() = server(paying) { http ->
+        val plans = Device(http).entitlements.onSale()
+
+        assertEquals(listOf(Plan(TestStores.MONTHLY, PlanPeriod.MONTHLY), Plan(TestStores.YEARLY, PlanPeriod.YEARLY)), plans)
+    }
+
+    @Test
+    fun a_play_purchase_handed_to_the_server_makes_the_account_a_subscriber_and_the_device_remembers() = server(paying) { http ->
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(inAMonth)
+        val store = MemoryStore()
+        val device = Device(http, store)
+        assertFalse(device.entitlements.entitlements.toList().last().subscribed)
+
+        val answer = device.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1"))
+
+        assertEquals(PurchaseVerdict.VERIFIED, answer.outcome)
+        assertEquals(inAMonth.toEpochMilli(), answer.entitlements.expiresAtEpochMillis)
+        assertTrue(device.entitlements.entitlements.toList().last().subscribed)
+        assertIs<DailyQuiz.NotStarted>(device.daily.today())
+        // And on a train straight afterwards, without having asked again.
+        assertTrue(Device(unreachable, store).entitlements.entitlements.first().subscribed)
+    }
+
+    @Test
+    fun an_app_store_transaction_handed_to_the_server_does_the_same() = server(paying) { http ->
+        val device = Device(http)
+
+        val answer = device.entitlements.present(PurchaseProof.AppStore(paying.stores.apple.transaction("1000000000000001", inAMonth)))
+
+        assertEquals(PurchaseVerdict.VERIFIED, answer.outcome)
+        assertTrue(device.entitlements.entitlements.toList().last().subscribed)
+    }
+
+    @Test
+    fun a_purchase_the_store_does_not_stand_behind_unlocks_nothing_on_the_device_either() = server(paying) { http ->
+        val store = MemoryStore()
+        val device = Device(http, store)
+
+        val answer = device.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "made-up"))
+
+        assertEquals(PurchaseVerdict.INVALID, answer.outcome)
+        assertFalse(Device(unreachable, store).entitlements.entitlements.first().subscribed)
+        assertEquals(ApiErrorCode.NOT_SUBSCRIBED, assertFailsWith<ApiFailure> { device.daily.today() }.code)
+    }
+
+    @Test
+    fun a_restore_on_a_second_device_is_told_to_sign_in_and_signing_in_brings_the_subscription() = server(paying) { http ->
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(inAMonth)
+        val phone = Device(http)
+        phone.account.link(IdentityProvider.GOOGLE, paying.identities.google("g-1"))
+        phone.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1"))
+        val tablet = Device(http)
+
+        val restored = tablet.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1"))
+
+        assertEquals(PurchaseVerdict.OWNED_BY_ANOTHER_ACCOUNT, restored.outcome)
+        assertFalse(tablet.entitlements.entitlements.toList().last().subscribed)
+
+        tablet.account.link(IdentityProvider.GOOGLE, paying.identities.google("g-1"))
+        assertTrue(tablet.entitlements.entitlements.toList().last().subscribed)
+    }
+
+    @Test
+    fun a_purchase_that_could_not_be_checked_fails_so_it_can_be_presented_again() = server(paying) { http ->
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(inAMonth)
+        val device = Device(http)
+        paying.stores.play.down = true
+
+        // The server reached and the store not: a refusal that is not a verdict.
+        assertEquals(503, assertFailsWith<ApiFailure> { device.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1")) }.status)
+        // The server not reached at all.
+        assertFailsWith<Exception> { Device(unreachable).entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1")) }
+
+        paying.stores.play.down = false
+        assertEquals(PurchaseVerdict.VERIFIED, device.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1")).outcome)
+    }
+
+    @Test
+    fun deleting_an_account_that_is_still_paying_says_so() = server(paying) { http ->
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(inAMonth)
+        val device = Device(http)
+        device.entitlements.present(PurchaseProof.GooglePlay(TestStores.MONTHLY, "tok-1"))
+
+        assertTrue(device.account.delete().subscriptionStillActive)
     }
 
     // --- the account itself (§5.2 to §5.4) ----------------------------------------------
