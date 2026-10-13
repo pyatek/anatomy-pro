@@ -12,8 +12,12 @@ import com.ptk.anatomypro.api.client.KtorDailyRepository
 import com.ptk.anatomypro.api.client.KtorLeaderboardRepository
 import com.ptk.anatomypro.api.client.PurchaseProof
 import com.ptk.anatomypro.api.client.ServerAccount
+import com.ptk.anatomypro.api.client.ServerAccountRepository
 import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.model.DailyQuiz
+import com.ptk.anatomypro.core.data.model.RenameOutcome
+import com.ptk.anatomypro.core.data.model.SignInOutcome
+import com.ptk.anatomypro.core.data.model.SignInProvider
 import com.ptk.anatomypro.core.data.model.QuizAnswer
 import com.ptk.anatomypro.core.data.model.QuizQuestion
 import io.ktor.client.HttpClient
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.LocalDate
 import java.time.Duration
 import kotlin.test.Test
+import kotlin.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -56,6 +61,7 @@ class ClientAgainstServerTest {
         val boards = KtorLeaderboardRepository(api)
         val entitlements = ServerEntitlementRepository(api, store)
         val account = ServerAccount(api)
+        val accounts = ServerAccountRepository(account)
     }
 
     private val harness = DailyHarness()
@@ -471,5 +477,76 @@ class ClientAgainstServerTest {
 
         assertEquals(0, accounts())
         assertTrue(device.store.values.isEmpty())
+    }
+
+    // --- the account, as the account screen is given it ---------------------------------
+
+    @Test
+    fun the_account_screens_contract_reads_and_renames_the_real_account() = server { http ->
+        val device = Device(http)
+
+        val account = device.accounts.account()
+        assertTrue(account.nickname.startsWith("student-"))
+        assertEquals(emptySet(), account.linked)
+        assertNull(account.nicknameLockedUntil)
+
+        val renamed = assertIs<RenameOutcome.Renamed>(device.accounts.rename("Zaneta_92"))
+        assertEquals("Zaneta_92", renamed.account.nickname)
+        assertEquals("Zaneta_92", device.accounts.account().nickname)
+    }
+
+    @Test
+    fun each_way_the_server_refuses_a_nickname_is_an_outcome_of_its_own() = server { http ->
+        val one = Device(http)
+        val two = Device(http)
+        one.accounts.rename("Zaneta")
+
+        assertEquals(RenameOutcome.Taken, two.accounts.rename("zANETA"))
+        assertEquals(RenameOutcome.Invalid, two.accounts.rename("ala ma kota"))
+
+        harness.database.connection.use { it.createStatement().executeUpdate("UPDATE account SET nickname_locked_until = DATE '2026-11-11'") }
+        assertEquals(RenameOutcome.Locked, two.accounts.rename("nowy_nick"))
+        // Locked through the 11th: the first moment a new one can be chosen is the 12th, UTC.
+        assertEquals(Instant.parse("2026-11-12T00:00:00Z"), two.accounts.account().nicknameLockedUntil)
+    }
+
+    @Test
+    fun signing_in_through_the_contract_links_merges_and_rejects() = server { http ->
+        val phone = Device(http)
+        val first = assertIs<SignInOutcome.SignedIn>(phone.accounts.signIn(SignInProvider.GOOGLE, harness.identities.google("g-1")))
+        assertFalse(first.merged)
+        assertEquals(setOf(SignInProvider.GOOGLE), first.account.linked)
+
+        val tablet = Device(http)
+        val second = assertIs<SignInOutcome.SignedIn>(tablet.accounts.signIn(SignInProvider.GOOGLE, harness.identities.google("g-1")))
+        assertTrue(second.merged)
+        assertEquals(first.account, second.account)
+
+        assertEquals(
+            SignInOutcome.Rejected,
+            Device(http).accounts.signIn(SignInProvider.GOOGLE, harness.identities.token("g-2", audience = "another-app")),
+        )
+    }
+
+    @Test
+    fun signing_out_and_deleting_through_the_contract_leave_the_device_clean() = server { http ->
+        val device = Device(http)
+        device.accounts.signIn(SignInProvider.GOOGLE, harness.identities.google("g-1"))
+        device.accounts.signOut()
+        assertTrue(device.store.values.isEmpty())
+
+        val other = Device(http)
+        other.playToday()
+        val deleted = other.accounts.delete()
+        assertFalse(deleted.subscriptionStillActive)
+        assertTrue(other.store.values.isEmpty())
+    }
+
+    @Test
+    fun an_account_that_cannot_be_reached_is_thrown_not_dressed_as_a_refusal() = server { _ ->
+        val device = Device(unreachable)
+
+        assertFailsWith<Exception> { device.accounts.account() }
+        assertFailsWith<Exception> { device.accounts.rename("Zaneta") }
     }
 }

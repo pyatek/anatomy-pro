@@ -11,6 +11,8 @@ import com.ptk.anatomypro.api.client.ApiClient
 import com.ptk.anatomypro.api.client.ClientStore
 import com.ptk.anatomypro.api.client.KtorDailyRepository
 import com.ptk.anatomypro.api.client.KtorLeaderboardRepository
+import com.ptk.anatomypro.api.client.ServerAccount
+import com.ptk.anatomypro.api.client.ServerAccountRepository
 import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.PackState
@@ -162,10 +164,11 @@ fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntr
     val store = rememberClientStore()
     val server = remember(apiBaseUrl, store, settings) {
         val api = ApiClient(platformHttpClient(), apiBaseUrl, store)
-        Triple(
-            KtorDailyRepository(api, timed = { settings.settings.first().quizTimerEnabled }),
-            KtorLeaderboardRepository(api),
-            ServerEntitlementRepository(api, store),
+        ServerRepositories(
+            daily = KtorDailyRepository(api, timed = { settings.settings.first().quizTimerEnabled }),
+            leaderboard = KtorLeaderboardRepository(api),
+            entitlements = ServerEntitlementRepository(api, store),
+            account = ServerAccountRepository(ServerAccount(api)),
         )
     }
     return remember(entry, server) {
@@ -176,7 +179,14 @@ fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntr
             entry
         } else {
             AppEntry(
-                dependencies = entry.dependencies.copy(daily = server.first, leaderboard = server.second, entitlements = server.third),
+                // The platform's sign-in sheet is not built, so `signIn` stays the placeholder
+                // that offers no provider: the account screen shows the nickname and deletion.
+                dependencies = entry.dependencies.copy(
+                    daily = server.daily,
+                    leaderboard = server.leaderboard,
+                    entitlements = server.entitlements,
+                    account = server.account,
+                ),
                 pack = entry.pack,
                 downloadsPacks = entry.downloadsPacks,
                 packMissing = entry.packMissing,
@@ -184,5 +194,13 @@ fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntr
         }
     }
 }
+
+/** What a build given a server gets from it. */
+private class ServerRepositories(
+    val daily: KtorDailyRepository,
+    val leaderboard: KtorLeaderboardRepository,
+    val entitlements: ServerEntitlementRepository,
+    val account: ServerAccountRepository,
+)
 
 private const val INDEX_RETRY_MILLIS = 5_000L
