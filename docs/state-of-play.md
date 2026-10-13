@@ -10,6 +10,86 @@ the shorter question: where things stand and what to do next.
 
 
 
+## 2026-10-14 — subscriptions, on the server and in the client (backend plan, stage 7.1 to 7.4)
+
+Branch `feature/backend-subscriptions`, not merged. **Nothing here has touched Google or
+Apple.** There are no store accounts yet, so every store answer in the tests is written by
+hand to the documented shape and every certificate is made in the test.
+
+- **The model** (`V5__subscription.sql`, `Subscriptions`): one row per subscription, keyed by
+  the store and the store's own id (Google's purchase token, Apple's original transaction
+  id), with product, state, expiry, when the store said so, and the owning account. The gate
+  in front of the daily and the boards, and `GET /v1/entitlements` (now with
+  `expiresAtEpochMillis`), are answered from it: a state that entitles *and* an expiry still
+  ahead, asked at the moment of asking. `EVERYONE_IS_SUBSCRIBED` is still there and is now
+  only an override. `GET /v1/plans` answers `PLANS` from the environment.
+- **Google** (`GooglePlay`): `POST /v1/purchases/google` asks the Play Developer API
+  (`purchases.subscriptionsv2.get`) through an interface and believes only that. Active,
+  cancelled-but-paid-for and grace let the account in; pending is recorded and lets nobody in
+  (new verdict `pending`, additive); expired, on hold, paused, unknown to Google, a product
+  not in `PLANS`, or a state this server has never heard of do not. A verified purchase is
+  acknowledged to Google. A purchase that replaces another (`linkedPurchaseToken`) goes to
+  whoever owned the one it replaces, and that one is finished. `POST /v1/webhooks/google`
+  takes a Pub/Sub push, checks the token Pub/Sub signs it with (Google's keys, our audience,
+  our push service account), and treats the message only as a reason to ask Google again.
+- **Apple** (`AppStore`, `AppStoreSignatures`): `POST /v1/purchases/apple` believes a signed
+  transaction when it is ES256, its chain of three validates (JDK PKIX, at the server's
+  time) to a root given in `APPLE_ROOT_CA_FILE`, and the leaf and intermediate carry Apple's
+  receipt-signing markers; then the bundle id, the environment (`Production` only unless
+  `APPLE_ENVIRONMENTS` says otherwise), the type and the product must be ours.
+  `POST /v1/webhooks/apple` takes notifications v2: the outer payload and the transaction
+  inside are each verified, and the transaction is what is acted on — a renewal has a later
+  expiry, a refund or revoke has a revocation date, a grace period comes from the renewal
+  info. **Certificate revocation is not checked** (no OCSP).
+- **One purchase, one owner** (§8.1): the same purchase presented twice is one row; a second
+  account gets `owned_by_another_account` and nothing moves; six accounts presenting a new
+  purchase at once leave it with exactly one. What a store said earlier never overwrites
+  what it said later, so an Apple transaction signed before a refund cannot bring the
+  subscription back.
+- **Webhooks are idempotent**: each notification's id is written down once it has been acted
+  on; a second delivery asks nothing and changes nothing; one that failed half way is acted
+  on when it comes again.
+- **Keeping it true** (`StoreServices.recheck`, run every `RECHECK_EVERY_HOURS`, default 6):
+  asks the store again about subscriptions expiring within a day, ones that expired within
+  the last seven (a renewal whose notification was lost looks like an expiry), and purchases
+  still pending. Apple's needs an App Store Server API key; without one Apple rows are skipped.
+- **The merge** moves subscriptions to the surviving account. **Deleting an account** answers
+  `subscriptionStillActive` truthfully and leaves the subscription row with no owner: it
+  lets nobody in, is still told of refunds and renewals, and becomes someone's again only
+  when the purchase is presented again and the store vouches for it again. So the purchase
+  token or original transaction id outlives the account — the privacy policy must say so.
+- **In the client** (`ServerEntitlementRepository`): `onSale()` reads the plans and
+  `present(PurchaseProof)` hands the server a Play purchase token or a StoreKit signed
+  transaction and returns its verdict. `plans()`, `purchase()` and `restore()` are as they
+  were — empty and failing — because they need the store SDKs (plan 7.5).
+- **Written and never run against a store** (`StoreHttp.kt`): `GooglePlayHttp` (service
+  account, OAuth JWT grant, the two Play calls) and `AppStoreHttp` (ES256 token, subscription
+  statuses, production then sandbox). Tested against a loopback server the test controls,
+  which proves they do what they were written to do and nothing about what the stores expect.
+- **Decided here, not in the spec** — each is a comment where it is made:
+  - a deleted account's subscription is kept ownerless rather than deleted (above);
+  - sandbox purchases are refused unless configured — **App Review buys in the sandbox**, so
+    the server it tests against needs `APPLE_ENVIRONMENTS=Production,Sandbox`;
+  - product ids are one list for both stores, so Play needs one subscription product per
+    period rather than one product with two base plans;
+  - Google's push is authenticated by its signed token, not a secret in the URL;
+  - the server acknowledges Play purchases (the app must not);
+  - anything about the proof itself answers 200 with a verdict, and `purchase_invalid`
+    stays unused; a store that cannot be asked is 503, never "invalid";
+  - the re-check is every six hours and looks back seven days.
+- **A hole the spec leaves open:** someone who buys without signing in and then reinstalls
+  has a new anonymous account; restoring answers `owned_by_another_account`, and signing in
+  cannot reach the old account because it never had an identity. The paywall should ask for
+  sign-in at purchase, or the rule needs an exception for an owner nobody can sign into.
+- **Not built (plan 7.5):** Play Billing, StoreKit 2, the paywall. Needs from the owner: Play
+  Console and App Store Connect apps with the products; a Play service account key; a
+  Pub/Sub topic and authenticated push subscription for real-time developer notifications;
+  Apple Root CA - G3; the server notifications v2 URL set in App Store Connect; optionally
+  an in-app purchase API key. `backend/.env.example` lists every value.
+- Also fixed: a nickname-lock test that failed between local midnight and 02:00 (it mixed
+  the database's date with the server's UTC day), and test pools now hold one idle
+  connection each, because the suite had outgrown PostgreSQL's connection limit.
+
 ## 2026-10-13 — sign-in, on the server and in the client (backend plan, stage 6.1 and 6.2)
 
 - **Verification** (`IdentityVerifier`, nimbus-jose-jwt for the signature): a Google or
