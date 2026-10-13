@@ -1,11 +1,13 @@
 package com.ptk.anatomypro.core.data
 
+import com.ptk.anatomypro.core.data.repository.AccountRepository
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.repository.DailyRepository
 import com.ptk.anatomypro.core.data.repository.EntitlementRepository
 import com.ptk.anatomypro.core.data.repository.LeaderboardRepository
 import com.ptk.anatomypro.core.data.repository.PackRepository
 import com.ptk.anatomypro.core.data.repository.ProgressRepository
+import com.ptk.anatomypro.core.data.repository.ProviderSignIn
 import com.ptk.anatomypro.core.data.repository.QuizRepository
 import com.ptk.anatomypro.core.data.repository.SettingsRepository
 
@@ -22,6 +24,9 @@ import com.ptk.anatomypro.core.data.repository.SettingsRepository
  *
  * [atlas] is nullable because the bundled pack installs asynchronously: null means "still
  * opening", which is a different thing to show than an empty atlas.
+ *
+ * [account] and [signIn] default to their refusals so that a set built before the account
+ * existed still says what it said: no account, and nothing to sign in with.
  */
 data class AppDependencies(
     val atlas: AtlasRepository?,
@@ -32,4 +37,6 @@ data class AppDependencies(
     val leaderboard: LeaderboardRepository,
     val entitlements: EntitlementRepository,
     val packs: PackRepository,
+    val account: AccountRepository = NotBuiltAccountRepository,
+    val signIn: ProviderSignIn = NotBuiltProviderSignIn,
 )
