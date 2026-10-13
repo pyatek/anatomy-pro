@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import anatomypro.shared.feature_profile.generated.resources.Res
 import anatomypro.shared.feature_profile.generated.resources.decimal_separator
+import anatomypro.shared.feature_profile.generated.resources.profile_account
+import anatomypro.shared.feature_profile.generated.resources.profile_account_title
 import anatomypro.shared.feature_profile.generated.resources.profile_calendar_heading
 import anatomypro.shared.feature_profile.generated.resources.profile_calendar_legend
 import anatomypro.shared.feature_profile.generated.resources.profile_day_daily
@@ -78,6 +80,9 @@ import org.jetbrains.compose.resources.stringResource
  * §12 does not allow colour alone, so each square also carries the glyph the legend names,
  * and is read out as a date and what happened on it. The prototype's name, school and year
  * wait for sign-in (§9.3).
+ *
+ * [onAccount] is null where there is no account to open — a build with no server — and
+ * then no card offers one.
  */
 @Composable
 fun ProfileScreen(
@@ -88,6 +93,7 @@ fun ProfileScreen(
     onPacks: () -> Unit,
     onSubscription: () -> Unit,
     modifier: Modifier = Modifier,
+    onAccount: (() -> Unit)? = null,
 ) {
     val type = LocalAnatomyType.current
     Column(
@@ -182,6 +188,13 @@ fun ProfileScreen(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onAccount != null) {
+                LinkCard(
+                    title = stringResource(Res.string.profile_account_title),
+                    detail = stringResource(Res.string.profile_account),
+                    onClick = onAccount,
+                )
+            }
             LinkCard(
                 title = stringResource(Res.string.profile_packs_title),
                 detail = stringResource(

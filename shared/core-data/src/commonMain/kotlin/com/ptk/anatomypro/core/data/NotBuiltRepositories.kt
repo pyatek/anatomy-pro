@@ -1,5 +1,7 @@
 package com.ptk.anatomypro.core.data
 
+import com.ptk.anatomypro.core.data.model.Account
+import com.ptk.anatomypro.core.data.model.AccountDeleted
 import com.ptk.anatomypro.core.data.model.AnswerResult
 import com.ptk.anatomypro.core.data.model.DailyQuiz
 import com.ptk.anatomypro.core.data.model.DailyResult
@@ -13,15 +15,20 @@ import com.ptk.anatomypro.core.data.model.QuizFormat
 import com.ptk.anatomypro.core.data.model.QuizSession
 import com.ptk.anatomypro.core.data.model.QuizSummary
 import com.ptk.anatomypro.core.data.model.QuizTopic
+import com.ptk.anatomypro.core.data.model.RenameOutcome
+import com.ptk.anatomypro.core.data.model.SignInOutcome
+import com.ptk.anatomypro.core.data.model.SignInProvider
 import com.ptk.anatomypro.core.data.model.StreakState
 import com.ptk.anatomypro.core.data.model.SubscriptionPlan
 import com.ptk.anatomypro.core.data.model.SystemMastery
+import com.ptk.anatomypro.core.data.repository.AccountRepository
 import com.ptk.anatomypro.core.data.repository.AtlasRepository
 import com.ptk.anatomypro.core.data.repository.DailyRepository
 import com.ptk.anatomypro.core.data.repository.EntitlementRepository
 import com.ptk.anatomypro.core.data.repository.LeaderboardRepository
 import com.ptk.anatomypro.core.data.repository.PackRepository
 import com.ptk.anatomypro.core.data.repository.ProgressRepository
+import com.ptk.anatomypro.core.data.repository.ProviderSignIn
 import com.ptk.anatomypro.core.data.repository.QuizRepository
 import com.ptk.anatomypro.core.data.repository.SettingsRepository
 import com.ptk.anatomypro.core.model.PackId
@@ -71,6 +78,24 @@ object NotBuiltPackRepository : PackRepository {
     override suspend fun download(id: PackId) = notBuilt("pack management")
     override suspend fun cancel(id: PackId) = notBuilt("pack management")
     override suspend fun delete(id: PackId) = notBuilt("pack management")
+}
+
+object NotBuiltAccountRepository : AccountRepository {
+    override suspend fun account(): Account = notBuilt("the account")
+    override suspend fun rename(nickname: String): RenameOutcome = notBuilt("the account")
+    override suspend fun signIn(provider: SignInProvider, idToken: String): SignInOutcome = notBuilt("the account")
+    override suspend fun signOut() = notBuilt("the account")
+    override suspend fun delete(): AccountDeleted = notBuilt("the account")
+}
+
+/**
+ * NOT IMPLEMENTED: the real one is Credential Manager on Android and AuthenticationServices
+ * on iOS, and needs Google OAuth client ids and a Sign in with Apple service id that do not
+ * exist yet (backend plan 6.3). It offers no provider, so no screen offers a sign-in.
+ */
+object NotBuiltProviderSignIn : ProviderSignIn {
+    override val providers: List<SignInProvider> = emptyList()
+    override suspend fun idToken(provider: SignInProvider): String? = notBuilt("signing in with a provider")
 }
 
 /**

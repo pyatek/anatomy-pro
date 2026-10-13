@@ -11,6 +11,9 @@ import com.ptk.anatomypro.core.data.model.Entitlements
 import com.ptk.anatomypro.feature.commerce.PaywallScreen
 import com.ptk.anatomypro.feature.commerce.PaywallViewModel
 import com.ptk.anatomypro.feature.commerce.commerceIsBuilt
+import com.ptk.anatomypro.feature.profile.AccountScreen
+import com.ptk.anatomypro.feature.profile.AccountViewModel
+import com.ptk.anatomypro.feature.profile.accountIsBuilt
 import com.ptk.anatomypro.feature.profile.PacksScreen
 import com.ptk.anatomypro.feature.profile.PacksViewModel
 import com.ptk.anatomypro.feature.profile.ProfileScreen
@@ -54,6 +57,38 @@ internal fun ProfileHomeRoute(dependencies: AppDependencies, locale: String, nav
         onSettings = { navController.navigate(ProfileRoute.Settings) },
         onPacks = { navController.navigate(ProfileRoute.Packs) },
         onSubscription = { navController.navigate(ProfileRoute.Paywall) },
+        onAccount = if (accountIsBuilt(dependencies.account)) {
+            { navController.navigate(ProfileRoute.Account) }
+        } else {
+            null
+        },
+    )
+}
+
+/** The account. The prototype has no screen for it; this one is a draft (backend spec §5). */
+@Composable
+internal fun AccountRoute(dependencies: AppDependencies, navController: NavHostController) {
+    val model: AccountViewModel = viewModel {
+        AccountViewModel(
+            accounts = dependencies.account,
+            signIn = dependencies.signIn,
+            now = { Clock.System.now() },
+            // The day a lock ends is said in the user's own days.
+            zone = TimeZone.currentSystemDefault(),
+        )
+    }
+    val state by model.state.collectAsState()
+
+    AccountScreen(
+        state = state,
+        onNicknameChanged = model::onNicknameChanged,
+        onSaveNickname = model::onSaveNickname,
+        onSignIn = model::onSignIn,
+        onLeaveRequested = model::onLeaveRequested,
+        onLeaveConfirmed = model::onLeaveConfirmed,
+        onLeaveDismissed = model::onLeaveDismissed,
+        onRetry = model::onRetry,
+        onBack = { navController.popBackStack() },
     )
 }
 

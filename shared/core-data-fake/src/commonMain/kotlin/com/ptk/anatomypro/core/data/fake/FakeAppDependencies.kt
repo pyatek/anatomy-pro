@@ -20,5 +20,7 @@ fun fakeAppDependencies(): AppDependencies {
         leaderboard = FakeLeaderboardRepository(),
         entitlements = FakeEntitlementRepository(),
         packs = FakePackRepository(),
+        account = FakeAccountRepository(),
+        signIn = FakeProviderSignIn(),
     )
 }

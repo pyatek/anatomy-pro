@@ -10,18 +10,23 @@ import androidx.compose.runtime.remember
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.NotBuiltDailyRepository
 import com.ptk.anatomypro.core.data.NotBuiltQuizRepository
+import com.ptk.anatomypro.core.data.fake.FakeAccountRepository
 import com.ptk.anatomypro.core.data.fake.FakeBehaviour
 import com.ptk.anatomypro.core.data.fake.FakeDailyRepository
 import com.ptk.anatomypro.core.data.fake.FakeEntitlementRepository
 import com.ptk.anatomypro.core.data.fake.FakeLeaderboardRepository
 import com.ptk.anatomypro.core.data.fake.FakePackRepository
+import com.ptk.anatomypro.core.data.fake.FakeProviderSignIn
 import com.ptk.anatomypro.core.data.fake.FakeSettingsRepository
 import com.ptk.anatomypro.core.data.fake.UnreviewedAtlas
 import com.ptk.anatomypro.core.data.fake.fakeAppDependencies
+import com.ptk.anatomypro.core.data.model.Account
 import com.ptk.anatomypro.core.data.model.AppSettings
 import com.ptk.anatomypro.core.data.model.Entitlements
 import com.ptk.anatomypro.core.data.model.PackFailure
+import com.ptk.anatomypro.core.data.model.SignInProvider
 import com.ptk.anatomypro.core.data.quiz.GeneratedQuizRepository
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -88,16 +93,45 @@ private fun fakeOrProductionDependencies(): AppDependencies {
     val unranked = intent?.getBooleanExtra("unranked", false) ?: false
     val purchaseFails = intent?.getBooleanExtra("purchaseFails", false) ?: false
 
+    // adb shell am start -n com.ptk.anatomypro/.MainActivity --es account locked
+    //   account: the account behind Profile → Account. Without it, an anonymous account
+    //   that can be renamed ("foramen" and "vesalius_1543" are taken), signed in and deleted.
+    //     "locked"    its nickname was reported: no new one for thirty days.
+    //     "linked"    already signed in with Google, so it can be signed out of.
+    //     "merge"     signing in opens an account from another device (vesalius_1543).
+    //     "rejected"  the server does not believe the provider's token.
+    //     "cancelled" the provider's sheet is closed without signing in.
+    //     "offline"   nothing about the account gets through.
+    //   With `subscribed`, deleting the account says a subscription is still running.
+    val accountState = intent?.getStringExtra("account")
+
     // Built once, whatever the atlas is doing: screens and app-scoped models hold on to
     // the repositories they are first given, and a second set made when the pack finished
     // installing would leave them reading the first.
-    val fakes = remember(onboarding, packFailure, subscribed, unranked, purchaseFails) {
+    val fakes = remember(onboarding, packFailure, subscribed, unranked, purchaseFails, accountState) {
         val base = fakeAppDependencies().copy(
             leaderboard = FakeLeaderboardRepository(ranked = !unranked),
             entitlements = FakeEntitlementRepository(
                 initial = Entitlements(subscribed = subscribed, ownedSystems = emptySet()),
                 purchaseSucceeds = !purchaseFails,
             ),
+            account = FakeAccountRepository(
+                // Slow enough for a request to be seen being made.
+                behaviour = FakeBehaviour(
+                    delay = 400.milliseconds,
+                    failure = if (accountState == "offline") ({ IllegalStateException("no connection") }) else null,
+                ),
+                initial = when (accountState) {
+                    "locked" -> Account("student-4821", nicknameLockedUntil = Clock.System.now() + 30.days)
+                    "linked" -> Account("costa_xii", linked = setOf(SignInProvider.GOOGLE))
+                    else -> Account("student-4821")
+                },
+                elsewhere = if (accountState == "merge") Account("vesalius_1543", linked = setOf(SignInProvider.GOOGLE)) else null,
+                believesTokens = accountState != "rejected",
+                subscribed = subscribed,
+            ),
+            // Both providers, so both rows can be seen; a real Android build may offer one.
+            signIn = FakeProviderSignIn(cancels = accountState == "cancelled"),
         )
         if (!onboarding) {
             base
