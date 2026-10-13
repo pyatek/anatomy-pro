@@ -1,5 +1,8 @@
 package com.ptk.anatomypro.backend
 
+import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.backend.accounts.ProviderConfig
+
 /** What can differ between a test, a laptop and the box, apart from the database. */
 data class Settings(
     val nicknameBlocklist: Set<String> = emptySet(),
@@ -13,6 +16,11 @@ data class Settings(
      * any address it liked and walk round the limit above.
      */
     val trustForwardedHeaders: Boolean = false,
+    /**
+     * The providers people may sign in with, each with the client ids a token must be made
+     * out to (§5.3). A provider left out accepts nothing.
+     */
+    val identityProviders: Map<IdentityProvider, ProviderConfig> = emptyMap(),
     /**
      * Treats every account as a subscriber. Off unless a deployment turns it on by name:
      * the daily and the boards are paid (design §29), and until purchases are verified

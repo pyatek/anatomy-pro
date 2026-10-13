@@ -4,6 +4,8 @@ import com.ptk.anatomypro.api.ApiError
 import com.ptk.anatomypro.api.ApiErrorCode
 import com.ptk.anatomypro.api.ApiJson
 import com.ptk.anatomypro.backend.accounts.Accounts
+import com.ptk.anatomypro.backend.accounts.Identities
+import com.ptk.anatomypro.backend.accounts.IdentityVerifier
 import com.ptk.anatomypro.backend.accounts.NicknameRules
 import com.ptk.anatomypro.backend.accounts.accountRoutes
 import com.ptk.anatomypro.backend.accounts.anonymousAccountRoute
@@ -33,8 +35,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.minutes
 
@@ -53,13 +53,15 @@ fun Application.backend(
     settings: Settings = Settings(),
     now: () -> Instant = Instant::now,
     subscribers: SubscriberCheck = SubscriberCheck { settings.everyoneIsSubscribed },
+    /** Reads a provider's published keys. The real one asks the provider; a test's does not. */
+    fetchKeys: (url: String) -> String = ::fetchOverHttps,
 ) {
     val nicknames = NicknameRules(settings.nicknameBlocklist)
     val accounts = Accounts(database, nicknames)
+    val identities = Identities(database)
+    val verifier = IdentityVerifier(settings.identityProviders, fetchKeys, now)
     val sets = DailySets(database, Content(database), settings)
     val attempts = Attempts(database, settings)
-    // Every date the server speaks of is UTC: the daily is the world's day.
-    val today: () -> LocalDate = { now().atOffset(ZoneOffset.UTC).toLocalDate() }
 
     if (settings.trustForwardedHeaders) install(XForwardedHeaders)
     // Method, path and status. Headers are never written, so a token never is (§11.2).
@@ -109,8 +111,17 @@ fun Application.backend(
         }
         rateLimit(BY_ADDRESS) { anonymousAccountRoute(accounts) }
         rateLimit(BY_TOKEN) {
-            accountRoutes(accounts, nicknames, today)
+            accountRoutes(accounts, nicknames, identities, verifier, now)
             dailyRoutes(accounts, sets, attempts, subscribers, settings, now)
         }
     }
+}
+
+/** A provider's key set, from the provider. Short timeouts: a sign-in is waiting on it. */
+private fun fetchOverHttps(url: String): String {
+    val client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build()
+    val request = java.net.http.HttpRequest.newBuilder(java.net.URI(url)).timeout(java.time.Duration.ofSeconds(5)).GET().build()
+    val response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString())
+    check(response.statusCode() == 200) { "$url answered ${response.statusCode()}" }
+    return response.body()
 }

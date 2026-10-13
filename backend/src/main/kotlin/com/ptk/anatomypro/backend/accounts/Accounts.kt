@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.backend.accounts
 
+import com.ptk.anatomypro.api.IdentityProvider
 import com.ptk.anatomypro.backend.transaction
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -73,6 +74,47 @@ class Accounts(private val database: DataSource, private val nicknames: Nickname
                     nickname = rows.getString(2),
                     nicknameLockedUntil = rows.getObject(3, LocalDate::class.java),
                 )
+            }
+        }
+    }
+
+    fun byId(id: UUID): Account? = database.connection.use { connection ->
+        connection.prepareStatement("SELECT id, nickname, nickname_locked_until FROM account WHERE id = ?").use { statement ->
+            statement.setObject(1, id)
+            statement.executeQuery().use { rows ->
+                if (!rows.next()) null else Account(rows.getObject(1, UUID::class.java), rows.getString(2), rows.getObject(3, LocalDate::class.java))
+            }
+        }
+    }
+
+    /** The providers [account] has signed in with. */
+    fun linked(account: UUID): List<IdentityProvider> = database.connection.use { connection ->
+        connection.prepareStatement("SELECT DISTINCT provider FROM identity WHERE account_id = ? ORDER BY provider DESC").use { statement ->
+            statement.setObject(1, account)
+            statement.executeQuery().use { rows -> buildList { while (rows.next()) add(IdentityProvider.valueOf(rows.getString(1))) } }
+        }
+    }
+
+    /**
+     * Ends this device's access (§5.1). The account stays, to be signed into again — unless
+     * nothing could ever open it: no other device and no identity. An account that cannot
+     * be reached is not kept (§5.5).
+     */
+    fun signOut(token: String) {
+        database.transaction { connection ->
+            val account = connection.prepareStatement("DELETE FROM device_token WHERE token_hash = ? RETURNING account_id").use { statement ->
+                statement.setBytes(1, hashOf(token))
+                statement.executeQuery().use { rows -> if (rows.next()) rows.getObject(1, UUID::class.java) else null }
+            } ?: return@transaction
+            connection.prepareStatement(
+                """
+                DELETE FROM account WHERE id = ?
+                  AND NOT EXISTS (SELECT 1 FROM device_token WHERE account_id = ?)
+                  AND NOT EXISTS (SELECT 1 FROM identity WHERE account_id = ?)
+                """.trimIndent(),
+            ).use { statement ->
+                repeat(3) { statement.setObject(it + 1, account) }
+                statement.executeUpdate()
             }
         }
     }

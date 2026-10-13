@@ -1,5 +1,6 @@
 package com.ptk.anatomypro.backend
 
+import com.ptk.anatomypro.api.AccountResponse
 import com.ptk.anatomypro.api.AnonymousAccountResponse
 import com.ptk.anatomypro.api.ApiError
 import com.ptk.anatomypro.api.ApiErrorCode
@@ -12,6 +13,9 @@ import com.ptk.anatomypro.api.DailyResultResponse
 import com.ptk.anatomypro.api.DailyStartRequest
 import com.ptk.anatomypro.api.DailyStateResponse
 import com.ptk.anatomypro.api.DailySubmitRequest
+import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.api.LinkRequest
+import com.ptk.anatomypro.api.LinkResponse
 import com.ptk.anatomypro.api.LeaderboardResponse
 import com.ptk.anatomypro.backend.content.Content
 import io.ktor.client.HttpClient
@@ -45,13 +49,17 @@ class DailyHarness(
     val database: DataSource = TestDatabase.fresh()
     val content = Content(database).also(seed)
     var now: Instant = Instant.parse("2026-10-12T10:00:00Z")
+    /** Stand-ins for Google and Apple, on this harness's clock. */
+    val identities = TestIdentities { now }
+    /** The settings the server is really given: the test's, and the stand-in providers. */
+    val serverSettings: Settings get() = settings.copy(identityProviders = identities.providers)
     val today: String get() = now.atOffset(ZoneOffset.UTC).toLocalDate().toString()
 
     fun pass(time: Duration) { now += time }
     fun nextDay(at: String = "10:00:00") { now = Instant.parse("${now.atOffset(ZoneOffset.UTC).toLocalDate().plusDays(1)}T${at}Z") }
 
     fun run(test: suspend Player.Scope.() -> Unit) = testApplication {
-        application { backend(database, settings, now = { now }) }
+        application { backend(database, serverSettings, now = { now }, fetchKeys = identities::fetch) }
         val client = createClient { install(ContentNegotiation) { json(ApiJson) } }
         Player.Scope(client, this@DailyHarness).test()
     }
@@ -101,6 +109,19 @@ class Player(private val client: HttpClient, private val harness: DailyHarness, 
         questionId = question.id,
         chosen = if (rightly) question.highlighted else question.options.first { it.id != question.highlighted }.id,
     )
+
+    suspend fun account(): AccountResponse = client.get(ApiPaths.ACCOUNT) { bearerAuth(token) }.body()
+
+    suspend fun linkResponse(provider: IdentityProvider, idToken: String): HttpResponse = client.post(ApiPaths.LINK) {
+        bearerAuth(token)
+        contentType(ContentType.Application.Json)
+        setBody(LinkRequest(provider, idToken))
+    }
+
+    /** Signs in with Google as [subject]. */
+    suspend fun signIn(subject: String): LinkResponse = linkResponse(IdentityProvider.GOOGLE, harness.identities.google(subject)).body()
+
+    suspend fun signOutResponse(): HttpResponse = client.post(ApiPaths.SIGN_OUT) { bearerAuth(token) }
 
     suspend fun dailyBoardResponse(date: String = harness.today): HttpResponse = client.get(ApiPaths.dailyLeaderboard(date)) { bearerAuth(token) }
     suspend fun dailyBoard(date: String = harness.today): LeaderboardResponse = dailyBoardResponse(date).body()

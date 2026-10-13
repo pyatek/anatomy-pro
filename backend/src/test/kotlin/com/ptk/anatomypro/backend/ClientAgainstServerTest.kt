@@ -54,7 +54,7 @@ class ClientAgainstServerTest {
     private val harness = DailyHarness()
 
     private fun server(harness: DailyHarness = this.harness, test: suspend (HttpClient) -> Unit) = testApplication {
-        application { backend(harness.database, harness.settings, now = { harness.now }) }
+        application { backend(harness.database, harness.serverSettings, now = { harness.now }, fetchKeys = harness.identities::fetch) }
         test(createClient { })
     }
 

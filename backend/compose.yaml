@@ -28,6 +28,9 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/anatomypro
       DATABASE_USER: anatomypro
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env}
+      # The client ids a sign-in token must be made out to, comma-separated. Unset: no sign-in.
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
       # Caddy is in front, and nothing else can reach this port.
       TRUST_FORWARDED_HEADERS: "true"
       # The daily and the boards are for subscribers, and nobody is one until purchases are

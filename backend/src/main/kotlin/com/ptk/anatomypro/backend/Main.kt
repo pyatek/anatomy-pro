@@ -1,5 +1,7 @@
 package com.ptk.anatomypro.backend
 
+import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.backend.accounts.ProviderConfig
 import com.ptk.anatomypro.backend.content.Content
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -32,9 +34,17 @@ fun main(args: Array<String>) {
     val settings = Settings(
         nicknameBlocklist = blocklist,
         trustForwardedHeaders = System.getenv("TRUST_FORWARDED_HEADERS") == "true",
+        // Comma-separated client ids. A provider with none set accepts no sign-in.
+        identityProviders = buildMap {
+            clientIds("GOOGLE_CLIENT_IDS")?.let { put(IdentityProvider.GOOGLE, ProviderConfig.google(it)) }
+            clientIds("APPLE_CLIENT_IDS")?.let { put(IdentityProvider.APPLE, ProviderConfig.apple(it)) }
+        },
         // Until purchases are verified nobody is a subscriber, unless this says otherwise.
         everyoneIsSubscribed = System.getenv("EVERYONE_IS_SUBSCRIBED") == "true",
     )
 
     embeddedServer(Netty, port = (System.getenv("PORT") ?: "8080").toInt()) { backend(database, settings) }.start(wait = true)
 }
+
+private fun clientIds(name: String): Set<String>? =
+    System.getenv(name)?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()?.takeIf { it.isNotEmpty() }

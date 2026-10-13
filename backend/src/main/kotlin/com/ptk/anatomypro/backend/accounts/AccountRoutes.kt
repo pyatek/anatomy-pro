@@ -5,6 +5,9 @@ import com.ptk.anatomypro.api.AccountResponse
 import com.ptk.anatomypro.api.AnonymousAccountResponse
 import com.ptk.anatomypro.api.ApiErrorCode
 import com.ptk.anatomypro.api.ApiPaths
+import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.api.LinkRequest
+import com.ptk.anatomypro.api.LinkResponse
 import com.ptk.anatomypro.api.NicknameRequest
 import com.ptk.anatomypro.backend.ApiException
 import io.ktor.http.HttpHeaders
@@ -19,7 +22,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 private const val BEARER = "Bearer "
 
@@ -34,11 +39,15 @@ suspend fun ApplicationCall.account(accounts: Accounts): Account {
         ?: throw ApiException(HttpStatusCode.Unauthorized, ApiErrorCode.UNAUTHENTICATED)
 }
 
-private fun Account.toResponse() = AccountResponse(
+private fun Account.toResponse(linked: List<IdentityProvider> = emptyList()) = AccountResponse(
     id = id.toString(),
     nickname = nickname,
+    linked = linked,
     nicknameLockedUntil = nicknameLockedUntil?.toString(),
 )
+
+private suspend fun Accounts.response(account: Account): AccountResponse =
+    account.toResponse(withContext(Dispatchers.IO) { linked(account.id) })
 
 /** `POST /v1/auth/anonymous`. Apart from the rest, because it is limited by address, not by token. */
 fun Route.anonymousAccountRoute(accounts: Accounts) {
@@ -48,9 +57,35 @@ fun Route.anonymousAccountRoute(accounts: Accounts) {
     }
 }
 
-fun Route.accountRoutes(accounts: Accounts, nicknames: NicknameRules, today: () -> LocalDate) {
+fun Route.accountRoutes(
+    accounts: Accounts,
+    nicknames: NicknameRules,
+    identities: Identities,
+    verifier: IdentityVerifier,
+    now: () -> Instant,
+) {
+    val today: () -> LocalDate = { now().atOffset(ZoneOffset.UTC).toLocalDate() }
+
     get(ApiPaths.ACCOUNT) {
-        call.respond(call.account(accounts).toResponse())
+        call.respond(accounts.response(call.account(accounts)))
+    }
+
+    // Signing in (§5.3). The token is checked before anything is touched.
+    post(ApiPaths.LINK) {
+        val caller = call.account(accounts)
+        val request = call.receive<LinkRequest>()
+        val linked = withContext(Dispatchers.IO) {
+            val subject = verifier.subjectOf(request.provider, request.idToken)
+            identities.link(caller.id, request.provider, subject, now())
+        }
+        val account = withContext(Dispatchers.IO) { accounts.byId(linked.account) }!!
+        call.respond(LinkResponse(accounts.response(account), merged = linked.merged))
+    }
+
+    post(ApiPaths.SIGN_OUT) {
+        call.account(accounts)
+        withContext(Dispatchers.IO) { accounts.signOut(call.bearerToken()!!) }
+        call.respond(HttpStatusCode.NoContent)
     }
 
     put(ApiPaths.NICKNAME) {
@@ -62,7 +97,7 @@ fun Route.accountRoutes(accounts: Accounts, nicknames: NicknameRules, today: () 
         }
         if (!nicknames.allows(wanted)) throw ApiException(HttpStatusCode.BadRequest, ApiErrorCode.NICKNAME_INVALID)
         when (val result = withContext(Dispatchers.IO) { accounts.rename(account, wanted) }) {
-            is RenameResult.Renamed -> call.respond(result.account.toResponse())
+            is RenameResult.Renamed -> call.respond(accounts.response(result.account))
             RenameResult.Taken -> throw ApiException(HttpStatusCode.Conflict, ApiErrorCode.NICKNAME_TAKEN)
         }
     }
