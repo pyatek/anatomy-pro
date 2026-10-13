@@ -143,6 +143,25 @@ class ApiContractTest {
         assertEquals(PurchaseVerdict.OWNED_BY_ANOTHER_ACCOUNT, purchase.outcome)
     }
 
+    @Test
+    fun a_purchase_verdict_has_the_wire_name_it_shipped_with_and_one_never_heard_of_is_read_as_invalid() {
+        val names = PurchaseVerdict.entries.associateWith { ApiJson.encodeToString(PurchaseVerdict.serializer(), it).trim('"') }
+        assertEquals(
+            mapOf(
+                PurchaseVerdict.VERIFIED to "verified",
+                PurchaseVerdict.OWNED_BY_ANOTHER_ACCOUNT to "owned_by_another_account",
+                PurchaseVerdict.PENDING to "pending",
+                PurchaseVerdict.INVALID to "invalid",
+            ),
+            names,
+        )
+        // Added after version 1, with the purchase's own account none the richer for it.
+        val pending = pinned<PurchaseResponse>("""{"outcome":"pending","entitlements":{"subscribed":false}}""")
+        assertEquals(PurchaseVerdict.PENDING, pending.outcome)
+        val newer = ApiJson.decodeFromString(PurchaseResponse.serializer(), """{"outcome":"refunded","entitlements":{"subscribed":false}}""")
+        assertEquals(PurchaseVerdict.INVALID, newer.outcome)
+    }
+
     // --- errors, and a newer server -----------------------------------------------------
 
     @Test

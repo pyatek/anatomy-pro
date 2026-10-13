@@ -221,6 +221,12 @@ enum class PurchaseVerdict {
     @SerialName("verified") VERIFIED,
     /** The purchase is real and belongs to another account: sign in to reach it (§8.1). */
     @SerialName("owned_by_another_account") OWNED_BY_ANOTHER_ACCOUNT,
+    /**
+     * The purchase is real and is this account's, and the store has not been paid yet (a
+     * slow payment method). Nothing is unlocked; it will be without being presented again.
+     * Added after version 1: a build that has not heard of it reads it as [INVALID].
+     */
+    @SerialName("pending") PENDING,
     /** The store does not know it, or it has lapsed — and what an unknown verdict is read as. */
     @SerialName("invalid") INVALID,
 }
