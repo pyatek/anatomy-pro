@@ -28,3 +28,4 @@ pipeline/source/
 
 # The server's secrets (backend/.env.example says what goes in it).
 backend/.env
+backend/secrets/

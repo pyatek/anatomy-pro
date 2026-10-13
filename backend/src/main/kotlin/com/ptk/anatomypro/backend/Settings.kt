@@ -1,7 +1,11 @@
 package com.ptk.anatomypro.backend
 
 import com.ptk.anatomypro.api.IdentityProvider
+import com.ptk.anatomypro.api.Plan
 import com.ptk.anatomypro.backend.accounts.ProviderConfig
+import com.ptk.anatomypro.backend.subscriptions.AppStoreConfig
+import com.ptk.anatomypro.backend.subscriptions.GooglePlayConfig
+import java.time.Duration
 
 /** What can differ between a test, a laptop and the box, apart from the database. */
 data class Settings(
@@ -22,11 +26,33 @@ data class Settings(
      */
     val identityProviders: Map<IdentityProvider, ProviderConfig> = emptyMap(),
     /**
-     * Treats every account as a subscriber. Off unless a deployment turns it on by name:
-     * the daily and the boards are paid (design §29), and until purchases are verified
-     * (plan stage 7) the only safe default is that nobody has paid.
+     * Treats every account as a subscriber, whatever it has bought. Off unless a deployment
+     * turns it on by name: the daily and the boards are paid (design §29), and who has paid
+     * is answered from verified purchases (§8.1). This is an override for trying things
+     * out, and a production server that has it on is giving the product away.
      */
     val everyoneIsSubscribed: Boolean = false,
+    /**
+     * What is on sale: the product ids, the same in both stores, and how long each runs
+     * (§8.3). A purchase of any other product is not honoured. None: nothing can be bought.
+     */
+    val plans: List<Plan> = emptyList(),
+    /** Google Play, or null where it is not set up: its purchases and its webhook then answer nothing. */
+    val google: GooglePlayConfig? = null,
+    /** The App Store, likewise. */
+    val apple: AppStoreConfig? = null,
+    /**
+     * How often subscriptions near their expiry are asked about again (§8.1), or null for
+     * never: a test, or a laptop with no store to ask.
+     */
+    val recheckEvery: Duration? = null,
+    /** A subscription running out within this long is asked about again. */
+    val recheckWithin: Duration = Duration.ofDays(1),
+    /**
+     * And one that ran out within this long, because a renewal whose notification was lost
+     * looks like an expiry — and that is someone who paid being kept out.
+     */
+    val recheckLapsedFor: Duration = Duration.ofDays(7),
     /** The pack the daily draws from: the one onboarding installs for everyone (§4.2). */
     val dailyPack: String = "skeletal-body",
     /**

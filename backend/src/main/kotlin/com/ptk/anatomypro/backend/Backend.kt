@@ -15,6 +15,11 @@ import com.ptk.anatomypro.backend.daily.Attempts
 import com.ptk.anatomypro.backend.daily.DailySets
 import com.ptk.anatomypro.backend.daily.SubscriberCheck
 import com.ptk.anatomypro.backend.daily.dailyRoutes
+import com.ptk.anatomypro.backend.subscriptions.AppStoreServerApi
+import com.ptk.anatomypro.backend.subscriptions.PlayDeveloperApi
+import com.ptk.anatomypro.backend.subscriptions.StoreServices
+import com.ptk.anatomypro.backend.subscriptions.storeWebhooks
+import com.ptk.anatomypro.backend.subscriptions.subscriptionRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -31,7 +36,11 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -52,9 +61,12 @@ fun Application.backend(
     database: DataSource,
     settings: Settings = Settings(),
     now: () -> Instant = Instant::now,
-    subscribers: SubscriberCheck = SubscriberCheck { settings.everyoneIsSubscribed },
     /** Reads a provider's published keys. The real one asks the provider; a test's does not. */
     fetchKeys: (url: String) -> String = ::fetchOverHttps,
+    /** The Play Developer API, or null where there is no service account to ask it with. */
+    play: PlayDeveloperApi? = null,
+    /** The App Store Server API, likewise. Purchases are verified without it; the re-check is not made. */
+    appStoreApi: AppStoreServerApi? = null,
 ) {
     val nicknames = NicknameRules(settings.nicknameBlocklist)
     val accounts = Accounts(database, nicknames)
@@ -62,6 +74,27 @@ fun Application.backend(
     val verifier = IdentityVerifier(settings.identityProviders, fetchKeys, now)
     val sets = DailySets(database, Content(database), settings)
     val attempts = Attempts(database, settings)
+    val stores = StoreServices(database, settings, now, fetchKeys, play, appStoreApi)
+    val entitlements = stores.entitlements
+    // The gate in front of the daily and the boards (§8.2) asks what the entitlements call answers.
+    val subscribers = SubscriberCheck { account -> withContext(Dispatchers.IO) { entitlements.of(account).subscribed } }
+
+    // The re-check of §8.1, for as long as the server runs. One box, so one of these; were
+    // there ever two servers they would both ask, which costs a few requests and breaks nothing.
+    settings.recheckEvery?.let { every ->
+        launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(every.toMillis())
+                try {
+                    stores.recheck()
+                } catch (stopping: CancellationException) {
+                    throw stopping
+                } catch (failure: Exception) {
+                    log.warn("the re-check of subscriptions did not run ({})", failure.javaClass.simpleName)
+                }
+            }
+        }
+    }
 
     if (settings.trustForwardedHeaders) install(XForwardedHeaders)
     // Method, path and status. Headers are never written, so a token never is (§11.2).
@@ -111,9 +144,13 @@ fun Application.backend(
         }
         rateLimit(BY_ADDRESS) { anonymousAccountRoute(accounts) }
         rateLimit(BY_TOKEN) {
-            accountRoutes(accounts, nicknames, identities, verifier, now)
+            accountRoutes(accounts, nicknames, identities, verifier, entitlements, now)
             dailyRoutes(accounts, sets, attempts, subscribers, settings, now)
+            subscriptionRoutes(accounts, entitlements, stores.google, stores.apple, settings)
         }
+        // Not limited by token or address: the callers are two stores, each from few
+        // addresses and in bursts, and each is made to prove itself before anything is done.
+        storeWebhooks(stores.google, stores.apple)
     }
 }
 

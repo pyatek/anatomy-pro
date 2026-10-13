@@ -4,6 +4,7 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.RSAKey
+import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.ptk.anatomypro.api.ApiErrorCode
 import com.ptk.anatomypro.api.IdentityProvider
@@ -50,6 +51,16 @@ class IdentityVerifier(
     /** @throws ApiException `identity_invalid` for a token that is not believed. */
     fun subjectOf(provider: IdentityProvider, idToken: String): String {
         val config = providers[provider] ?: throw invalid()
+        return claimsOf(config, idToken).subject?.takeIf { it.isNotBlank() } ?: throw invalid()
+    }
+
+    /**
+     * Everything a token says, once it is believed by the rules above. For a token that is
+     * not a person's sign-in: Pub/Sub signs its pushes the same way (§8.1).
+     *
+     * @throws ApiException `identity_invalid` for a token that is not believed.
+     */
+    fun claimsOf(config: ProviderConfig, idToken: String): JWTClaimsSet {
         val token = runCatching { SignedJWT.parse(idToken) }.getOrNull() ?: throw invalid()
         // The provider's own algorithm and no other: a token "signed" with a shared secret
         // made from the public key is the oldest forgery there is.
@@ -62,7 +73,7 @@ class IdentityVerifier(
         if (claims.issuer !in config.issuers) throw invalid()
         if (claims.audience.orEmpty().none { it in config.audiences }) throw invalid()
         if (!expires.isAfter(now())) throw invalid()
-        return claims.subject?.takeIf { it.isNotBlank() } ?: throw invalid()
+        return claims
     }
 
     @Synchronized

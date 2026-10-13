@@ -33,9 +33,28 @@ services:
       APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
       # Caddy is in front, and nothing else can reach this port.
       TRUST_FORWARDED_HEADERS: "true"
-      # The daily and the boards are for subscribers, and nobody is one until purchases are
-      # verified (plan stage 7). Set to "true" in backend/.env to try them before that.
+      # The daily and the boards are for subscribers: accounts with a purchase a store has
+      # vouched for (backend spec §8). "true" lets everyone in regardless, for trying things
+      # out; a real server that has it on is giving the product away.
       EVERYONE_IS_SUBSCRIBED: ${EVERYONE_IS_SUBSCRIBED:-false}
+      # What is on sale: product ids, the same in both stores, each with monthly or yearly.
+      PLANS: ${PLANS:-}
+      # Google Play. Unset: no Play purchase is accepted and the Play webhook answers 404.
+      GOOGLE_PLAY_PACKAGE: ${GOOGLE_PLAY_PACKAGE:-}
+      GOOGLE_SERVICE_ACCOUNT_FILE: ${GOOGLE_SERVICE_ACCOUNT_FILE:-}
+      GOOGLE_PUSH_AUDIENCE: ${GOOGLE_PUSH_AUDIENCE:-}
+      GOOGLE_PUSH_SERVICE_ACCOUNT: ${GOOGLE_PUSH_SERVICE_ACCOUNT:-}
+      # The App Store. Unset: no App Store purchase is accepted and its webhook answers 404.
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
+      APPLE_ROOT_CA_FILE: ${APPLE_ROOT_CA_FILE:-}
+      APPLE_ENVIRONMENTS: ${APPLE_ENVIRONMENTS:-}
+      APPLE_API_KEY_FILE: ${APPLE_API_KEY_FILE:-}
+      APPLE_API_KEY_ID: ${APPLE_API_KEY_ID:-}
+      APPLE_API_ISSUER_ID: ${APPLE_API_ISSUER_ID:-}
+      RECHECK_EVERY_HOURS: ${RECHECK_EVERY_HOURS:-6}
+    volumes:
+      # The stores' key files, which the *_FILE values above point into. Never committed.
+      - ./secrets:/secrets:ro
     depends_on:
       postgres:
         condition: service_healthy

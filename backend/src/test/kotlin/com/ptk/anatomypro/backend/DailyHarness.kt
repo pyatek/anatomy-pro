@@ -13,6 +13,10 @@ import com.ptk.anatomypro.api.DailyResultResponse
 import com.ptk.anatomypro.api.DailyStartRequest
 import com.ptk.anatomypro.api.DailyStateResponse
 import com.ptk.anatomypro.api.DailySubmitRequest
+import com.ptk.anatomypro.api.ApplePurchaseRequest
+import com.ptk.anatomypro.api.EntitlementsResponse
+import com.ptk.anatomypro.api.GooglePurchaseRequest
+import com.ptk.anatomypro.api.PurchaseResponse
 import com.ptk.anatomypro.api.IdentityProvider
 import com.ptk.anatomypro.api.LinkRequest
 import com.ptk.anatomypro.api.LinkResponse
@@ -29,6 +33,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
 import io.ktor.server.testing.testApplication
 import java.time.Duration
 import java.time.Instant
@@ -51,15 +56,42 @@ class DailyHarness(
     var now: Instant = Instant.parse("2026-10-12T10:00:00Z")
     /** Stand-ins for Google and Apple, on this harness's clock. */
     val identities = TestIdentities { now }
-    /** The settings the server is really given: the test's, and the stand-in providers. */
-    val serverSettings: Settings get() = settings.copy(identityProviders = identities.providers)
+    /** Stand-ins for Google Play and the App Store, on this harness's clock. */
+    val stores = TestStores({ now }, identities.googleKey)
+    /** The settings the server is really given: the test's, the stand-in providers, and the stand-in stores. */
+    val serverSettings: Settings get() = settings.copy(
+        identityProviders = identities.providers,
+        plans = TestStores.PLANS,
+        google = stores.googleConfig,
+        apple = stores.apple.config,
+    )
     val today: String get() = now.atOffset(ZoneOffset.UTC).toLocalDate().toString()
 
     fun pass(time: Duration) { now += time }
     fun nextDay(at: String = "10:00:00") { now = Instant.parse("${now.atOffset(ZoneOffset.UTC).toLocalDate().plusDays(1)}T${at}Z") }
 
+    /** The server under test, over this harness's database, clock and stand-ins. */
+    fun serve(application: Application) =
+        application.backend(database, serverSettings, now = { now }, fetchKeys = identities::fetch, play = stores.play, appStoreApi = stores.apple)
+
+    /** The server's own store services over the same database and stand-ins, for what no request starts. */
+    fun storeServices(appStoreApi: com.ptk.anatomypro.backend.subscriptions.AppStoreServerApi? = stores.apple) =
+        com.ptk.anatomypro.backend.subscriptions.StoreServices(database, serverSettings, { now }, identities::fetch, stores.play, appStoreApi)
+
+    /** Every row of [table], as text, in a fixed order: for saying that nothing changed. */
+    fun rows(table: String): List<String> = database.connection.use { connection ->
+        connection.createStatement().executeQuery("SELECT t::text FROM $table t ORDER BY 1").use { rows ->
+            buildList { while (rows.next()) add(rows.getString(1)) }
+        }
+    }
+
+    /** The first column of whatever [sql] selects. */
+    fun column(sql: String): List<String?> = database.connection.use { connection ->
+        connection.createStatement().executeQuery(sql).use { rows -> buildList { while (rows.next()) add(rows.getString(1)) } }
+    }
+
     fun run(test: suspend Player.Scope.() -> Unit) = testApplication {
-        application { backend(database, serverSettings, now = { now }, fetchKeys = identities::fetch) }
+        application { serve(this) }
         val client = createClient { install(ContentNegotiation) { json(ApiJson) } }
         Player.Scope(client, this@DailyHarness).test()
     }
@@ -72,6 +104,19 @@ class Player(private val client: HttpClient, private val harness: DailyHarness, 
         suspend fun player(): Player {
             val created = client.post(ApiPaths.ANONYMOUS).body<AnonymousAccountResponse>()
             return Player(client, harness, created.deviceToken, created.account.nickname)
+        }
+
+        /** A push from Pub/Sub, carrying the token that says it is Google's unless told otherwise. */
+        suspend fun googleWebhook(body: String, bearer: String? = harness.stores.pushToken()): HttpResponse =
+            client.post("/v1/webhooks/google") {
+                bearer?.let { bearerAuth(it) }
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+        suspend fun appleWebhook(body: String): HttpResponse = client.post("/v1/webhooks/apple") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
         }
     }
 
@@ -122,6 +167,26 @@ class Player(private val client: HttpClient, private val harness: DailyHarness, 
     suspend fun signIn(subject: String): LinkResponse = linkResponse(IdentityProvider.GOOGLE, harness.identities.google(subject)).body()
 
     suspend fun signOutResponse(): HttpResponse = client.post(ApiPaths.SIGN_OUT) { bearerAuth(token) }
+
+    suspend fun entitlements(): EntitlementsResponse = client.get(ApiPaths.ENTITLEMENTS) { bearerAuth(token) }.body()
+
+    suspend fun googlePurchaseResponse(purchaseToken: String, product: String = TestStores.MONTHLY): HttpResponse =
+        client.post(ApiPaths.GOOGLE_PURCHASE) {
+            bearerAuth(token)
+            contentType(ContentType.Application.Json)
+            setBody(GooglePurchaseRequest(product, purchaseToken))
+        }
+
+    suspend fun buyGoogle(purchaseToken: String, product: String = TestStores.MONTHLY): PurchaseResponse =
+        googlePurchaseResponse(purchaseToken, product).body()
+
+    suspend fun applePurchaseResponse(signedTransaction: String): HttpResponse = client.post(ApiPaths.APPLE_PURCHASE) {
+        bearerAuth(token)
+        contentType(ContentType.Application.Json)
+        setBody(ApplePurchaseRequest(signedTransaction))
+    }
+
+    suspend fun buyApple(signedTransaction: String): PurchaseResponse = applePurchaseResponse(signedTransaction).body()
 
     suspend fun dailyBoardResponse(date: String = harness.today): HttpResponse = client.get(ApiPaths.dailyLeaderboard(date)) { bearerAuth(token) }
     suspend fun dailyBoard(date: String = harness.today): LeaderboardResponse = dailyBoardResponse(date).body()

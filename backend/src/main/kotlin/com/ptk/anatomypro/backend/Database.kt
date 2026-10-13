@@ -12,6 +12,8 @@ data class DatabaseConfig(
     /** Tests give each test a schema of its own; production uses the default one. */
     val schema: String? = null,
     val poolSize: Int = 10,
+    /** Connections kept open when nobody is asking. Null: all of them, which is what a server wants. */
+    val idleConnections: Int? = null,
 )
 
 object Database {
@@ -28,6 +30,7 @@ object Database {
                 username = config.user
                 password = config.password
                 maximumPoolSize = config.poolSize
+                config.idleConnections?.let { minimumIdle = it }
                 config.schema?.let { schema = it }
             },
         )

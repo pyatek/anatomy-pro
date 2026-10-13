@@ -33,6 +33,7 @@ flyway = "13.10.0"
 postgresql = "42.7.14"
 logback = "1.6.5"
 embeddedPostgres = "2.2.2"
+bouncycastle = "1.79"
 nimbusJose = "10.10"
 embeddedPostgresBinaries = "18.6.0"
 okio = "3.18.2"
@@ -64,6 +65,7 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 embeddedPostgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embeddedPostgres" }
 embeddedPostgres-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embeddedPostgresBinaries" }
 embeddedPostgres-darwinArm64 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8", version.ref = "embeddedPostgresBinaries" }

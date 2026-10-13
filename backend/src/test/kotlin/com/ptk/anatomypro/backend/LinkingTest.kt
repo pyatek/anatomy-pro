@@ -1,6 +1,8 @@
 package com.ptk.anatomypro.backend
 
+import com.ptk.anatomypro.api.AccountDeletedResponse
 import com.ptk.anatomypro.api.ApiErrorCode
+import com.ptk.anatomypro.api.PurchaseVerdict
 import com.ptk.anatomypro.api.ApiPaths
 import com.ptk.anatomypro.api.NicknameRequest
 import com.ptk.anatomypro.api.IdentityProvider
@@ -20,10 +22,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Backend spec §5.3 and §5.4: signing in, the merge it can cause, and signing out. */
+/** Backend spec §5.3 and §5.4: signing in, the merge it can cause, signing out, and leaving. */
 class LinkingTest {
 
     private val harness = DailyHarness()
+
+    /** The same, with nobody a subscriber by decree: for what a merge and a deletion do to a real subscription. */
+    private val paying by lazy { DailyHarness(Settings(requestsPerTokenPerMinute = 10_000, accountsPerAddressPerMinute = 10_000)) }
+    private fun fromNow(time: Duration) = paying.now.plus(time)
 
     private fun count(table: String): Int = harness.database.connection.use { connection ->
         connection.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getInt(1) }
@@ -212,6 +218,74 @@ class LinkingTest {
     }
 
     @Test
+    fun a_subscription_bought_before_signing_in_goes_with_the_device_to_the_account_signed_into() = paying.run {
+        val phone = player()
+        phone.signIn("g-1")
+        val tablet = player()
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(fromNow(Duration.ofDays(30)))
+        tablet.buyGoogle("tok-1")
+        assertFalse(phone.entitlements().subscribed)
+
+        tablet.signIn("g-1")
+
+        assertEquals(fromNow(Duration.ofDays(30)).toEpochMilli(), phone.entitlements().expiresAtEpochMillis)
+        assertEquals(phone.entitlements(), tablet.entitlements())
+        assertEquals(listOf<String?>(phone.account().id), paying.column("SELECT account_id::text FROM subscription"))
+    }
+
+    @Test
+    fun a_subscription_on_the_account_signed_into_is_the_new_devices_too() = paying.run {
+        val phone = player()
+        phone.signIn("g-1")
+        phone.buyApple(paying.stores.apple.transaction("1000000000000001", fromNow(Duration.ofDays(30))))
+        val tablet = player()
+        assertFalse(tablet.entitlements().subscribed)
+
+        tablet.signIn("g-1")
+
+        assertTrue(tablet.entitlements().subscribed)
+        assertEquals(HttpStatusCode.OK, tablet.todayResponse().status)
+    }
+
+    @Test
+    fun where_both_accounts_had_a_subscription_the_surviving_one_has_both() = paying.run {
+        val phone = player()
+        phone.signIn("g-1")
+        phone.buyApple(paying.stores.apple.transaction("1000000000000001", fromNow(Duration.ofDays(5))))
+        val tablet = player()
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(fromNow(Duration.ofDays(300)), product = TestStores.YEARLY)
+        tablet.buyGoogle("tok-1", product = TestStores.YEARLY)
+
+        tablet.signIn("g-1")
+
+        val survivor = phone.account().id
+        assertEquals(listOf<String?>(survivor, survivor), paying.column("SELECT account_id::text FROM subscription"))
+        assertEquals(fromNow(Duration.ofDays(300)).toEpochMilli(), phone.entitlements().expiresAtEpochMillis)
+    }
+
+    @Test
+    fun a_merge_that_fails_part_way_leaves_a_subscription_with_the_account_that_had_it() = paying.run {
+        val phone = player()
+        phone.signIn("g-1")
+        val tablet = player()
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(fromNow(Duration.ofDays(30)))
+        tablet.buyGoogle("tok-1")
+        paying.database.connection.use { connection ->
+            connection.createStatement().execute(
+                """
+                CREATE FUNCTION refuse() RETURNS trigger AS ${'$'}${'$'} BEGIN RAISE EXCEPTION 'the disk is full'; END ${'$'}${'$'} LANGUAGE plpgsql;
+                CREATE TRIGGER refuse_merge BEFORE INSERT ON account_merge FOR EACH ROW EXECUTE FUNCTION refuse();
+                """.trimIndent(),
+            )
+        }
+
+        assertEquals(HttpStatusCode.InternalServerError, tablet.linkResponse(IdentityProvider.GOOGLE, paying.identities.google("g-1")).status)
+
+        assertTrue(tablet.entitlements().subscribed)
+        assertFalse(phone.entitlements().subscribed)
+    }
+
+    @Test
     fun a_merge_is_written_down_with_both_accounts() = harness.run {
         val phone = player()
         val survivor = phone.signIn("g-1").account.id
@@ -309,5 +383,90 @@ class LinkingTest {
 
         assertFalse(linked.merged)
         assertNull(fresh.dailyBoard().me)
+    }
+
+    // --- leaving, with a subscription still running (§5.4) -------------------------------
+
+    private suspend fun Player.Scope.delete(player: Player): AccountDeletedResponse =
+        client.delete(ApiPaths.ACCOUNT) { bearerAuth(player.token) }.body()
+
+    @Test
+    fun deleting_an_account_says_whether_a_subscription_is_still_being_paid_for() = paying.run {
+        val never = player()
+        val lapsed = player()
+        val paid = player()
+        paying.stores.play.purchases["tok-lapsed"] = PlayAnswers.active(fromNow(Duration.ofDays(1)))
+        lapsed.buyGoogle("tok-lapsed")
+        paying.pass(Duration.ofDays(2))
+        paying.stores.play.purchases["tok-paid"] = PlayAnswers.cancelled(fromNow(Duration.ofDays(9)))
+        paid.buyGoogle("tok-paid")
+
+        assertFalse(delete(never).subscriptionStillActive)
+        assertFalse(delete(lapsed).subscriptionStillActive)
+        assertTrue(delete(paid).subscriptionStillActive)
+        assertEquals(0, paying.column("SELECT id::text FROM account").size)
+    }
+
+    @Test
+    fun the_override_that_lets_everyone_in_is_not_a_subscription_anyone_is_paying_for() = harness.run {
+        assertFalse(delete(player()).subscriptionStillActive)
+    }
+
+    @Test
+    fun a_deleted_accounts_subscription_is_kept_as_nobodys_and_lets_nobody_in() = paying.run {
+        val leaver = player()
+        leaver.buyApple(paying.stores.apple.transaction("1000000000000001", fromNow(Duration.ofDays(30))))
+
+        delete(leaver)
+
+        assertEquals(listOf<String?>(null), paying.column("SELECT account_id::text FROM subscription"))
+        assertFalse(player().entitlements().subscribed)
+    }
+
+    @Test
+    fun whoever_then_presents_that_purchase_has_it_once_the_store_has_vouched_for_it_again() = paying.run {
+        // The person who left is still paying. They come back as someone new and restore.
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(fromNow(Duration.ofDays(30)))
+        val leaver = player()
+        leaver.buyGoogle("tok-1")
+        delete(leaver)
+        val asked = paying.stores.play.fetches
+        val back = player()
+
+        val restored = back.buyGoogle("tok-1")
+
+        assertEquals(PurchaseVerdict.VERIFIED, restored.outcome)
+        assertEquals(asked + 1, paying.stores.play.fetches)
+        assertEquals(listOf<String?>(back.account().id), paying.column("SELECT account_id::text FROM subscription"))
+        assertEquals(PurchaseVerdict.OWNED_BY_ANOTHER_ACCOUNT, player().buyGoogle("tok-1").outcome)
+    }
+
+    @Test
+    fun a_purchase_left_behind_and_since_refunded_cannot_be_taken_up_by_anyone() = paying.run {
+        val apple = paying.stores.apple
+        val beforeTheRefund = apple.transaction("1000000000000001", fromNow(Duration.ofDays(30)))
+        val leaver = player()
+        leaver.buyApple(beforeTheRefund)
+        delete(leaver)
+        paying.pass(Duration.ofHours(1))
+        // The row is nobody's, and is still told what becomes of the subscription.
+        appleWebhook(apple.notification("REFUND", apple.transaction("1000000000000001", fromNow(Duration.ofDays(30)), revoked = paying.now)))
+
+        val answer = player().buyApple(beforeTheRefund)
+
+        assertEquals(PurchaseVerdict.INVALID, answer.outcome)
+        assertEquals(listOf<String?>(null), paying.column("SELECT account_id::text FROM subscription"))
+    }
+
+    @Test
+    fun signing_out_of_an_account_nothing_else_can_open_leaves_its_subscription_to_be_restored() = paying.run {
+        paying.stores.play.purchases["tok-1"] = PlayAnswers.active(fromNow(Duration.ofDays(30)))
+        val player = player()
+        player.buyGoogle("tok-1")
+
+        player.signOutResponse()
+
+        assertEquals(listOf<String?>(null), paying.column("SELECT account_id::text FROM subscription"))
+        assertEquals(PurchaseVerdict.VERIFIED, player().buyGoogle("tok-1").outcome)
     }
 }

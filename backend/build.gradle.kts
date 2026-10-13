@@ -37,6 +37,9 @@ dependencies {
     testImplementation(libs.ktor.client.contentNegotiation)
     // A real PostgreSQL, run as a process: ranking, uniqueness and the account merge are
     // things the database does, and an in-memory stand-in would not do them (design §15).
+    // Certificates made in the test, to stand where Apple's chain would (spec §8.1). The
+    // server itself checks chains with the JDK and nimbus, and does not have this.
+    testImplementation(libs.bouncycastle.pkix)
     testImplementation(libs.embeddedPostgres)
     testImplementation(platform(libs.embeddedPostgres.bom))
     testRuntimeOnly(libs.embeddedPostgres.darwinArm64)

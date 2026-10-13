@@ -188,7 +188,9 @@ class AccountsTest {
     fun a_lock_that_has_ended_no_longer_holds() = server { client ->
         val account = client.newAccount()
         database.connection.use { connection ->
-            connection.createStatement().executeUpdate("UPDATE account SET nickname_locked_until = CURRENT_DATE - 1")
+            // Yesterday by the server's day, which is UTC: the database's own date is the
+            // machine's, and for the hours the two differ this test used to fail.
+            connection.createStatement().executeUpdate("UPDATE account SET nickname_locked_until = (now() AT TIME ZONE 'UTC')::date - 1")
         }
 
         assertEquals(HttpStatusCode.OK, client.rename(account.deviceToken, "nowy_nick").status)
@@ -276,6 +278,53 @@ class AccountsTest {
             val lines = written.list.map { it.formattedMessage }
             assertTrue(lines.any { ApiPaths.ACCOUNT in it }, "requests were not logged at all, so this proved nothing")
             assertTrue(lines.none { token in it })
+        } finally {
+            root.detachAppender(written)
+        }
+    }
+
+    @Test
+    fun no_purchase_token_signed_transaction_or_push_token_is_ever_written_to_the_log() {
+        val root = org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+        val written = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().apply { start() }
+        root.addAppender(written)
+        try {
+            val harness = DailyHarness(Settings(requestsPerTokenPerMinute = 10_000, accountsPerAddressPerMinute = 10_000))
+            val play = harness.stores.play
+            val apple = harness.stores.apple
+            val soon = harness.now.plusSeconds(3_600)
+            val secrets = mutableListOf("purchase-token-one", "purchase-token-two", "1000000000000001")
+            harness.run {
+                val player = player()
+                // Everything that goes right, and everything that goes wrong loudly: the
+                // stand-ins put the token in the message of what they throw.
+                play.purchases["purchase-token-one"] = PlayAnswers.active(soon, acknowledged = false)
+                play.refusesToAcknowledge = true
+                player.buyGoogle("purchase-token-one")
+                play.purchases["purchase-token-two"] = PlayAnswers.inAStateNotHeardOf(soon)
+                player.buyGoogle("purchase-token-two")
+                val transaction = apple.transaction("1000000000000001", soon)
+                val forged = apple.transaction("1000000000000001", soon, signer = TestChain(harness.now))
+                player.buyApple(transaction)
+                player.buyApple(forged)
+                val push = harness.stores.pushToken()
+                googleWebhook(harness.stores.googleNotification("purchase-token-one"), push)
+                val notification = apple.notification("DID_RENEW", transaction)
+                appleWebhook(notification)
+                appleWebhook(apple.notification("REFUND", forged, signer = TestChain(harness.now)))
+                play.down = true
+                apple.down = true
+                player.googlePurchaseResponse("purchase-token-one")
+                googleWebhook(harness.stores.googleNotification("purchase-token-one"), push)
+                harness.storeServices().recheck()
+                secrets += listOf(transaction, forged, push, notification) + transaction.split('.') + push.split('.')
+            }
+
+            val lines = written.list.map { it.formattedMessage + " " + it.throwableProxy?.let { thrown -> thrown.message + thrown.stackTraceElementProxyArray.joinToString() } }
+            for (said in listOf("could not be acknowledged", "does not know", "Play notification was acted on", "App Store notification was acted on", "could not be asked", "could not be asked about again")) {
+                assertTrue(lines.any { said in it }, "nothing was logged about '$said', so this proved less than it claims")
+            }
+            for (secret in secrets) assertTrue(lines.none { secret in it }, "a secret was written to the log")
         } finally {
             root.detachAppender(written)
         }

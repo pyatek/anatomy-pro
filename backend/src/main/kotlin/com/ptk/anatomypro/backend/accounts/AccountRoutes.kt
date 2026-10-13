@@ -10,6 +10,7 @@ import com.ptk.anatomypro.api.LinkRequest
 import com.ptk.anatomypro.api.LinkResponse
 import com.ptk.anatomypro.api.NicknameRequest
 import com.ptk.anatomypro.backend.ApiException
+import com.ptk.anatomypro.backend.subscriptions.Entitlements
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -62,6 +63,7 @@ fun Route.accountRoutes(
     nicknames: NicknameRules,
     identities: Identities,
     verifier: IdentityVerifier,
+    entitlements: Entitlements,
     now: () -> Instant,
 ) {
     val today: () -> LocalDate = { now().atOffset(ZoneOffset.UTC).toLocalDate() }
@@ -104,8 +106,12 @@ fun Route.accountRoutes(
 
     delete(ApiPaths.ACCOUNT) {
         val account = call.account(accounts)
-        withContext(Dispatchers.IO) { accounts.delete(account) }
-        // No subscriptions exist yet (stage 7); when they do, this says whether one outlives the account.
-        call.respond(AccountDeletedResponse(subscriptionStillActive = false))
+        // A subscription is the store's to cancel, not ours (§5.4): one that is still running
+        // goes on being charged for, and the person leaving is told so. Read before the
+        // account goes, because afterwards it is nobody's.
+        val stillPaying = withContext(Dispatchers.IO) {
+            entitlements.paidUntil(account.id).also { accounts.delete(account) }
+        }
+        call.respond(AccountDeletedResponse(subscriptionStillActive = stillPaying != null))
     }
 }

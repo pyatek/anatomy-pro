@@ -13,7 +13,8 @@ import javax.sql.DataSource
  */
 object TestDatabase {
     // Every test opens a pool of its own and none is closed before the run ends, so the
-    // server is told to expect a crowd and each pool is kept small.
+    // server is told to expect a crowd, each pool is kept small, and a pool holds open only
+    // the one connection a test working alone needs.
     private val postgres: EmbeddedPostgres by lazy {
         EmbeddedPostgres.builder().setServerConfig("max_connections", "1000").start()
     }
@@ -29,6 +30,7 @@ object TestDatabase {
                 password = "postgres",
                 schema = schema,
                 poolSize = 4,
+                idleConnections = 1,
             ),
         )
     }

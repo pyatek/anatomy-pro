@@ -47,7 +47,8 @@ class Identities(private val database: DataSource) {
      * Folds [from] into [into] and deletes it, all in the caller's transaction: any failure
      * leaves both accounts exactly as they were.
      *
-     * What survives (§5.3): every device and identity of either account now opens [into];
+     * What survives (§5.3): every device and identity of either account now opens [into],
+     * and every subscription of either is [into]'s;
      * one attempt per date, and where both played the same date the one submitted first,
      * because that is the one the board has been showing; [into]'s nickname; and a streak
      * counted again from the attempts that are left.
@@ -85,7 +86,9 @@ class Identities(private val database: DataSource) {
             it.setObject(3, into)
             it.executeUpdate()
         }
-        for (table in listOf("device_token", "identity")) {
+        // A subscription on either account is the surviving one's (§5.3). Moved before [from]
+        // is deleted: left behind, it would become nobody's and let neither of them in.
+        for (table in listOf("device_token", "identity", "subscription")) {
             connection.prepareStatement("UPDATE $table SET account_id = ? WHERE account_id = ?").use {
                 it.setObject(1, into)
                 it.setObject(2, from)
