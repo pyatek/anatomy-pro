@@ -23,11 +23,11 @@ import kotlinx.coroutines.flow.flow
 class ServerEntitlementRepository(private val api: ApiClient, private val store: ClientStore) : EntitlementRepository {
 
     override val entitlements: Flow<Entitlements> = flow {
-        val remembered = store.read(SUBSCRIBED_KEY)?.let { it == "true" }
+        val remembered = store.read(ApiClient.SUBSCRIBED_KEY)?.let { it == "true" }
         if (remembered != null) emit(Entitlements(remembered, emptySet()))
         try {
             val answer = api.get(ApiPaths.ENTITLEMENTS, EntitlementsResponse.serializer())
-            store.write(SUBSCRIBED_KEY, answer.subscribed.toString())
+            store.write(ApiClient.SUBSCRIBED_KEY, answer.subscribed.toString())
             if (answer.subscribed != remembered) emit(Entitlements(answer.subscribed, emptySet()))
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -43,7 +43,6 @@ class ServerEntitlementRepository(private val api: ApiClient, private val store:
     override suspend fun restore(): PurchaseOutcome = PurchaseOutcome.Failed(NOT_BUILT)
 
     private companion object {
-        const val SUBSCRIBED_KEY = "subscribed"
         const val NOT_BUILT = "purchases are not built yet"
     }
 }

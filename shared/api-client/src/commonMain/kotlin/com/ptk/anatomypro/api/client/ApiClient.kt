@@ -52,6 +52,30 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String, priva
     suspend fun <B, T> post(path: String, request: KSerializer<B>, body: B, response: KSerializer<T>): T =
         ApiJson.decodeFromString(response, send(HttpMethod.Post, path, ApiJson.encodeToString(request, body)))
 
+    suspend fun <B, T> put(path: String, request: KSerializer<B>, body: B, response: KSerializer<T>): T =
+        ApiJson.decodeFromString(response, send(HttpMethod.Put, path, ApiJson.encodeToString(request, body)))
+
+    suspend fun <T> delete(path: String, response: KSerializer<T>): T =
+        ApiJson.decodeFromString(response, send(HttpMethod.Delete, path, body = null))
+
+    /** A post that sends nothing and is answered with nothing. */
+    suspend fun post(path: String) {
+        send(HttpMethod.Post, path, body = null)
+    }
+
+    /**
+     * Forgets the account this device spoke for, and everything remembered about it. The
+     * next call makes a new anonymous account, as a first launch would.
+     */
+    suspend fun forgetAccount() = account.withLock {
+        for (key in REMEMBERED) store.remove(key)
+    }
+
+    /** Drops what was remembered about the account without dropping the account. */
+    suspend fun forgetWhatWasRemembered() {
+        for (key in REMEMBERED - TOKEN_KEY) store.remove(key)
+    }
+
     private suspend fun send(method: HttpMethod, path: String, body: String?): String {
         val token = token()
         var answer = call(method, path, body, token)
@@ -96,5 +120,11 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String, priva
 
     companion object {
         const val TOKEN_KEY = "device-token"
+
+        /** What the server last said about subscribing, kept for when it cannot be asked. */
+        const val SUBSCRIBED_KEY = "subscribed"
+
+        /** Everything this client keeps on the device. */
+        val REMEMBERED = setOf(TOKEN_KEY, SUBSCRIBED_KEY)
     }
 }

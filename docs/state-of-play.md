@@ -9,6 +9,32 @@ the shorter question: where things stand and what to do next.
 
 
 
+
+## 2026-10-13 — sign-in, on the server and in the client (backend plan, stage 6.1 and 6.2)
+
+- **Verification** (`IdentityVerifier`, nimbus-jose-jwt for the signature): a Google or
+  Apple ID token is believed only when it is RS256-signed by a key the provider publishes,
+  issued by that provider, made out to one of our client ids, and not expired. Only the
+  subject is read. Keys are fetched once and kept; an unknown key id causes one refetch a
+  minute at most. Tested with keys made in the test and a stubbed key set — **never against
+  Google or Apple**, and `GOOGLE_CLIENT_IDS` / `APPLE_CLIENT_IDS` have no real values yet.
+- **Linking** (`POST /v1/auth/link`): attached when new; nothing when already the caller's;
+  a merge when it opens another account. The merge is one transaction: devices and
+  identities move, one attempt per date survives (the one submitted first where both
+  played), the streak is counted again, the signed-in account's nickname is kept, the other
+  account is deleted, and the pair is written to `account_merge`. A test makes the last
+  step fail and finds both accounts untouched.
+- **Signing out** (`POST /v1/auth/signout`) ends one device. An account left with no device
+  and no identity is deleted, since nothing could open it again — not in the spec; §5.5's
+  "hold little" taken one step further.
+- **In the client:** `ServerAccount` (read, rename, link, sign out, delete), driven against
+  the real server like the rest. Signing out or deleting clears what the device remembered.
+- **Not built (plan 6.3):** anything on screen. No sign-in button, no nickname field, no
+  delete-account control — the prototype has none of them, and both stores require the
+  last. Needs: Google OAuth client ids, an Apple developer account with a Sign in with Apple
+  service id, and a design for where these live on the profile.
+- Subscriptions do not exist yet, so a merge moves none (stage 7 must add that to it).
+
 ## 2026-10-12 — the app talks to the server (backend plan, stage 5)
 
 - **`shared/api-client`** (new; Android, iOS, JVM): `ApiClient` (makes the anonymous

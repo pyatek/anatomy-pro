@@ -1,11 +1,13 @@
 package com.ptk.anatomypro.backend
 
 import com.ptk.anatomypro.api.ApiErrorCode
+import com.ptk.anatomypro.api.IdentityProvider
 import com.ptk.anatomypro.api.client.ApiClient
 import com.ptk.anatomypro.api.client.ApiFailure
 import com.ptk.anatomypro.api.client.ClientStore
 import com.ptk.anatomypro.api.client.KtorDailyRepository
 import com.ptk.anatomypro.api.client.KtorLeaderboardRepository
+import com.ptk.anatomypro.api.client.ServerAccount
 import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.model.DailyQuiz
 import com.ptk.anatomypro.core.data.model.QuizAnswer
@@ -49,6 +51,7 @@ class ClientAgainstServerTest {
         val daily = KtorDailyRepository(api, timed = { timed })
         val boards = KtorLeaderboardRepository(api)
         val entitlements = ServerEntitlementRepository(api, store)
+        val account = ServerAccount(api)
     }
 
     private val harness = DailyHarness()
@@ -305,5 +308,71 @@ class ClientAgainstServerTest {
     @Test
     fun a_device_that_has_never_asked_and_cannot_ask_is_not_a_subscriber() = server { _ ->
         assertEquals(listOf(false), Device(unreachable).entitlements.entitlements.toList().map { it.subscribed })
+    }
+
+    // --- the account itself (§5.2 to §5.4) ----------------------------------------------
+
+    @Test
+    fun a_nickname_is_changed_and_one_already_taken_is_refused_by_name() = server { http ->
+        val one = Device(http)
+        val two = Device(http)
+
+        assertEquals("Zaneta", one.account.rename("Zaneta").nickname)
+        assertEquals("Zaneta", one.account.read().nickname)
+
+        val refusal = assertFailsWith<ApiFailure> { two.account.rename("zaneta") }
+        assertEquals(ApiErrorCode.NICKNAME_TAKEN, refusal.code)
+    }
+
+    @Test
+    fun signing_in_on_a_second_device_brings_the_first_devices_results_with_it() = server { http ->
+        val phone = Device(http)
+        val linked = phone.account.link(IdentityProvider.GOOGLE, harness.identities.google("g-1"))
+        assertFalse(linked.merged)
+        assertEquals(listOf(IdentityProvider.GOOGLE), linked.account.linked)
+        val result = phone.playToday(right = 3)
+
+        val tablet = Device(http)
+        tablet.daily.today()
+        val merged = tablet.account.link(IdentityProvider.GOOGLE, harness.identities.google("g-1"))
+
+        assertTrue(merged.merged)
+        assertEquals(phone.account.read(), tablet.account.read())
+        assertEquals(result, assertIs<DailyQuiz.Completed>(tablet.daily.today()).result)
+        assertEquals(1, accounts())
+    }
+
+    @Test
+    fun a_token_the_provider_did_not_sign_is_refused_by_name() = server { http ->
+        val refusal = assertFailsWith<ApiFailure> {
+            Device(http).account.link(IdentityProvider.GOOGLE, harness.identities.token("g-1", audience = "another-app"))
+        }
+
+        assertEquals(ApiErrorCode.IDENTITY_INVALID, refusal.code)
+    }
+
+    @Test
+    fun after_signing_out_the_device_starts_again_as_someone_new() = server { http ->
+        val device = Device(http)
+        val home = device.account.link(IdentityProvider.GOOGLE, harness.identities.google("g-1")).account
+        device.entitlements.entitlements.toList()
+
+        device.account.signOut()
+
+        assertNull(device.store.values[ApiClient.TOKEN_KEY])
+        assertTrue(device.store.values.isEmpty(), "something of the old account was left on the device")
+        assertNotEquals(home.id, device.account.read().id)
+        assertEquals(2, accounts())
+    }
+
+    @Test
+    fun deleting_the_account_leaves_nothing_on_the_server_or_the_device() = server { http ->
+        val device = Device(http)
+        device.playToday()
+
+        device.account.delete()
+
+        assertEquals(0, accounts())
+        assertTrue(device.store.values.isEmpty())
     }
 }
