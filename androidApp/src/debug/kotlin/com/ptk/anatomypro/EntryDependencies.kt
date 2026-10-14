@@ -56,7 +56,11 @@ internal fun appEntry(): AppEntry {
     //   adb shell am start -n com.ptk.anatomypro/.MainActivity --es packIndex … --es apiUrl http://10.0.2.2:8080
     val packIndex = intent?.getStringExtra("packIndex") ?: BuildConfig.PACK_INDEX_URL
     val apiUrl = intent?.getStringExtra("apiUrl") ?: BuildConfig.API_BASE_URL
-    if (packIndex.isNotBlank() || apiUrl.isNotBlank()) return rememberAppEntry(packIndex, apiUrl)
+    //   googleClientId: the web client id Google sign-in asks for a token for; with apiUrl, the
+    //   account screen then offers the real sheet.
+    val googleClientId = intent?.getStringExtra("googleClientId") ?: BuildConfig.GOOGLE_SERVER_CLIENT_ID
+    val signIn = rememberGoogleSignIn(googleClientId)
+    if (packIndex.isNotBlank() || apiUrl.isNotBlank()) return rememberAppEntry(packIndex, apiUrl, signIn)
     return AppEntry(fakeOrProductionDependencies(), pack = null)
 }
 

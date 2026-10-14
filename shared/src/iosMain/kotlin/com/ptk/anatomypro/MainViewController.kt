@@ -11,11 +11,15 @@ import platform.Foundation.NSBundle
  * `AnatomyProPackIndexURL` in Info.plist is where packs are downloaded from (backend spec
  * §9). Without it the app draws the pack shipped inside it. `AnatomyProApiURL` is the
  * server behind the daily, the boards and entitlements; without it their tabs keep their
- * placeholders.
+ * placeholders. `AnatomyProSignInWithApple` set to YES says the app has the Sign in with
+ * Apple capability, and the account screen then offers it.
  */
 fun MainViewController() = ComposeUIViewController {
     val packIndexUrl = remember { NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProPackIndexURL") as? String }
     val apiBaseUrl = remember { NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProApiURL") as? String }
-    val entry = rememberAppEntry(packIndexUrl, apiBaseUrl)
+    val signIn = remember {
+        AppleProviderSignIn(enabled = NSBundle.mainBundle.objectForInfoDictionaryKey("AnatomyProSignInWithApple") as? Boolean == true)
+    }
+    val entry = rememberAppEntry(packIndexUrl, apiBaseUrl, signIn)
     App(entry)
 }

@@ -17,10 +17,12 @@ import com.ptk.anatomypro.api.client.ServerEntitlementRepository
 import com.ptk.anatomypro.core.data.AppDependencies
 import com.ptk.anatomypro.core.data.model.PackState
 import com.ptk.anatomypro.core.data.model.PackStatus
+import com.ptk.anatomypro.core.data.NotBuiltProviderSignIn
 import com.ptk.anatomypro.core.data.notBuiltAppDependencies
 import com.ptk.anatomypro.core.data.quiz.GeneratedQuizRepository
 import com.ptk.anatomypro.core.data.quiz.RoomQuizGraphSource
 import com.ptk.anatomypro.core.data.repository.InstalledPack
+import com.ptk.anatomypro.core.data.repository.ProviderSignIn
 import com.ptk.anatomypro.core.data.repository.RoomAtlasRepository
 import com.ptk.anatomypro.core.data.repository.RoomInstalledPacks
 import com.ptk.anatomypro.core.model.PackId
@@ -154,9 +156,15 @@ expect fun rememberClientStore(): ClientStore
  * [packIndexUrl]: packs are downloaded from there (backend spec §9); without it the pack
  * shipped inside the app is drawn. [apiBaseUrl]: the daily, the boards and entitlements
  * come from that server (§5 to §8); without it their tabs keep their placeholders.
+ * [signIn]: the platform's sign-in sheet, offered on the account screen; it is used only
+ * where there is a server to sign in to.
  */
 @Composable
-fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntry {
+fun rememberAppEntry(
+    packIndexUrl: String?,
+    apiBaseUrl: String? = null,
+    signIn: ProviderSignIn = NotBuiltProviderSignIn,
+): AppEntry {
     val entry = if (packIndexUrl.isNullOrBlank()) AppEntry(rememberAppDependencies(), pack = null) else rememberDownloadedApp(packIndexUrl)
     if (apiBaseUrl.isNullOrBlank()) return entry
 
@@ -171,7 +179,7 @@ fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntr
             account = ServerAccountRepository(ServerAccount(api)),
         )
     }
-    return remember(entry, server) {
+    return remember(entry, server, signIn) {
         // Not before the atlas is in. The daily's model is made once and keeps what it is
         // first given, and until the pack is installed that would be a quiz that is not
         // there: its practice mode would be asking a placeholder.
@@ -179,13 +187,14 @@ fun rememberAppEntry(packIndexUrl: String?, apiBaseUrl: String? = null): AppEntr
             entry
         } else {
             AppEntry(
-                // The platform's sign-in sheet is not built, so `signIn` stays the placeholder
-                // that offers no provider: the account screen shows the nickname and deletion.
+                // A sheet that offers no provider leaves the account screen with the nickname
+                // and deletion only.
                 dependencies = entry.dependencies.copy(
                     daily = server.daily,
                     leaderboard = server.leaderboard,
                     entitlements = server.entitlements,
                     account = server.account,
+                    signIn = signIn,
                 ),
                 pack = entry.pack,
                 downloadsPacks = entry.downloadsPacks,

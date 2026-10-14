@@ -40,8 +40,13 @@ okio = "3.18.2"
 material3 = "1.11.0-alpha07"
 navigation = "2.9.2"
 kotlinx-datetime = "0.8.0"
+credentials = "1.5.0"
+googleid = "1.1.1"
 
 [libraries]
+androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+androidx-credentials-playServices = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
+googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 filament-android = { module = "com.google.android.filament:filament-android", version.ref = "filament" }
 filament-gltfio = { module = "com.google.android.filament:gltfio-android", version.ref = "filament" }
 filament-utils = { module = "com.google.android.filament:filament-utils-android", version.ref = "filament" }

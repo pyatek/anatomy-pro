@@ -72,6 +72,11 @@ val packIndexUrl = providers.gradleProperty("anatomypro.packs.indexUrl").orElse(
 // it those tabs keep their placeholders.
 val apiBaseUrl = providers.gradleProperty("anatomypro.api.baseUrl").orElse("")
 
+// Google sign-in (backend plan 6.3): the *web* client id from the Google Cloud console, which
+// is the audience of the token the sheet hands back and so must be in the server's
+// GOOGLE_CLIENT_IDS. Without it the account screen offers no sign-in.
+val googleServerClientId = providers.gradleProperty("anatomypro.google.serverClientId").orElse("")
+
 val stagePhase0Pack by tasks.registering(StagePhase0Pack::class) {
     description = "Copies the generated Phase 0 content pack into the app's assets."
     packId.set(phase0PackId)
@@ -104,6 +109,7 @@ android {
         versionName = "1.0"
         buildConfigField("String", "PACK_INDEX_URL", "\"${packIndexUrl.get()}\"")
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"${googleServerClientId.get()}\"")
     }
     packaging {
         resources {

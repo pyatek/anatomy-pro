@@ -19,7 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import anatomypro.shared.feature_settings.generated.resources.Res
+import anatomypro.shared.feature_settings.generated.resources.settings_account_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_account_title
 import anatomypro.shared.feature_settings.generated.resources.settings_examination_subtitle
+import anatomypro.shared.feature_settings.generated.resources.settings_group_account
 import anatomypro.shared.feature_settings.generated.resources.settings_examination_title
 import anatomypro.shared.feature_settings.generated.resources.settings_group_accessibility
 import anatomypro.shared.feature_settings.generated.resources.settings_group_languages
@@ -87,6 +90,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     /** Set where settings were opened from another screen; null where they are a tab's first. */
     onBack: (() -> Unit)? = null,
+    /** Opens the account. Null where the build has none, and then nothing is said about one. */
+    onAccount: (() -> Unit)? = null,
 ) {
     val type = LocalAnatomyType.current
     // The other of the prototype's two light screens.
@@ -177,6 +182,41 @@ fun SettingsScreen(
                 )
             }
         }
+
+        // Not in the prototype: the account came after it. Here too, because a build with no
+        // profile home opens settings in its place, and the account would be out of reach.
+        if (onAccount != null) {
+            Group(stringResource(Res.string.settings_group_account)) {
+                Card {
+                    Link(
+                        title = stringResource(Res.string.settings_account_title),
+                        subtitle = stringResource(Res.string.settings_account_subtitle),
+                        onClick = onAccount,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A row that opens another screen. */
+@Composable
+private fun Link(title: String, subtitle: String, onClick: () -> Unit) {
+    val type = LocalAnatomyType.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = type.bodyStrong, color = LightTextPrimary)
+            Text(subtitle, style = type.note, color = LightTextTertiary)
+        }
+        Text("›", style = type.button, color = LightTextTertiary, modifier = Modifier.clearAndSetSemantics { })
     }
 }
 
