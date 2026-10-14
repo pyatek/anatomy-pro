@@ -209,6 +209,11 @@ private fun MainScaffold(
             onQuizTimer = model::onQuizTimer,
             onStructureTreeMode = model::onStructureTreeMode,
             onPatternsNotColour = model::onPatternsNotColour,
+            onAccount = if (accountIsBuilt(dependencies.account)) {
+                { navController.navigate(ProfileRoute.Account) }
+            } else {
+                null
+            },
         )
     }
     val profileBuilt = profileIsBuilt(dependencies.progress, dependencies.packs)

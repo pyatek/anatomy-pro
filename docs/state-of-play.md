@@ -32,9 +32,11 @@ the shorter question: where things stand and what to do next.
   it returns to the screen with no notice and no crash, and the same holds after rotation.
   **Not seen:** a real token reaching the server (needs a real client id and a Google
   account on the device); anything on iOS beyond compiling.
-- **Found, not fixed:** the account card is on the profile home, and a build without a pack
-  index has no profile home (the tab opens settings), so a build given a server but no pack
-  index cannot reach the account screen.
+- **Settings link to the account** (not in the prototype). The account card was only on the
+  profile home, and a build without a pack index has none (the tab opens settings), so a
+  build given a server but no pack index could not reach the account screen. Settings now end
+  with a "Konto" group wherever the build has an account. Seen on the emulator in that build:
+  the row shows, opens the account screen, and Back returns to settings.
 - No nonce is sent or checked; a token's replay is bounded by its expiry only.
 
 ## 2026-10-14 — the account screen, drafted and on the server

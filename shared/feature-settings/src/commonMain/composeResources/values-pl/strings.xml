@@ -31,4 +31,7 @@
     <string name="locale_note_interface_en">angielski</string>
     <string name="locale_note_examination_la">Terminologia Anatomica</string>
     <string name="locale_note_examination_en">Odpowiedzi po angielsku</string>
+    <string name="settings_group_account">KONTO</string>
+    <string name="settings_account_title">Konto</string>
+    <string name="settings_account_subtitle">Pseudonim, logowanie, usuwanie konta</string>
 </resources>
