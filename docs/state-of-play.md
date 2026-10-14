@@ -11,6 +11,32 @@ the shorter question: where things stand and what to do next.
 
 
 
+## 2026-10-14 — the platform's sign-in sheet (backend plan, stage 6.3 app side)
+
+- **Android: Google through Credential Manager** (`GoogleProviderSignIn`, shared androidMain).
+  Asks for a token made out to the *web* client id, given to the build as
+  `-Panatomypro.google.serverClientId=…` (debug: `--es googleClientId …`); that same id goes
+  in the server's `GOOGLE_CLIENT_IDS`. Without it nothing is offered. A closed sheet is not a
+  notice. The sheet is shown over whichever activity is current, held weakly for the process,
+  because the account model outlives a recreated activity.
+- **iOS: Sign in with Apple through AuthenticationServices** (`AppleProviderSignIn`, shared
+  iosMain). No scopes asked: only the subject is used (§5.3). Offered only where Info.plist
+  has `AnatomyProSignInWithApple` = YES, which stands for the app having the capability (it
+  needs the Apple developer account; ticket 8119). The token's audience is the bundle id.
+- **One provider per platform.** Apple on Android and Google on iOS are each a web flow, not
+  built. Consequence: an account opened with Google on Android cannot be signed into on an
+  iPhone yet, so the plan's "done when" (sign in on a second device) holds only between two
+  devices of the same platform.
+- **Seen on the Android emulator** against the dev server, with a placeholder client id: the
+  Google row is offered (Apple's is not), the tap opens Google's sheet over the app, closing
+  it returns to the screen with no notice and no crash, and the same holds after rotation.
+  **Not seen:** a real token reaching the server (needs a real client id and a Google
+  account on the device); anything on iOS beyond compiling.
+- **Found, not fixed:** the account card is on the profile home, and a build without a pack
+  index has no profile home (the tab opens settings), so a build given a server but no pack
+  index cannot reach the account screen.
+- No nonce is sent or checked; a token's replay is bounded by its expiry only.
+
 ## 2026-10-14 — the account screen, drafted and on the server
 
 - **Drafted on fakes** (branch `feature/account-screens`): a "Konto" card first on the
