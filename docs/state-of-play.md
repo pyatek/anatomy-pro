@@ -10,6 +10,32 @@ the shorter question: where things stand and what to do next.
 
 
 
+
+## 2026-10-14 — the account screen, drafted and on the server
+
+- **Drafted on fakes** (branch `feature/account-screens`): a "Konto" card first on the
+  profile opens a screen with three panels — nickname (each refusal its own message: invalid,
+  taken, locked until a date), sign-in (Google / Apple rows with linked state, the merge
+  notice), and deletion (an inline confirmation saying what goes everywhere, what stays on the
+  device, and that a store subscription is not cancelled). Contract `AccountRepository` and
+  `ProviderSignIn` in `core-quiz`; `AccountViewModel` with 27 tests on both targets; debug
+  states with `--es account locked|linked|merge|rejected|cancelled|offline`. Screenshots of
+  fifteen states in `docs/account-screens/`. **No prototype screen exists for any of this**;
+  the layout follows the profile and the pack manager in code.
+- **On the server** (branch `feature/account-on-server`): `ServerAccountRepository` maps the
+  server's refusals to the screen's outcomes (`nickname_locked`'s last locked day becomes the
+  first UTC moment a new nickname is allowed), tested in `ClientAgainstServerTest` (five
+  cases). A build given a server gets it; `signIn` stays the placeholder offering no provider,
+  so only nickname and deletion are shown.
+- **Seen on the Android emulator** against the dev server: the screen showed the server's
+  nickname; a rename was saved by the server (`PUT /v1/account/nickname`); deletion reached
+  it (`DELETE /v1/account`) and showed the "deleted" screen.
+- **Owner's decisions pending:** placement and wording; sign-out offered only when a provider
+  is linked (signing out an anonymous account deletes it on the server); provider rows are not
+  the branded buttons the stores require.
+- **Not done, not seen:** the screen on iOS (it builds); screen readers; English on screen;
+  the real platform sign-in (needs the client ids).
+
 ## 2026-10-14 — subscriptions, on the server and in the client (backend plan, stage 7.1 to 7.4)
 
 Branch `feature/backend-subscriptions`, not merged. **Nothing here has touched Google or
